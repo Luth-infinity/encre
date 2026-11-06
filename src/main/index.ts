@@ -454,6 +454,23 @@ async function verifier(dossier: string): Promise<void> {
   await js(`document.querySelector('.projet')?.click()`)
   await attendre(900)
   await capturer('0-hub')
+  // La croix en plein écran doit ramener la bulle.
+  if (process.env.ENCRE_VERIF_PLEIN) {
+    const etatFenetres = (q: string): void => journal(`verif ${q} : panneau ${lePanneau()?.isVisible()} ${JSON.stringify(lePanneau()?.getBounds())}, bulle ${laBulle()?.isVisible()}`)
+    await js(`document.querySelector('[data-action=plein]')?.click()`)
+    await attendre(1200)
+    etatFenetres('plein')
+    lePanneau()?.blur()
+    await attendre(600)
+    etatFenetres('plein, passé derrière')
+    basculerPanneau()
+    await attendre(600)
+    etatFenetres('plein, bulle cliquée')
+    await js(`[...document.querySelectorAll('header .icone')].find((b) => b.title.startsWith('Fermer'))?.click()`)
+    await attendre(1500)
+    etatFenetres('après la croix')
+    return app.quit()
+  }
   // Les animations, image par image : l'encre qui s'étale, puis le clic sur la bulle.
   if (process.env.ENCRE_VERIF_ANIM) {
     await js(`document.querySelector('.projet')?.click()`)

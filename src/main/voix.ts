@@ -4,9 +4,23 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 /** Repris d'Iris : ce qu'il faut à la voix (la voix choisie, le dossier du projet). */
 type Reglages = { voix: string; dossier: string }
 
-/** Débit et hauteur d'Iris (« enjoué ») : validés à l'oreille par Lucas. */
-const DEBIT = '+8%'
-const HAUTEUR = '+6%'
+/**
+ * Débit un peu vif, **hauteur naturelle** : la hauteur relevée d'Iris
+ * (+6 %) rendait la voix robotique, et « faisait peur » sur la voix d'enfant.
+ */
+const DEBIT = '+5%'
+const HAUTEUR = '+0%'
+
+const echapper = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/**
+ * Le service gratuit d'Edge n'accepte que `voice` et `prosody` : la balise
+ * `<lang>` (qui tiendrait les voix multilingues en français) coupe la
+ * synthèse. Testé le 06/11.
+ */
+function ssml(voix: string, texte: string): string {
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="fr-FR"><voice name="${voix}"><prosody rate="${DEBIT}" pitch="${HAUTEUR}">${echapper(texte)}</prosody></voice></speak>`
+}
 
 const USUELS: [Parameters<typeof app.getPath>[0], string][] = [
   ['downloads', 'Téléchargements'], ['desktop', 'Bureau'], ['documents', 'Documents'],
@@ -378,7 +392,7 @@ export class Diseur {
 /** Synthétise une phrase et rend le MP3 complet. */
 export async function synthetiser(texte: string, reglages: Reglages): Promise<Buffer> {
   const client = await connexion(reglages.voix)
-  const { audioStream } = client.toStream(texte, { rate: DEBIT, pitch: HAUTEUR })
+  const { audioStream } = client.rawToStream(ssml(reglages.voix, texte))
   const morceaux: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
     audioStream.on('data', (c: Buffer) => morceaux.push(c))

@@ -75,6 +75,10 @@ export function creerPanneau(): BrowserWindow {
     webPreferences: { ...preferences, backgroundThrottling: false }
   })
   panneau.setAlwaysOnTop(true, 'floating')
+  // En plein écran, le panneau est une fenêtre comme les autres : s'il passe
+  // derrière (clic sur Firefox…), la bulle revient, sinon Tako disparaissait.
+  panneau.on('blur', () => { if (plein) laBulle()?.showInactive() })
+  panneau.on('focus', () => { if (plein) laBulle()?.hide() })
   charger(panneau, 'panneau')
   panneau.on('closed', () => (panneau = null))
   return panneau
@@ -161,6 +165,12 @@ export function cacherPanneau(): void {
 
 export function basculerPanneau(): void {
   const p = lePanneau()
+  // Plein écran passé derrière une autre fenêtre : la bulle le ramène devant.
+  if (p?.isVisible() && plein && !p.isFocused()) {
+    p.show()
+    p.focus()
+    return
+  }
   if (p?.isVisible()) fermerPanneau()
   else ouvrirPanneau()
 }

@@ -96,11 +96,12 @@ export type EtatClaude = { installe: boolean; connecte: boolean; chemin: string 
 
 /** Les voix françaises de l'endpoint d'Edge, gratuites et sans clé (reprises d'Iris). */
 export const VOIX = [
-  // Que des voix françaises « simples » : les multilingues (Vivienne, Rémy)
-  // devinent la langue à chaque phrase et partaient parfois en espagnol.
-  { id: 'fr-FR-EloiseNeural', nom: 'Éloïse' },
+  // Les multilingues sont les plus naturelles, mais peuvent glisser vers une
+  // autre langue (rien ne les force en français sur le service gratuit).
+  // Éloïse (voix d'enfant) retirée : « elle fait peur ».
+  { id: 'fr-FR-VivienneMultilingualNeural', nom: 'Vivienne' },
+  { id: 'fr-FR-RemyMultilingualNeural', nom: 'Rémy' },
   { id: 'fr-FR-DeniseNeural', nom: 'Denise' },
-  { id: 'fr-CA-SylvieNeural', nom: 'Sylvie' },
   { id: 'fr-FR-HenriNeural', nom: 'Henri' }
 ]
 
