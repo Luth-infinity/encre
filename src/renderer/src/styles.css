@@ -34,8 +34,9 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); ou
 .panneau {
   position: absolute; inset: 10px; background: var(--card); border-radius: 26px; overflow: hidden;
   display: flex; flex-direction: column;
-  box-shadow: 0 2px 6px rgba(11,12,14,.08), 0 14px 30px -14px color-mix(in srgb, var(--mood) 80%, rgba(11,12,14,.4));
-  transition: box-shadow .9s, --mood .9s;
+  /* Ombre neutre : teintée par l'humeur, elle faisait un halo coloré sur les fenêtres derrière (retour de Lucas). */
+  box-shadow: 0 0 0 1px rgba(11,12,14,.06), 0 8px 22px -12px rgba(11,12,14,.32);
+  transition: --mood .9s;
 }
 header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 10px 12px; -webkit-app-region: drag; }
 header button { -webkit-app-region: no-drag; }
