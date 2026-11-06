@@ -14,7 +14,7 @@ import * as outils from './outils'
 import * as projets from './projets'
 import * as reglages from './reglages'
 import * as updates from './updates'
-import { attentePrete, estGemini, prechaufferAttentes, synthetiser } from './voix'
+import { attentePrete, estGemini, prechaufferAttentes, QuotaGemini, synthetiser } from './voix'
 
 /**
  * Encre : une bulle toujours au-dessus, un panneau de chat branché sur le
@@ -325,13 +325,19 @@ function brancher(): void {
     }
   })
   // « Tester » dans les réglages : une phrase de Tako avec la voix choisie, rendue en base64.
-  ipcMain.handle('essai-voix', async (_e, voix: string) => {
+  // Gardée en mémoire par voix : réécouter ne coûte pas une requête du quota Gemini.
+  const essais = new Map<string, string>()
+  ipcMain.handle('essai-voix', async (_e, voix: string): Promise<{ son?: string; erreur?: string }> => {
+    const deja = essais.get(voix)
+    if (deja) return { son: deja }
     try {
-      const son = await synthetiser('Salut, moi c’est Tako ! Dis-moi sur quoi on bosse, et je m’y mets tout de suite.', { voix, dossier: '' })
-      return son.toString('base64')
+      const son = (await synthetiser('Salut, moi c’est Tako ! Dis-moi sur quoi on bosse, et je m’y mets tout de suite.', { voix, dossier: '' }, { secours: false })).toString('base64')
+      essais.set(voix, son)
+      return { son }
     } catch (e) {
       journal(`essai de voix : ${String(e)}`)
-      return null
+      if (e instanceof QuotaGemini) return { erreur: `Limite gratuite de Gemini : 3 essais par minute. Réessaie dans ${e.apres} s.` }
+      return { erreur: 'La voix n’a pas répondu. Réessaie dans un instant.' }
     }
   })
   ipcMain.handle('cle-groq', (_e, cle: string | null) => {

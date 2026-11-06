@@ -319,6 +319,10 @@ export class Diseur {
   pousser(delta: string): void {
     if (!this.vivant) return
     this.tampon += delta
+    // Gemini gratuit : 3 requêtes par minute. On ne découpe pas en phrases,
+    // tout part d'un bloc quand Tako s'arrête de parler (avant un outil, ou à
+    // la fin) : une ou deux requêtes par réponse au lieu d'une par phrase.
+    if (estGemini(this.reglages.voix)) return
     const { phrases, reste } = decouper(this.tampon)
     this.tampon = reste
     for (const phrase of phrases) this.enfiler(phrase)
@@ -421,7 +425,14 @@ function audioDans(x: unknown): string | null {
   return null
 }
 
-async function gemini(texte: string, voix: string, cle: string): Promise<Buffer> {
+/** Le quota est plein : `apres` = secondes à attendre selon Google. */
+export class QuotaGemini extends Error {
+  constructor(public apres: number) {
+    super(`quota Gemini plein, réessayer dans ${apres} s`)
+  }
+}
+
+async function gemini(texte: string, voix: string, cle: string, essai = 0): Promise<Buffer> {
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
     method: 'POST',
     headers: { 'x-goog-api-key': cle, 'Content-Type': 'application/json' },
@@ -433,6 +444,16 @@ async function gemini(texte: string, voix: string, cle: string): Promise<Buffer>
     }),
     signal: AbortSignal.timeout(20000)
   })
+  if (res.status === 429) {
+    const corps = await res.text()
+    const apres = Number(/retry in (\d+(?:\.\d+)?)s/i.exec(corps)?.[1] ?? 30)
+    // Quelques secondes : mieux vaut attendre la bonne voix que changer de voix en pleine réponse.
+    if (apres <= 6 && essai === 0) {
+      await new Promise((r) => setTimeout(r, apres * 1000 + 300))
+      return gemini(texte, voix, cle, 1)
+    }
+    throw new QuotaGemini(Math.ceil(apres))
+  }
   if (!res.ok) throw new Error(`Gemini ${res.status} : ${(await res.text()).slice(0, 200)}`)
   const data = audioDans(await res.json())
   if (!data) throw new Error('Gemini : pas d’audio dans la réponse')
@@ -444,13 +465,15 @@ async function gemini(texte: string, voix: string, cle: string): Promise<Buffer>
  * sans clé ou au bout de son quota : la voix d'Edge prend le relais, la
  * phrase est dite quand même.
  */
-export async function synthetiser(texte: string, reglages: Reglages): Promise<Buffer> {
+export async function synthetiser(texte: string, reglages: Reglages, { secours = true } = {}): Promise<Buffer> {
   if (estGemini(reglages.voix)) {
     const cle = cleGemini()
     if (cle) {
       try {
         return await gemini(texte, reglages.voix, cle)
       } catch (e) {
+        // L'essai des réglages veut entendre CETTE voix : pas de remplaçante en douce.
+        if (!secours) throw e
         journal(`voix Gemini en échec, Edge prend le relais : ${String((e as Error).message ?? e).slice(0, 220)}`)
       }
     }
@@ -491,6 +514,12 @@ let attentes: { cle: string; mp3: Buffer[] } = { cle: '', mp3: [] }
 
 export async function prechaufferAttentes(reglages: Reglages): Promise<void> {
   const cle = reglages.voix
+  // Avec Gemini, pas de phrases d'attente : elles vidaient le quota gratuit
+  // (3 requêtes par minute) avant même la première vraie phrase.
+  if (estGemini(cle)) {
+    attentes = { cle, mp3: [] }
+    return
+  }
   if (attentes.cle === cle && attentes.mp3.length) return
   try {
     const mp3 = await Promise.all(ATTENTES.map((phrase) => synthetiser(phrase, reglages)))

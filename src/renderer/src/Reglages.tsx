@@ -53,11 +53,16 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
   const r = etat.reglages
   const poser = (champs: Partial<R>): void => window.api.reglages(champs)
   const [essai, setEssai] = useState(false)
+  const [souciEssai, setSouciEssai] = useState<string | null>(null)
   // Une phrase de Tako dans la voix choisie, jouée ici même.
   const essayer = async (): Promise<void> => {
     setEssai(true)
-    const son = await window.api.essaiVoix(r.voix)
-    if (!son) return setEssai(false)
+    setSouciEssai(null)
+    const { son, erreur } = await window.api.essaiVoix(r.voix)
+    if (!son) {
+      setSouciEssai(erreur ?? null)
+      return setEssai(false)
+    }
     const a = new Audio(`data:${son.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg'};base64,${son}`)
     a.onended = a.onerror = () => setEssai(false)
     void a.play().catch(() => setEssai(false))
@@ -91,6 +96,8 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
           ))}
         </div>
         <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? 'Tako parle…' : '▶ Tester la voix'}</button>
+        {souciEssai && <p className="erreur">{souciEssai}</p>}
+        {r.cleGemini && <p className="aide">Gratuit : 3 phrases par minute. Au-delà, Tako finit sa réponse avec une voix Microsoft.</p>}
       </section>
 
       <section>

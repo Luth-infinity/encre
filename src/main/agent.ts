@@ -288,6 +288,10 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   else if (!erreur) noterConnexion(true)
   sortie.evenement({ type: 'fin', erreur, duree: Date.now() - debut })
   sortie.humeur(erreur ? 'repos' : 'fini')
+  // La voix n'a pas forcément fini : avec Gemini, la réponse part d'un bloc
+  // après le texte. Le tour n'est fini (« tour-fini », micro rendu) qu'une
+  // fois le dernier son envoyé au panneau, sinon il se perdait.
+  if (diseur && !abort.signal.aborted) await diseur.attendre()
 }
 
 function traduire(brut: string): string {

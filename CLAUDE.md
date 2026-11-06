@@ -209,7 +209,11 @@ Réglages (chiffrée, `secrets` « gemini »). Le ton passe par
 dans le texte (lu tel quel). Voix `gemini:<Nom>` (`VOIX_GEMINI`). En échec
 (quota, réseau), la phrase part en Edge Vivienne et le journal le dit. Les
 phrases Gemini sont synthétisées en parallèle et rendues dans l'ordre.
-« Tester la voix » dans les réglages. VoiceStudio étudié et écarté (10 Go,
+« Tester la voix » dans les réglages (gardé en mémoire par voix, jamais de
+remplaçante Edge : message clair si quota). **Gratuit = 3 requêtes par
+minute** (mesuré le 06/11) : une seule requête par prise de parole (pas de
+découpage en phrases), aucune phrase d'attente en Gemini, attente auto si
+Google demande ≤ 6 s, et le tour attend la fin de la voix avant `tour-fini`. VoiceStudio étudié et écarté (10 Go,
 AMD non pris en charge par défaut, pas d'API de synthèse documentée, pas de
 temps réel prouvé). **Pas encore testé avec une vraie clé.**
 
