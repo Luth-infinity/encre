@@ -187,14 +187,21 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       ? new Diseur({ voix: options.voix, dossier: projet.dossier }, sortie.audio, (l) => journal(l))
       : null
 
-  // Entrée en flux (un seul message, puis on ferme) : les outils servis dans
-  // le process et `setPermissionMode` ne marchent que dans ce mode.
+  // Entrée en flux : les outils servis dans le process et `setPermissionMode`
+  // ne marchent que dans ce mode. **L'entrée reste ouverte jusqu'à la fin du
+  // tour** : fermée juste après le message, Claude Code coupait les demandes
+  // d'autorisation restées sans réponse quelques secondes (« Operation
+  // aborted », « la demande s'est coupée avant que tu puisses répondre »).
+  let finEntree: () => void = () => {}
+  const entreeFermee = new Promise<void>((r) => (finEntree = r))
+  abort.signal.addEventListener('abort', () => finEntree())
   async function* entree(): AsyncGenerator<SDKUserMessage> {
     yield {
       type: 'user',
       message: { role: 'user', content: contenu(texte, options.pieces ?? []) },
       parent_tool_use_id: null
     } as SDKUserMessage
+    await entreeFermee
   }
 
   const q = query({
@@ -219,6 +226,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
         diseur?.finirPhrase()
         sortie.evenement({ type: 'demande', demande: decrire(id, nom, entree) })
         sortie.humeur('accord')
+        const posee = Date.now()
         return new Promise((resoudre) => {
           const clore = (r: Reponse): void => {
             enAttente.delete(id)
@@ -228,7 +236,10 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
             else resoudre({ behavior: 'allow', updatedInput: entree, updatedPermissions: r === 'toujours' ? suggestions : undefined })
           }
           enAttente.set(id, clore)
-          signal.addEventListener('abort', () => clore('non'))
+          signal.addEventListener('abort', () => {
+            journal(`demande ${nom} coupée par Claude Code au bout de ${Math.round((Date.now() - posee) / 1000)} s`)
+            clore('non')
+          })
         })
       }
     }
@@ -258,6 +269,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
           }
         }
       } else if (m.type === 'result') {
+        finEntree()
         if (m.subtype !== 'success') erreur = 'Claude s’est arrêté avant la fin.'
         else if (m.is_error) erreur = traduire(String(m.result || 'Erreur de Claude Code.'))
       }
@@ -266,6 +278,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
     erreur = abort.signal.aborted ? undefined : traduire(String((e as Error)?.message ?? e))
     journal(`tour en erreur : ${String(e)}`)
   } finally {
+    finEntree()
     courant = null
     enAttente.clear()
     if (abort.signal.aborted) diseur?.taire()

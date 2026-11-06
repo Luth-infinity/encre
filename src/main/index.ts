@@ -1,12 +1,12 @@
 import './avant'
-import { app, dialog, globalShortcut, ipcMain, Menu, shell } from 'electron'
+import { app, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import type { Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse } from '@shared/types'
 import * as agent from './agent'
 import { etatClaude } from './claude'
 import {
-  aTous, basculerPanneau, basculerPlein, creerBulle, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
+  aTous, basculerPanneau, basculerPlein, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
 } from './fenetres'
 import * as fils from './fils'
 import { journal } from './journal'
@@ -40,6 +40,31 @@ const RACCOURCIS_PARLER: [string, string][] = [
 let toucheParler = 'aucun'
 
 /** Ouvre l'écoute, ou envoie ce qui a été dit. Le panneau peut rester fermé : la bulle montre qu'Encre écoute. */
+/**
+ * L'icône près de l'horloge : quoi qu'il arrive à la bulle (cachée derrière
+ * un plein écran, fenêtre perdue), on retrouve Tako d'un clic.
+ */
+let zoneNotif: Tray | null = null
+function poserIcone(): void {
+  const image = nativeImage.createFromPath(join(dossierAssets(), 'icon.png'))
+  const petite = image.resize({ width: 16, height: 16, quality: 'best' })
+  petite.addRepresentation({ scaleFactor: 2, width: 32, height: 32, buffer: image.resize({ width: 32, height: 32, quality: 'best' }).toPNG() })
+  zoneNotif = new Tray(petite)
+  zoneNotif.setToolTip('Encre · Tako')
+  zoneNotif.on('click', () => {
+    laBulle()?.showInactive()
+    ouvrirPanneau()
+  })
+  zoneNotif.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Ouvrir Tako', click: () => { laBulle()?.showInactive(); ouvrirPanneau() } },
+      { label: 'Parler', click: () => dicter(false) },
+      { type: 'separator' },
+      { label: 'Quitter Encre', click: () => app.quit() }
+    ])
+  )
+}
+
 function dicter(mainsLibres: boolean): void {
   ;(lePanneau() ?? creerPanneau()).webContents.send('dicter', mainsLibres)
 }
@@ -334,7 +359,7 @@ function brancher(): void {
   })
   ipcMain.handle('relier-figma', (_e, nom: string) => outils.relierFigma(nom))
 
-  ipcMain.on('fermer-panneau', () => lePanneau()?.hide())
+  ipcMain.on('fermer-panneau', () => fermerPanneau())
   ipcMain.on('plein-ecran', () => basculerPlein())
 
   // Bulle : clic = panneau, glisser = déplacer, clic droit = menu.
@@ -368,6 +393,7 @@ void app.whenReady().then(() => {
   if (process.env.ENCRE_ICONE) return void icone(process.env.ENCRE_ICONE)
   creerBulle()
   creerPanneau()
+  poserIcone()
   const libre = RACCOURCIS.find(([acc]) => globalShortcut.register(acc, () => basculerPanneau()))
   raccourci = libre?.[1] ?? 'aucun'
   const parler = RACCOURCIS_PARLER.find(([acc]) => globalShortcut.register(acc, () => dicter(false)))
@@ -520,6 +546,8 @@ async function verifier(dossier: string): Promise<void> {
         demande = true
         void attendre(1200).then(async () => {
           await capturer('2-demande')
+          // ENCRE_VERIF_DELAI : répondre tard, comme un humain qui lit la demande.
+          await attendre(Number(process.env.ENCRE_VERIF_DELAI ?? 0))
           agent.repondre(ev.demande.id, 'oui')
         })
       }

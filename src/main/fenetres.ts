@@ -75,8 +75,6 @@ export function creerPanneau(): BrowserWindow {
     webPreferences: { ...preferences, backgroundThrottling: false }
   })
   panneau.setAlwaysOnTop(true, 'floating')
-  // Fermé en plein écran, il se rouvrira contre la bulle.
-  panneau.on('hide', () => { if (plein) poserPlein(false) })
   charger(panneau, 'panneau')
   panneau.on('closed', () => (panneau = null))
   return panneau
@@ -125,9 +123,20 @@ export function basculerPlein(): void {
   poserPlein(!plein)
 }
 
+/**
+ * Fermer le panneau, c'est toujours revenir à la bulle : en plein écran, la
+ * bulle est cachée et le panneau n'est plus au premier plan, et la croix
+ * faisait tout disparaître.
+ */
+export function fermerPanneau(): void {
+  if (plein) poserPlein(false)
+  lePanneau()?.hide()
+  laBulle()?.showInactive()
+}
+
 export function basculerPanneau(): void {
   const p = lePanneau()
-  if (p?.isVisible()) p.hide()
+  if (p?.isVisible()) fermerPanneau()
   else ouvrirPanneau()
 }
 
