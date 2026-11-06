@@ -465,21 +465,67 @@ async function gemini(texte: string, voix: string, cle: string, essai = 0): Prom
  * sans clé ou au bout de son quota : la voix d'Edge prend le relais, la
  * phrase est dite quand même.
  */
+/**
+ * Quand Gemini ne peut pas parler (quota gratuit plein, réseau), Tako se
+ * tait et la réponse reste écrite : **jamais une autre voix en relais**,
+ * l'alternance de deux voix était « ultra perturbante » (Lucas, 06/11).
+ */
+let surMuet: (secondes: number) => void = () => {}
+export function quandMuet(cb: (secondes: number) => void): void {
+  surMuet = cb
+}
+
 export async function synthetiser(texte: string, reglages: Reglages, { secours = true } = {}): Promise<Buffer> {
   if (estGemini(reglages.voix)) {
     const cle = cleGemini()
-    if (cle) {
-      try {
-        return await gemini(texte, reglages.voix, cle)
-      } catch (e) {
-        // L'essai des réglages veut entendre CETTE voix : pas de remplaçante en douce.
-        if (!secours) throw e
-        journal(`voix Gemini en échec, Edge prend le relais : ${String((e as Error).message ?? e).slice(0, 220)}`)
-      }
+    // Sans clé (retirée), la voix Microsoft revient : c'est un choix, pas un relais.
+    if (!cle) return edge(texte, VOIX[0].id)
+    try {
+      return await gemini(texte, reglages.voix, cle)
+    } catch (e) {
+      // L'essai des réglages veut connaître l'échec ; la conversation, elle, continue par écrit.
+      if (!secours) throw e
+      journal(`voix Gemini muette : ${String((e as Error).message ?? e).slice(0, 220)}`)
+      surMuet(e instanceof QuotaGemini ? e.apres : 0)
+      return Buffer.alloc(0)
     }
-    return edge(texte, VOIX[0].id)
   }
   return edge(texte, reglages.voix)
+}
+
+/**
+ * Crée une voix sur mesure à partir d'une description (« voice design » de
+ * Gemini, doc lue le 06/11/2026). Google rend un id permanent `voice_…`
+ * (gardé un an après le dernier usage) et un échantillon WAV.
+ */
+export async function creerVoix(description: string, nom: string): Promise<{ id: string; echantillon: string | null }> {
+  const cle = cleGemini()
+  if (!cle) throw new Error('Il faut d’abord une clé Gemini.')
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/voices', {
+    method: 'POST',
+    headers: { 'x-goog-api-key': cle, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      store: true,
+      voice: { model: MODELE_GEMINI, type: 'prompted', display_name: nom, language_code: 'fr-FR', prompted: { input: description } }
+    }),
+    signal: AbortSignal.timeout(60000)
+  })
+  const texte = await res.text()
+  if (!res.ok) {
+    journal(`création de voix : ${res.status} ${texte.slice(0, 400)}`)
+    if (res.status === 429) {
+      const apres = Number(/retry in (\d+(?:\.\d+)?)s/i.exec(texte)?.[1] ?? 60)
+      throw new QuotaGemini(Math.ceil(apres))
+    }
+    const message = (() => { try { return String((JSON.parse(texte) as { error?: { message?: string } }).error?.message ?? '') } catch { return '' } })()
+    throw new Error(message || `Google a refusé (erreur ${res.status}).`)
+  }
+  const j = JSON.parse(texte) as Record<string, unknown>
+  // L'id peut être à la racine ou dans un sous-objet : on cherche le premier « voice_… ».
+  const id = /"(voice_[A-Za-z0-9_-]+)"/.exec(texte)?.[1] ?? String(j.id ?? j.name ?? '')
+  if (!id) throw new Error('Google n’a pas renvoyé d’identifiant de voix.')
+  const echantillon = /"data"\s*:\s*"([A-Za-z0-9+/=]{200,})"/.exec(texte)?.[1] ?? null
+  return { id, echantillon }
 }
 
 async function edge(texte: string, voix: string): Promise<Buffer> {

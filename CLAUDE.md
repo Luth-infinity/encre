@@ -217,6 +217,19 @@ Google demande ≤ 6 s, et le tour attend la fin de la voix avant `tour-fini`. V
 AMD non pris en charge par défaut, pas d'API de synthèse documentée, pas de
 temps réel prouvé). **Pas encore testé avec une vraie clé.**
 
+### Voix sur mesure et « sans relais »
+
+Réglages → « Créer la voix de Tako » : description (pré-remplie,
+`DESCRIPTION_TAKO`) → `POST /v1beta/voices` (`type: prompted`,
+`language_code: fr-FR`, `store: true`) → id `voice_…` gardé dans
+`reglages.voixPerso`, choisi aussitôt, échantillon joué. Gardée un an après
+le dernier usage, 200 voix max par projet. La réplication d'une vraie voix
+exige la facturation et une phrase de consentement : pas proposée.
+**Jamais de voix de relais** : Gemini en échec (quota) → Tako se tait, la
+réponse reste écrite, le panneau affiche « Tako répond par écrit… »
+(`voix-muette`). L'alternance Gemini/Edge était « ultra perturbante ».
+Non vérifié : la création de voix en offre gratuite (à voir au premier essai).
+
 ### Plein écran
 
 Bouton ⤢ du panneau : il prend l'écran de travail, n'est plus au-dessus de

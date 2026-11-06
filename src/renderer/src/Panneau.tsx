@@ -224,6 +224,8 @@ export default function Panneau(): JSX.Element {
   const saisie = useRef<SaisieRef>(null)
   const bas = useRef<HTMLDivElement>(null)
   const [plein, setPlein] = useState(false)
+  /** Gemini n'a pas pu parler (quota gratuit) : jusqu'à quand le dire. */
+  const [muet, setMuet] = useState<{ jusqua: number; secondes: number } | null>(null)
   /** L'entrée en tache d'encre depuis la bulle, et la sortie inverse. */
   const [anim, setAnim] = useState<{ etat: 'entre' | 'sort' | ''; x: number; y: number; n: number }>({ etat: '', x: 0, y: 0, n: 0 })
   const parole = useParole()
@@ -257,6 +259,10 @@ export default function Panneau(): JSX.Element {
         setTimeout(() => window.api.fermerFini(), 260)
       }),
       window.api.surPlein(setPlein),
+      window.api.surVoixMuette((s) => {
+        setMuet({ jusqua: Date.now() + 8000, secondes: s })
+        setTimeout(() => setMuet((m) => (m && Date.now() >= m.jusqua ? null : m)), 8200)
+      }),
       window.api.surFilChange((id) => void montrerFil(id)),
       // Alt+Maj+E (même panneau fermé) : ouvrir l'écoute, ou envoyer. Le mot « Encre » : pareil, mains libres.
       window.api.surDicter((mainsLibres) => appel.current.basculer(mainsLibres)),
@@ -446,6 +452,7 @@ export default function Panneau(): JSX.Element {
       {projet && vue === 'chat' && etat?.claude.installe && (
         <footer>
           {parole.erreur && !parole.actif && <p className="erreur-voix">{parole.erreur}</p>}
+          {muet && <p className="voix-muette">Tako répond par écrit : limite gratuite de la voix atteinte{muet.secondes ? `, elle revient dans ${muet.secondes} s` : ''}.</p>}
           {parole.actif
             ? <Appel parole={parole} humeur={humeur} grand={plein} touche={etat.toucheParler} />
             : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id} />}

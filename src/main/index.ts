@@ -14,7 +14,7 @@ import * as outils from './outils'
 import * as projets from './projets'
 import * as reglages from './reglages'
 import * as updates from './updates'
-import { attentePrete, estGemini, prechaufferAttentes, QuotaGemini, synthetiser } from './voix'
+import { attentePrete, creerVoix, estGemini, prechaufferAttentes, quandMuet, QuotaGemini, synthetiser } from './voix'
 
 /**
  * Encre : une bulle toujours au-dessus, un panneau de chat branché sur le
@@ -340,6 +340,27 @@ function brancher(): void {
       return { erreur: 'La voix n’a pas répondu. Réessaie dans un instant.' }
     }
   })
+  // « Créer la voix de Tako » : une description → une voix Gemini sur mesure, choisie aussitôt.
+  ipcMain.handle('creer-voix', async (_e, description: string): Promise<{ son?: string; erreur?: string }> => {
+    try {
+      const nombre = reglages.reglages().voixPerso.length + 1
+      const nom = nombre === 1 ? 'Tako' : `Tako ${nombre}`
+      const { id, echantillon } = await creerVoix(description.trim(), nom)
+      const v = { id, nom, description: description.trim(), creee: Date.now() }
+      reglages.modifier({ voixPerso: [v, ...reglages.reglages().voixPerso], voix: `gemini:${id}` })
+      journal(`voix créée : ${id}`)
+      publierEtat()
+      return { son: echantillon ?? undefined }
+    } catch (e) {
+      if (e instanceof QuotaGemini) return { erreur: `Limite gratuite de Gemini atteinte. Réessaie dans ${e.apres} s.` }
+      return { erreur: String((e as Error).message ?? e) }
+    }
+  })
+  ipcMain.on('oublier-voix', (_e, id: string) => {
+    const r = reglages.reglages()
+    reglages.modifier({ voixPerso: r.voixPerso.filter((v) => v.id !== id), ...(r.voix === `gemini:${id}` ? { voix: VOIX_GEMINI[0].id } : {}) })
+    publierEtat()
+  })
   ipcMain.handle('cle-groq', (_e, cle: string | null) => {
     try {
       reglages.poserCleGroq(cle)
@@ -436,6 +457,8 @@ void app.whenReady().then(() => {
   creerBulle()
   creerPanneau()
   poserIcone()
+  // Gemini muet (quota) : le panneau le dit, la réponse reste écrite.
+  quandMuet((s) => lePanneau()?.webContents.send('voix-muette', s))
   const libre = RACCOURCIS.find(([acc]) => globalShortcut.register(acc, () => basculerPanneau()))
   raccourci = libre?.[1] ?? 'aucun'
   const parler = RACCOURCIS_PARLER.find(([acc]) => globalShortcut.register(acc, () => dicter(false)))

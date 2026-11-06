@@ -47,6 +47,11 @@ const api = {
   cleGemini: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-gemini', cle),
   /** Une phrase de Tako dans la voix donnée, en base64 (MP3 ou WAV). */
   essaiVoix: (voix: string): Promise<{ son?: string; erreur?: string }> => ipcRenderer.invoke('essai-voix', voix),
+  /** Crée une voix Gemini sur mesure à partir d'une description ; rend l'échantillon. */
+  creerVoix: (description: string): Promise<{ son?: string; erreur?: string }> => ipcRenderer.invoke('creer-voix', description),
+  oublierVoix: (id: string) => ipcRenderer.send('oublier-voix', id),
+  /** Gemini n'a pas pu parler (quota) : la réponse reste écrite ; `secondes` avant que ça se libère. */
+  surVoixMuette: (cb: (secondes: number) => void) => recevoir('voix-muette', cb),
 
   // Mode Parler.
   transcrire: (audio: ArrayBuffer): Promise<{ texte?: string; erreur?: string }> => ipcRenderer.invoke('transcrire', audio),

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { VOIX, VOIX_GEMINI, type Etat, type Reglages as R } from '@shared/types'
+import { DESCRIPTION_TAKO, VOIX, VOIX_GEMINI, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -48,6 +48,54 @@ function Cle({ nom, presente, prefixe, aide, enregistrer }: { nom: string; prese
   )
 }
 
+const jouer = (son: string, fin: () => void): void => {
+  const a = new Audio(`data:${son.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg'};base64,${son}`)
+  a.onended = a.onerror = () => fin()
+  void a.play().catch(() => fin())
+}
+
+/**
+ * Créer la voix de Tako : une description, Google fabrique la voix (Gemini
+ * « voice design ») et rend un échantillon. Elle est choisie aussitôt.
+ */
+function CreerVoix(): JSX.Element {
+  const [ouvert, setOuvert] = useState(false)
+  const [description, setDescription] = useState(DESCRIPTION_TAKO)
+  const [etat, setEtat] = useState<'' | 'cree' | 'joue'>('')
+  const [souci, setSouci] = useState<string | null>(null)
+  const creer = async (): Promise<void> => {
+    setEtat('cree')
+    setSouci(null)
+    const { son, erreur } = await window.api.creerVoix(description)
+    if (erreur) {
+      setSouci(erreur)
+      return setEtat('')
+    }
+    setOuvert(false)
+    if (son) {
+      setEtat('joue')
+      jouer(son, () => setEtat(''))
+    } else setEtat('')
+  }
+  if (!ouvert) {
+    return <button type="button" className="btn creer-voix" onClick={() => setOuvert(true)}>✦ Créer la voix de Tako</button>
+  }
+  return (
+    <div className="nouvelle-voix">
+      <strong>Décris la voix de Tako</strong>
+      <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+      <small>Google la fabrique à partir de ta description. Tu peux en créer plusieurs et garder ta préférée.</small>
+      {souci && <p className="erreur">{souci}</p>}
+      <div className="btns">
+        <button type="button" className="btn" onClick={() => setOuvert(false)} disabled={etat === 'cree'}>Annuler</button>
+        <button type="button" className="btn pri" onClick={() => void creer()} disabled={etat === 'cree' || description.trim().length < 20}>
+          {etat === 'cree' ? 'Google fabrique la voix…' : 'Créer cette voix'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** Les réglages d'Encre : la voix, le démarrage, et l'état du Claude Code de la machine. */
 export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
   const r = etat.reglages
@@ -63,9 +111,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
       setSouciEssai(erreur ?? null)
       return setEssai(false)
     }
-    const a = new Audio(`data:${son.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg'};base64,${son}`)
-    a.onended = a.onerror = () => setEssai(false)
-    void a.play().catch(() => setEssai(false))
+    jouer(son, () => setEssai(false))
   }
 
   return (
@@ -89,6 +135,11 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
           enregistrer={(v) => window.api.cleGemini(v)}
         />
         <div className="choix-voix">
+          {r.cleGemini && r.voixPerso.map((v) => (
+            <button key={v.id} type="button" className={`perso ${r.voix === `gemini:${v.id}` ? 'on' : ''}`} onClick={() => poser({ voix: `gemini:${v.id}` })} title={v.description}>
+              ✦ {v.nom}<small>Sur mesure</small>
+            </button>
+          ))}
           {(r.cleGemini ? VOIX_GEMINI : VOIX).map((v) => (
             <button key={v.id} type="button" className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })} title={'aide' in v ? String(v.aide) : undefined}>
               {v.nom}{'aide' in v && <small>{String(v.aide)}</small>}
@@ -97,7 +148,11 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
         </div>
         <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? 'Tako parle…' : '▶ Tester la voix'}</button>
         {souciEssai && <p className="erreur">{souciEssai}</p>}
-        {r.cleGemini && <p className="aide">Gratuit : 3 phrases par minute. Au-delà, Tako finit sa réponse avec une voix Microsoft.</p>}
+        {r.cleGemini && <CreerVoix />}
+        {r.cleGemini && r.voixPerso.some((v) => r.voix === `gemini:${v.id}`) && (
+          <button type="button" className="lien" onClick={() => window.api.oublierVoix(r.voix.slice('gemini:'.length))}>Oublier cette voix</button>
+        )}
+        {r.cleGemini && <p className="aide">Gratuit : 3 réponses par minute. Au-delà, Tako répond par écrit le temps que ça se libère, jamais avec une autre voix.</p>}
       </section>
 
       <section>

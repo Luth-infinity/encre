@@ -118,6 +118,13 @@ export const VOIX_GEMINI = [
   { id: 'gemini:Puck', nom: 'Puck', aide: 'Enjoué' }
 ]
 
+/** Une voix créée à partir d'une description (Gemini « voice design »). */
+export type VoixPerso = { id: string; nom: string; description: string; creee: number }
+
+/** La description de départ de la voix de Tako : Lucas la modifie à volonté. */
+export const DESCRIPTION_TAKO =
+  'Une petite voix douce, chaleureuse et malicieuse, celle d’un poulpe mignon qui parle français avec le sourire. Plutôt jeune, rassurante, jamais criarde, avec une pointe d’espièglerie et un débit naturel de conversation.'
+
 /** Les réglages tels que le panneau les voit : jamais la clé elle-même. */
 export type Reglages = {
   /** Une clé Groq est enregistrée (pour la transcription du mode Parler). */
@@ -125,6 +132,8 @@ export type Reglages = {
   /** Une clé Gemini est enregistrée : Tako parle avec les voix Gemini. */
   cleGemini: boolean
   voix: string
+  /** Les voix créées sur mesure chez Gemini (id `voice_…`), de la plus récente à la plus ancienne. */
+  voixPerso: VoixPerso[]
   /** Dire « Encre » ouvre le mode Parler (reconnaissance locale, rien ne sort). */
   veille: boolean
   /** Après une réponse dite, le micro se rouvre quelques secondes pour enchaîner. */
