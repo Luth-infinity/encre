@@ -140,9 +140,9 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
               ✦ {v.nom}<small>Sur mesure</small>
             </button>
           ))}
-          {(r.cleGemini ? VOIX_GEMINI : VOIX).map((v) => (
+          {[...(r.cleGemini ? VOIX_GEMINI : []), ...VOIX].map((v) => (
             <button key={v.id} type="button" className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })} title={'aide' in v ? String(v.aide) : undefined}>
-              {v.nom}{'aide' in v && <small>{String(v.aide)}</small>}
+              {v.nom}<small>{'aide' in v ? String(v.aide) : 'Illimitée'}</small>
             </button>
           ))}
         </div>
@@ -152,7 +152,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
         {r.cleGemini && r.voixPerso.some((v) => r.voix === `gemini:${v.id}`) && (
           <button type="button" className="lien" onClick={() => window.api.oublierVoix(r.voix.slice('gemini:'.length))}>Oublier cette voix</button>
         )}
-        {r.cleGemini && <p className="aide">Gratuit : 3 réponses par minute. Au-delà, Tako répond par écrit le temps que ça se libère, jamais avec une autre voix.</p>}
+        {r.cleGemini && <p className="aide">Voix Gemini (sur mesure et autres) : quota gratuit limité, Tako répond par écrit quand il est atteint. Voix « Illimitée » : Microsoft, gratuite et sans limite.</p>}
       </section>
 
       <section>
