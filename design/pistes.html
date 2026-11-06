@@ -1,0 +1,575 @@
+<title>Pistes Encre</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : base Hublink (gris froids, cartes blanches, Inter Tight), la vie vient du poulpe 3D, de la couleur d'humeur et d'une démo qui se joue toute seule. */
+@property --mood { syntax: '<color>'; inherits: true; initial-value: #B7A6F5; }
+:root {
+  --page: #E8EAEC; --canvas: #F4F6F7; --card: #FFFFFF; --ink: #0B0C0E; --soft: #5B6167; --line: #E3E6E8;
+  --lav: #B7A6F5; --lav-deep: #6A52D9; --octo-ink: #1B1530;
+  --m-repos: #B7A6F5; --m-ecoute: #3CC8F2; --m-reflechit: #FF6FB5; --m-bosse: #FF9A3C; --m-accord: #FFC933; --m-fini: #3DDC84;
+  --add: #E3F7EA; --add-fg: #12703A; --del: #FDE8EA; --del-fg: #A3202D;
+  --shadow: 0 1px 2px rgba(11,12,14,.06), 0 18px 40px -18px rgba(11,12,14,.22);
+  --f-ui: "Inter Tight", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0D0E10; --canvas: #141619; --card: #1B1D21; --ink: #F2F3F5; --soft: #9AA0A6; --line: #2A2D32;
+  --add: #0F2B1B; --add-fg: #72E09D; --del: #321216; --del-fg: #FF8D96; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px -18px rgba(0,0,0,.7); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --page: #0D0E10; --canvas: #141619; --card: #1B1D21; --ink: #F2F3F5; --soft: #9AA0A6; --line: #2A2D32;
+  --add: #0F2B1B; --add-fg: #72E09D; --del: #321216; --del-fg: #FF8D96; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px -18px rgba(0,0,0,.7); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--page); color: var(--ink); font-family: var(--f-ui); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 80px; display: flex; flex-direction: column; gap: 72px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 700; letter-spacing: -0.045em; line-height: .98; }
+h2 { font-size: clamp(30px, 4.4vw, 48px); }
+h3 { font-size: 19px; letter-spacing: -0.02em; line-height: 1.2; }
+p { margin: 0; max-width: 60ch; }
+.soft { color: var(--soft); }
+section { display: flex; flex-direction: column; gap: 28px; }
+.head { display: flex; flex-direction: column; gap: 12px; }
+.mono { font-family: var(--f-mono); font-size: .86em; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--mood); display: inline-block; flex: none; }
+
+/* Héros */
+.hero { position: relative; overflow: hidden; border-radius: 36px; background: var(--canvas); box-shadow: var(--shadow); display: grid; grid-template-columns: 1fr 1.05fr; min-height: 560px; transition: --mood .9s ease; }
+.hero::before { content: ""; position: absolute; width: 70%; aspect-ratio: 1; right: -8%; top: 50%; translate: 0 -50%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--mood) 55%, transparent) 0%, transparent 62%); filter: blur(10px); animation: breathe 6s ease-in-out infinite; }
+@keyframes breathe { 50% { scale: 1.08; } }
+.hero-text { position: relative; padding: 56px 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 40px; }
+.hero h1 { font-size: clamp(84px, 12vw, 172px); font-weight: 800; letter-spacing: -0.07em; line-height: .82; }
+.hero .lede { font-size: 21px; line-height: 1.35; letter-spacing: -0.015em; max-width: 30ch; margin-top: 20px; font-weight: 500; }
+.moods { display: flex; flex-wrap: wrap; gap: 8px; }
+.mood-btn { font: inherit; font-size: 14px; font-weight: 600; display: inline-flex; gap: 8px; align-items: center; padding: 9px 14px 9px 11px; border-radius: 999px; border: 0; background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgba(11,12,14,.08); transition: transform .25s cubic-bezier(.3,1.6,.5,1), background .3s; }
+.mood-btn:hover { transform: translateY(-2px) rotate(-1.5deg); }
+.mood-btn[aria-pressed="true"] { background: var(--mood); color: #0B0C0E; }
+.mood-btn[aria-pressed="true"] .dot { background: #0B0C0E; }
+.mood-btn:focus-visible, .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.octo-stage { position: relative; min-height: 420px; }
+.octo-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.say { position: absolute; left: 6%; top: 12%; background: var(--card); padding: 10px 14px; border-radius: 16px 16px 16px 4px; font-weight: 600; font-size: 15px; box-shadow: var(--shadow); max-width: 220px; animation: pop .5s cubic-bezier(.3,1.6,.5,1); }
+@keyframes pop { from { transform: scale(.6) translateY(10px); opacity: 0; } }
+.fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); }
+
+/* Démo */
+.desk { position: relative; border-radius: 32px; background: var(--canvas); box-shadow: var(--shadow); overflow: hidden; min-height: 660px; padding: 28px; display: flex; justify-content: flex-end; align-items: flex-end; gap: 18px; }
+.ghost { position: absolute; background: var(--card); border-radius: 18px; opacity: .7; }
+.ghost i { position: absolute; background: var(--canvas); border-radius: 8px; display: block; }
+.dock { position: relative; z-index: 2; display: flex; align-items: flex-end; gap: 16px; }
+.panel { width: 400px; max-width: 100%; height: 560px; background: var(--card); border-radius: 26px; box-shadow: 0 2px 4px rgba(11,12,14,.06), 0 40px 80px -30px color-mix(in srgb, var(--mood) 70%, rgba(11,12,14,.5)); display: flex; flex-direction: column; overflow: hidden; transition: box-shadow .9s, --mood .9s; min-width: 0; }
+.p-top { display: flex; justify-content: space-between; align-items: center; padding: 14px 14px 12px 16px; gap: 10px; }
+.proj { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; letter-spacing: -0.01em; min-width: 0; }
+.tag { width: 30px; height: 30px; border-radius: 10px; background: var(--lav); color: var(--octo-ink); display: grid; place-items: center; font-size: 11px; font-weight: 800; flex: none; rotate: -6deg; }
+.proj small { display: block; font-weight: 500; color: var(--soft); font-size: 12px; }
+.seg { position: relative; display: flex; background: var(--canvas); border-radius: 999px; padding: 3px; font-size: 13px; font-weight: 600; flex: none; }
+.seg span { position: relative; z-index: 1; padding: 5px 13px; border-radius: 999px; color: var(--soft); transition: color .3s; }
+.seg span.on { color: var(--page); }
+.seg::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px; background: var(--ink); transition: transform .45s cubic-bezier(.3,1.4,.5,1); }
+.seg.parler::before { transform: translateX(100%); }
+.feed { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; padding: 6px 16px 12px; overflow: hidden; min-height: 0; }
+.feed > * { animation: rise .45s cubic-bezier(.25,1.3,.5,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+.me { align-self: flex-end; background: var(--ink); color: var(--page); padding: 10px 14px; border-radius: 18px 18px 5px 18px; max-width: 86%; font-size: 14px; font-weight: 500; }
+.ai { font-size: 14px; max-width: 94%; }
+.tool { display: flex; gap: 9px; align-items: center; font-family: var(--f-mono); font-size: 12px; color: var(--soft); }
+.tool b { width: 18px; height: 18px; border-radius: 6px; background: color-mix(in srgb, var(--m-bosse) 30%, transparent); display: grid; place-items: center; flex: none; }
+.tool b::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--m-bosse); }
+.bar { height: 6px; border-radius: 3px; background: var(--canvas); overflow: hidden; flex: 1; }
+.bar i { display: block; height: 100%; width: 0; background: var(--m-bosse); border-radius: 3px; animation: fill 2s ease-in-out forwards; }
+@keyframes fill { to { width: 100%; } }
+.diff { border-radius: 14px; background: var(--canvas); overflow-x: auto; font-family: var(--f-mono); font-size: 11.5px; }
+.diff .fn { padding: 7px 11px; color: var(--soft); }
+.diff .l { padding: 1px 11px; white-space: pre; }
+.diff .a { background: var(--add); color: var(--add-fg); }
+.diff .d { background: var(--del); color: var(--del-fg); }
+.ask { border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--m-accord) 22%, var(--card)); }
+.ask .q { font-weight: 600; font-size: 14px; }
+.ask .cmd { font-family: var(--f-mono); font-size: 12px; background: var(--card); padding: 7px 10px; border-radius: 10px; }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 999px; border: 0; background: var(--card); color: var(--ink); cursor: default; transition: transform .15s; }
+.btn.pri { background: var(--ink); color: var(--page); }
+.btn.pressed { transform: scale(.92); }
+.done { display: flex; gap: 8px; align-items: center; font-weight: 600; font-size: 14px; }
+.done::before { content: "✓"; width: 22px; height: 22px; border-radius: 50%; background: var(--m-fini); color: #0B0C0E; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex: none; }
+.p-input { margin: 0 12px 12px; background: var(--canvas); border-radius: 18px; padding: 10px 10px 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: var(--soft); min-height: 50px; }
+.p-input .typed { color: var(--ink); }
+.caret { display: inline-block; width: 2px; height: 1em; background: var(--ink); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.send { width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--page); display: grid; place-items: center; flex: none; font-weight: 800; font-size: 15px; }
+.voice { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 16px 22px; text-align: center; }
+.orb { width: 132px; height: 132px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--mood) 60%, white), var(--mood) 60%, color-mix(in srgb, var(--mood) 70%, black)); animation: orb 1.6s ease-in-out infinite; transition: --mood .9s; }
+@keyframes orb { 50% { transform: scale(1.07); border-radius: 46% 54% 50% 50%; } }
+.wave { display: flex; gap: 4px; align-items: center; height: 34px; }
+.wave i { width: 4px; border-radius: 2px; background: var(--ink); display: block; height: 6px; animation: wv 1s ease-in-out infinite; }
+@keyframes wv { 50% { height: 32px; } }
+.voice .said { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; max-width: 24ch; min-height: 3.75em; }
+.voice .said .w { animation: rise .3s both; display: inline-block; }
+.bubble-col { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex: none; }
+.chip { background: var(--ink); color: var(--page); font-size: 12px; font-weight: 600; padding: 7px 11px 7px 9px; border-radius: 12px; display: flex; gap: 7px; align-items: center; white-space: nowrap; }
+.bubble { position: relative; width: 96px; height: 96px; border-radius: 50%; background: #0B0C0E; box-shadow: 0 16px 36px -10px rgba(11,12,14,.5); }
+.bubble canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; }
+.bubble::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--mood); transition: border-color .9s; }
+.bubble.ping::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--mood); animation: ping 1.4s ease-out infinite; }
+@keyframes ping { to { inset: -22px; opacity: 0; } }
+
+/* Projets */
+.projects { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.pc { background: var(--card); border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow); min-width: 0; transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
+.pc:hover { transform: translateY(-4px) rotate(-.6deg); }
+.pc header { display: flex; align-items: center; gap: 12px; }
+.pc .tag { width: 42px; height: 42px; border-radius: 14px; font-size: 13px; }
+.pc header small { display: block; color: var(--soft); font-size: 13px; }
+.pc dl { margin: 0; display: grid; grid-template-columns: 76px 1fr; gap: 9px 10px; font-size: 13.5px; }
+.pc dt { color: var(--soft); }
+.pc dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--canvas); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: s; }
+.steps li { counter-increment: s; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.steps li::before { content: counter(s); width: 34px; height: 34px; border-radius: 12px; background: var(--lav); color: var(--octo-ink); display: grid; place-items: center; font-weight: 800; font-size: 15px; margin-bottom: 4px; }
+.steps li:nth-child(2)::before { rotate: 6deg; } .steps li:nth-child(3)::before { rotate: -5deg; } .steps li:nth-child(4)::before { rotate: 3deg; }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.box { background: var(--card); border-radius: 26px; padding: 26px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); }
+.merge { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-weight: 800; font-size: 26px; letter-spacing: -0.04em; }
+.merge s { color: var(--soft); text-decoration-thickness: 3px; }
+.merge em { font-style: normal; background: var(--lav); color: var(--octo-ink); padding: 0 10px; border-radius: 10px; rotate: -3deg; display: inline-block; }
+.todo { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.todo li { background: var(--card); border-radius: 22px; padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero::before { width: 110%; right: -5%; top: auto; bottom: -10%; translate: 0 0; }
+  .hero-text { padding: 36px 24px 0; }
+  .octo-stage { min-height: 380px; }
+  .projects, .two, .todo { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .desk { padding: 16px; justify-content: center; }
+  .ghost { display: none; }
+}
+@media (max-width: 560px) {
+  .dock { flex-direction: column; align-items: stretch; width: 100%; }
+  .panel { width: 100%; height: 540px; }
+  .bubble-col { flex-direction: row-reverse; align-items: center; justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <section class="hero" id="hero" style="--mood: var(--m-repos)">
+    <div class="hero-text">
+      <div>
+        <h1>Encre</h1>
+        <p class="lede">Un poulpe qui flotte sur ton écran. Tu cliques, c'est ton Claude Code. Tu lui parles, il te répond.</p>
+      </div>
+      <div class="moods" id="moods" role="group" aria-label="Humeurs du poulpe"></div>
+    </div>
+    <div class="octo-stage" id="hero-stage">
+      <canvas id="hero-canvas" aria-label="Le poulpe Encre en 3D, il suit ta souris"></canvas>
+      <div class="say" id="say">Salut Lucas. On bosse sur quoi ?</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>En vrai, ça donne ça</h2>
+      <p class="soft">La démo tourne toute seule : une demande, Claude bosse, il attend ton accord, il finit, puis tu passes en vocal. La bulle et le panneau changent d'humeur avec lui.</p>
+    </div>
+    <div class="desk" id="desk" style="--mood: var(--m-repos)">
+      <div class="ghost" style="left:3%;top:5%;width:46%;height:62%"><i style="left:5%;top:9%;width:24%;height:82%"></i><i style="left:33%;top:9%;width:62%;height:40%"></i><i style="left:33%;top:54%;width:62%;height:37%"></i></div>
+      <div class="ghost" style="left:20%;top:52%;width:30%;height:40%"><i style="left:7%;top:14%;width:70%;height:12%"></i><i style="left:7%;top:34%;width:86%;height:12%"></i><i style="left:7%;top:54%;width:58%;height:12%"></i></div>
+      <div class="dock">
+        <div class="panel" id="panel">
+          <div class="p-top">
+            <div class="proj"><span class="tag">VA</span><span>Valiuz · Activation<small>Apps\valiuz-activation</small></span></div>
+            <div class="seg" id="seg"><span class="on">Chat</span><span>Parler</span></div>
+          </div>
+          <div class="feed" id="feed"></div>
+          <div class="voice" id="voice" hidden>
+            <div class="orb"></div>
+            <div class="wave" id="wave"></div>
+            <p class="said" id="said"></p>
+          </div>
+          <div class="p-input" id="input"><span id="typed">Écris, ou tape <span class="mono">/</span></span><span class="send">↑</span></div>
+        </div>
+        <div class="bubble-col">
+          <div class="chip"><span class="dot"></span><span id="chip-label">Au repos</span></div>
+          <div class="bubble" id="bubble"><canvas id="bubble-canvas" aria-hidden="true"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>Un environnement par projet</h2>
+      <p class="soft">Tu choisis le projet, Encre sait tout de suite où il est : le bon dossier, le bon compte Figma avec son jeton, le contexte du client.</p>
+    </div>
+    <div class="projects">
+      <article class="pc">
+        <header><span class="tag" style="background:var(--lav)">VA</span><div><h3>Valiuz · Activation</h3><small>Ouvert maintenant</small></div></header>
+        <dl>
+          <dt>Dossier</dt><dd class="mono">Apps\valiuz-activation</dd>
+          <dt>Figma</dt><dd>Compte Valiuz, jeton dans le trousseau</dd>
+          <dt>Outils</dt><dd class="pills"><span class="pill">Figma</span><span class="pill">Notion</span></dd>
+          <dt>Contexte</dt><dd>Brief Connect, DA Helix, retours de Romain</dd>
+        </dl>
+      </article>
+      <article class="pc">
+        <header><span class="tag" style="background:var(--m-ecoute);rotate:5deg">AV</span><div><h3>Avanteam · V26-DS</h3><small>Il y a 2 jours</small></div></header>
+        <dl>
+          <dt>Dossier</dt><dd class="mono">Apps\avanteam-ds</dd>
+          <dt>Figma</dt><dd>Compte Avanteam</dd>
+          <dt>Outils</dt><dd class="pills"><span class="pill">Figma</span><span class="pill">Storybook</span></dd>
+          <dt>Contexte</dt><dd>Règles du DS, variantes Posidea seulement</dd>
+        </dl>
+      </article>
+      <article class="pc">
+        <header><span class="tag" style="background:var(--m-fini);rotate:-3deg">ES</span><div><h3>Perso · Escale</h3><small>Il y a 5 jours</small></div></header>
+        <dl>
+          <dt>Dossier</dt><dd class="mono">Apps\escale</dd>
+          <dt>Figma</dt><dd>Aucun</dd>
+          <dt>Outils</dt><dd class="pills"><span class="pill">GitHub</span></dd>
+          <dt>Contexte</dt><dd>CLAUDE.md du dépôt, process de release</dd>
+        </dl>
+      </article>
+    </div>
+    <ol class="steps">
+      <li><b>Tu crées le projet</b><span class="soft">Un dossier, un nom, une couleur.</span></li>
+      <li><b>Tu branches les outils</b><span class="soft">Figma, Notion… Tu colles le jeton une fois, il part dans le trousseau Windows.</span></li>
+      <li><b>Tu donnes le contexte</b><span class="soft">Client, DA, règles. Encre l'écrit dans le CLAUDE.md du projet.</span></li>
+      <li><b>Ensuite tu cliques</b><span class="soft">Chaque conversation démarre dans cet environnement.</span></li>
+    </ol>
+  </section>
+
+  <section class="two">
+    <div class="box">
+      <h3>Connexion</h3>
+      <p>Au lancement, Encre trouve le Claude Code installé et le compte connecté. Rien à saisir. S'il manque, il propose de l'installer.</p>
+      <p class="soft">Version perso tant que ce n'est pas fini.</p>
+    </div>
+    <div class="box">
+      <h3>Ce qu'Encre remplace</h3>
+      <div class="merge"><s>Iris</s><span>+</span><s>Calque</s><span>→</span><em>Encre</em></div>
+      <p class="soft">On retire les deux apps une fois qu'Encre fait tout ce qu'elles font.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>À trancher</h2></div>
+    <ul class="todo">
+      <li><h3>Le nom</h3><span class="soft">Encre, ou autre chose ?</span></li>
+      <li><h3>La voix</h3><span class="soft">Celle d'Iris, ou une voix plus « personnage » ?</span></li>
+      <li><h3>La personnalité</h3><span class="soft">Pote un peu taquin, ou assistant calme ?</span></li>
+    </ul>
+  </section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const MOODS = {
+  repos: { name: 'Au repos', say: 'Salut Lucas. On bosse sur quoi ?' },
+  ecoute: { name: 'Écoute', say: 'Je t\'écoute.' },
+  reflechit: { name: 'Réfléchit', say: 'Hmm, laisse-moi voir…' },
+  bosse: { name: 'Bosse', say: 'J\'écris le code.' },
+  accord: { name: 'Attend ton accord', say: 'Je peux lancer le build ?' },
+  fini: { name: 'Fini', say: 'C\'est bon, récap prêt.' }
+};
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Poulpe 3D ---------- */
+function makeTubeGeo(segs, radial) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array((segs + 1) * (radial + 1) * 3), 3));
+  const idx = [];
+  for (let i = 0; i < segs; i++) for (let j = 0; j < radial; j++) {
+    const a = i * (radial + 1) + j, b = (i + 1) * (radial + 1) + j;
+    idx.push(a, a + 1, b, b, a + 1, b + 1);
+  }
+  g.setIndex(idx);
+  const uv = new Float32Array((segs + 1) * (radial + 1) * 2); let q = 0;
+  for (let i = 0; i <= segs; i++) for (let j = 0; j <= radial; j++) { uv[q++] = i / segs; uv[q++] = j / radial; }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return g;
+}
+
+/* Motifs de tatouage : vagues seigaiha à l'encre + fleurs de cerisier, dessinés sur un canvas. */
+function rnd(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function sakura(x, cx, cy, s, rot) {
+  x.save(); x.translate(cx, cy); x.rotate(rot);
+  for (let p = 0; p < 5; p++) {
+    x.save(); x.rotate(p * Math.PI * 2 / 5);
+    x.beginPath(); x.moveTo(0, 0);
+    x.bezierCurveTo(-s * .55, -s * .35, -s * .45, -s * 1.05, -s * .12, -s * 1.02);
+    x.lineTo(0, -s * .86); x.lineTo(s * .12, -s * 1.02);
+    x.bezierCurveTo(s * .45, -s * 1.05, s * .55, -s * .35, 0, 0);
+    x.fillStyle = '#FFA9CF'; x.fill(); x.lineWidth = s * .11; x.strokeStyle = '#1B1530'; x.stroke();
+    x.restore();
+  }
+  x.beginPath(); x.arc(0, 0, s * .16, 0, Math.PI * 2); x.fillStyle = '#FFE27A'; x.fill(); x.lineWidth = s * .08; x.stroke();
+  x.restore();
+}
+function irezumi(w, h, R, opts = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.fillStyle = '#B7A6F5'; x.fillRect(0, 0, w, h);
+  let row = 0;
+  for (let y = -R; y < h + R; y += R / 2, row++) {
+    const off = (row % 2) * R;
+    for (let cx = -2 * R + off; cx < w + 2 * R; cx += 2 * R) {
+      x.beginPath(); x.arc(cx, y, R * .96, 0, Math.PI * 2);
+      x.fillStyle = '#B7A6F5'; x.fill();
+      x.strokeStyle = opts.line || '#1B1530'; x.lineWidth = R * (opts.weight || .11);
+      (opts.arcs || [.96, .7, .44]).forEach(k => { x.beginPath(); x.arc(cx, y, R * k, Math.PI, 0); x.stroke(); });
+    }
+  }
+  if (opts.face) {
+    const [fx, fy, rx, ry] = opts.face;
+    const g = x.createRadialGradient(0, 0, 0, 0, 0, 1);
+    g.addColorStop(0, '#B7A6F5'); g.addColorStop(.78, '#B7A6F5'); g.addColorStop(1, 'rgba(183,166,245,0)');
+    x.save(); x.translate(fx, fy); x.scale(rx, ry); x.fillStyle = g; x.beginPath(); x.arc(0, 0, 1, 0, Math.PI * 2); x.fill(); x.restore();
+  }
+  const r = rnd(opts.seed || 7);
+  (opts.flowers || []).forEach(([fx, fy, s]) => sakura(x, fx, fy, s, r() * Math.PI));
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4;
+  return t;
+}
+function updateTube(g, curve, segs, radial, r0, r1) {
+  const fr = curve.computeFrenetFrames(segs, false), p = g.attributes.position.array, P = new THREE.Vector3();
+  let k = 0;
+  for (let i = 0; i <= segs; i++) {
+    const u = i / segs; curve.getPointAt(u, P);
+    let r = r0 + (r1 - r0) * u; if (u > .9) r *= Math.sqrt(Math.max(0, 1 - ((u - .9) / .1) ** 2));
+    const N = fr.normals[i], B = fr.binormals[i];
+    for (let j = 0; j <= radial; j++) {
+      const v = j / radial * Math.PI * 2, c = Math.cos(v), s = Math.sin(v);
+      p[k++] = P.x + r * (c * N.x + s * B.x); p[k++] = P.y + r * (c * N.y + s * B.y); p[k++] = P.z + r * (c * N.z + s * B.z);
+    }
+  }
+  g.attributes.position.needsUpdate = true; g.computeVertexNormals();
+}
+
+function createPoulpe(canvas, opts = {}) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(opts.fov || 28, 1, .1, 50);
+  camera.position.set(0, opts.camY ?? 0.9, opts.dist || 8.2); camera.lookAt(0, opts.lookY ?? 0.15, 0);
+
+  const ramp = new THREE.DataTexture(new Uint8Array([95, 175, 255]), 3, 1, THREE.LuminanceFormat);
+  ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+  const LAV = new THREE.Color(cssVar('--lav')), INK = new THREE.Color(cssVar('--octo-ink'));
+  const skin = new THREE.MeshToonMaterial({ color: LAV, gradientMap: ramp });
+  const headSkin = skin;
+  const tentTex = irezumi(512, 256, 51.2, { line: '#7E68E3', weight: .06, arcs: [.96, .6], flowers: [[140, 128, 34]], seed: 11 });
+  tentTex.repeat.set(1.3, 1);
+  const tentSkin = new THREE.MeshToonMaterial({ map: tentTex, gradientMap: ramp });
+  const line = new THREE.MeshBasicMaterial({ color: INK, side: THREE.BackSide });
+  const white = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: ramp });
+  const black = new THREE.MeshBasicMaterial({ color: 0x111018 });
+  const cheekMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(cssVar('--m-repos')), transparent: true, opacity: .9 });
+  const suckMat = new THREE.MeshToonMaterial({ color: new THREE.Color('#E9E2FF'), gradientMap: ramp });
+
+  scene.add(new THREE.HemisphereLight(0xffffff, new THREE.Color('#5B43D0'), .6));
+  const sun = new THREE.DirectionalLight(0xffffff, .6); sun.position.set(3, 5, 4); scene.add(sun);
+
+  const root = new THREE.Group(); scene.add(root);
+  const body = new THREE.Group(); root.add(body);
+
+  // tête
+  const head = new THREE.Group(); head.position.y = .78; body.add(head);
+  const hg = new THREE.SphereGeometry(1, 64, 48);
+  const headMesh = new THREE.Mesh(hg, headSkin); headMesh.scale.set(1.1, .96, 1); head.add(headMesh);
+  const headLine = new THREE.Mesh(hg, line); headLine.scale.set(1.15, 1.0, 1.04); head.add(headLine);
+  // yeux : grandes pupilles, deux reflets, regard doux
+  const eyes = [];
+  [-1, 1].forEach(sx => {
+    const e = new THREE.Group(); e.position.set(sx * .42, -.12, .86); head.add(e);
+    const eg = new THREE.SphereGeometry(.24, 32, 24);
+    e.add(new THREE.Mesh(eg, white));
+    const el = new THREE.Mesh(eg, line); el.scale.setScalar(1.12); e.add(el);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(.185, 24, 18), black); pupil.scale.z = .55; e.add(pupil);
+    const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(.06, 12, 10), hiMat); e.add(hi);
+    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(.028, 10, 8), hiMat); e.add(hi2);
+    eyes.push({ g: e, pupil, hi, hi2 });
+  });
+  // joues
+  const cheeks = [-1, 1].map(sx => { const c = new THREE.Mesh(new THREE.SphereGeometry(.15, 20, 14), cheekMat); c.position.set(sx * .74, -.36, .66); c.scale.set(1.25, .7, .3); c.lookAt(sx * 2, -.6, 2); head.add(c); return c; });
+  // bouche
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(.07, .026, 10, 24, Math.PI), black); mouth.position.set(0, -.36, .94); mouth.rotation.z = Math.PI; head.add(mouth);
+
+  // tentacules
+  const SEGS = 56, RAD = 14, N = 8, tent = [];
+  for (let k = 0; k < N; k++) {
+    const g = makeTubeGeo(SEGS, RAD), gl = makeTubeGeo(SEGS, RAD);
+    const m = new THREE.Mesh(g, tentSkin), ml = new THREE.Mesh(gl, line);
+    body.add(m); body.add(ml);
+    const pts = Array.from({ length: 12 }, () => new THREE.Vector3());
+    tent.push({ g, gl, pts, curve: new THREE.CatmullRomCurve3(pts), a: (k + .5) / N * Math.PI * 2 + Math.PI / 2, raise: 0 });
+  }
+
+  let mood = 'repos', t = 0, mx = 0, my = 0, tx = 0, ty = 0, blinkT = 2, blink = 1, speed = 1, bounce = 0;
+  const target = { lean: 0, speed: 1, pupY: 0, eyeSq: 1, mouth: 1, tilt: 0 };
+  const cur = { ...target };
+  const raiseIdx = 1;
+
+  function setMood(m) {
+    mood = m;
+    cheekMat.color.set(cssVar('--m-' + m));
+    Object.assign(target, { lean: 0, speed: 1, pupY: 0, eyeSq: 1, mouth: 1, tilt: 0 });
+    if (m === 'ecoute') Object.assign(target, { lean: .18, speed: .6, eyeSq: 1.12, mouth: .6 });
+    if (m === 'reflechit') Object.assign(target, { pupY: .09, tilt: .16, speed: .7, mouth: .5 });
+    if (m === 'bosse') Object.assign(target, { speed: 2.6, pupY: -.06, lean: .06 });
+    if (m === 'accord') Object.assign(target, { tilt: -.08, eyeSq: 1.08 });
+    if (m === 'fini') Object.assign(target, { eyeSq: .32, mouth: 1.6, speed: 1.4 });
+  }
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(canvas); resize();
+
+  addEventListener('pointermove', e => {
+    const r = canvas.getBoundingClientRect();
+    mx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (innerWidth / 2)));
+    my = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (innerHeight / 2)));
+  });
+
+  let visible = true;
+  document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (!visible) return;
+    const k = 1 - Math.pow(.02, dt);
+    for (const key in target) cur[key] += (target[key] - cur[key]) * k;
+    t += dt * (reduce ? .15 : 1) * cur.speed;
+    const tt = now / 1000 * (reduce ? .15 : 1);
+    tx += (mx - tx) * k; ty += (my - ty) * k;
+
+    root.rotation.y = tx * .45; root.rotation.x = ty * .18 + cur.lean;
+    bounce = mood === 'fini' ? Math.abs(Math.sin(tt * 4.2)) * .28 : 0;
+    root.position.y = Math.sin(tt * 1.5) * .07 + bounce;
+    head.rotation.z = cur.tilt + Math.sin(tt * .9) * .03;
+    const br = 1 + Math.sin(tt * 2.1) * .02; head.scale.set(1 / Math.sqrt(br), br, 1 / Math.sqrt(br));
+
+    // clignement
+    blinkT -= dt; if (blinkT < 0) { blink = 0; blinkT = 2.5 + Math.random() * 3; }
+    blink = Math.min(1, blink + dt * 9);
+    const lid = Math.min(cur.eyeSq, .1 + .9 * blink * cur.eyeSq);
+    eyes.forEach(({ g, pupil, hi, hi2 }) => {
+      g.scale.set(cur.eyeSq > 1 ? cur.eyeSq : 1, lid, 1);
+      const px = tx * .045, py = -ty * .035 + cur.pupY * .6;
+      pupil.position.set(px, py, .14); hi.position.set(px + .06, py + .07, .25); hi2.position.set(px - .06, py - .06, .25);
+      pupil.visible = hi.visible = hi2.visible = cur.eyeSq > .45;
+    });
+    mouth.scale.set(cur.mouth, cur.mouth, 1);
+    cheeks.forEach(c => c.material.opacity = .55 + Math.sin(tt * 3) * .25);
+
+    tent.forEach((tn, i) => {
+      tn.raise += ((mood === 'accord' && i === raiseIdx ? 1 : 0) - tn.raise) * k;
+      const ph = i * .85;
+      tn.pts.forEach((p, s) => {
+        const u = s / (tn.pts.length - 1);
+        const wave = Math.sin(t * 2.2 + ph - u * 3.2) * .34 * u;
+        let dist = .3 + u * 1.2, y = .12 - u * .85 + Math.sin(u * Math.PI) * .1;
+        if (u > .5) { const c = (u - .5) / .5; y += c * c * .85; dist -= c * c * .55; }
+        const up = tn.raise;
+        dist = dist * (1 - up) + (.4 + u * .9) * up;
+        y = y * (1 - up) + (.15 + u * 1.55 + Math.sin(tt * 6 + u * 4) * .1 * u) * up;
+        const a = tn.a + wave * .5;
+        p.set(Math.cos(a) * dist, y + wave * .35, Math.sin(a) * dist * .95);
+      });
+      tn.curve.updateArcLengths();
+      updateTube(tn.g, tn.curve, SEGS, RAD, .27, .05);
+      updateTube(tn.gl, tn.curve, SEGS, RAD, .31, .08);
+    });
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(frame);
+  return { setMood };
+}
+
+let hero = null, mini = null;
+try {
+  if (!window.THREE) throw new Error('three');
+  hero = createPoulpe(document.getElementById('hero-canvas'));
+  mini = createPoulpe(document.getElementById('bubble-canvas'), { dist: 6.4, fov: 30, camY: .5, lookY: .25 });
+} catch (e) {
+  document.getElementById('hero-stage').insertAdjacentHTML('beforeend', '<div class="fallback">La 3D ne s\'affiche pas sur cet appareil.</div>');
+}
+
+/* ---------- Héros : humeurs ---------- */
+const heroEl = document.getElementById('hero'), sayEl = document.getElementById('say'), moodsEl = document.getElementById('moods');
+moodsEl.innerHTML = Object.entries(MOODS).map(([k, m]) => `<button class="mood-btn" type="button" data-m="${k}" style="--mood:var(--m-${k})" aria-pressed="${k === 'repos'}"><span class="dot"></span>${m.name}</button>`).join('');
+let auto = true, ai = 0; const keys = Object.keys(MOODS);
+function heroMood(k) {
+  heroEl.style.setProperty('--mood', `var(--m-${k})`);
+  moodsEl.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === k));
+  hero && hero.setMood(k);
+  sayEl.textContent = MOODS[k].say; sayEl.style.animation = 'none'; sayEl.offsetHeight; sayEl.style.animation = '';
+}
+moodsEl.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; auto = false; heroMood(b.dataset.m); });
+if (!reduce) setInterval(() => { if (auto) heroMood(keys[++ai % keys.length]); }, 3200);
+
+/* ---------- Démo ---------- */
+const desk = document.getElementById('desk'), feed = document.getElementById('feed'), voice = document.getElementById('voice'),
+  seg = document.getElementById('seg'), typed = document.getElementById('typed'), said = document.getElementById('said'),
+  chip = document.getElementById('chip-label'), bubble = document.getElementById('bubble'), input = document.getElementById('input');
+document.getElementById('wave').innerHTML = Array.from({ length: 24 }, (_, i) => `<i style="animation-delay:${(-(i * .137) % 1).toFixed(2)}s"></i>`).join('');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function mood(k) {
+  desk.style.setProperty('--mood', `var(--m-${k})`); chip.textContent = MOODS[k].name;
+  bubble.classList.toggle('ping', k === 'accord'); mini && mini.setMood(k);
+}
+function add(html) { feed.insertAdjacentHTML('beforeend', html); while (feed.children.length > 9) feed.firstElementChild.remove(); return feed.lastElementChild; }
+function mode(m) {
+  const p = m === 'parler'; seg.classList.toggle('parler', p);
+  seg.children[0].classList.toggle('on', !p); seg.children[1].classList.toggle('on', p);
+  feed.hidden = p; voice.hidden = !p; input.hidden = p;
+}
+async function type(text) {
+  for (let i = 1; i <= text.length; i++) { typed.innerHTML = `<span class="typed">${text.slice(0, i)}</span><span class="caret"></span>`; await sleep(26); }
+  await sleep(350);
+  typed.innerHTML = 'Écris, ou tape <span class="mono">/</span>';
+}
+async function speak(text, ms = 170) {
+  said.innerHTML = '';
+  for (const w of text.split(' ')) { said.insertAdjacentHTML('beforeend', `<span class="w">${w}&nbsp;</span>`); await sleep(ms); }
+}
+async function demo() {
+  while (true) {
+    mode('chat'); feed.innerHTML = ''; mood('repos'); await sleep(1100);
+    const q = 'Reprends le header campagne et aligne les libellés sur la maquette.';
+    await type(q); add(`<div class="me">${q}</div>`); mood('reflechit'); await sleep(1400);
+    mood('bosse'); add('<div class="tool"><b></b>Lit Figma · Header campagne</div>'); await sleep(800);
+    add('<div class="tool"><b></b>Lit src/campaign/Header.tsx</div>'); await sleep(900);
+    add('<div class="ai">Deux libellés ne collent pas à la maquette. Je corrige :</div>'); await sleep(500);
+    add(`<div class="diff"><div class="fn">src/campaign/Header.tsx</div><div class="l d">-  &lt;Badge&gt;En cours de diffusion&lt;/Badge&gt;</div><div class="l a">+  &lt;Badge&gt;En diffusion&lt;/Badge&gt;</div><div class="l d">-  label="Date de fin prévue"</div><div class="l a">+  label="Fin prévue"</div></div>`); await sleep(1300);
+    mood('accord');
+    const ask = add('<div class="ask"><div class="q">Je lance le build pour vérifier ?</div><div class="cmd">npm run build</div><div class="btns"><button class="btn pri" type="button" tabindex="-1">Autoriser</button><button class="btn" type="button" tabindex="-1">Toujours ici</button><button class="btn" type="button" tabindex="-1">Refuser</button></div></div>');
+    await sleep(2600); const b = ask.querySelector('.btn.pri'); b.classList.add('pressed'); await sleep(180); b.classList.remove('pressed'); await sleep(250);
+    ask.remove(); mood('bosse');
+    add('<div class="tool"><b></b>npm run build <span class="bar"><i></i></span></div>'); await sleep(2200);
+    mood('fini'); add('<div class="done">Build OK. Les libellés sont alignés.</div>'); await sleep(2600);
+    mode('parler'); mood('ecoute');
+    await speak('Super. Fais-moi un récap pour Romain, je l\'envoie après.'); await sleep(900);
+    mood('reflechit'); await sleep(1200);
+    mood('repos'); await speak('Voilà le récap, je te l\'ai mis dans le chat.', 150); await sleep(2600);
+  }
+}
+if (reduce) {
+  mode('chat'); mood('accord');
+  add('<div class="me">Reprends le header campagne et aligne les libellés sur la maquette.</div>');
+  add('<div class="tool"><b></b>Lit Figma · Header campagne</div>');
+  add('<div class="ask"><div class="q">Je lance le build pour vérifier ?</div><div class="cmd">npm run build</div><div class="btns"><button class="btn pri" type="button">Autoriser</button><button class="btn" type="button">Refuser</button></div></div>');
+} else demo();
+</script>

@@ -1,0 +1,33 @@
+{
+  "name": "encre",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Un poulpe sur ton écran : ton Claude Code, en chat ou à la voix",
+  "author": "Luth",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && electron-vite build",
+    "start": "electron-vite preview"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "*",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@fontsource/inter-tight": "^5.0.0",
+    "@fontsource/jetbrains-mono": "^5.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@types/three": "^0.160.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^41.10.7",
+    "electron-vite": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}
