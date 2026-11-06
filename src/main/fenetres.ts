@@ -68,7 +68,9 @@ export function creerPanneau(): BrowserWindow {
     alwaysOnTop: true,
     show: false,
     title: 'Encre',
-    webPreferences: preferences
+    // La veille (« Encre ») vit dans le panneau, qui reste caché la plupart du
+    // temps : sans ça, Chromium ralentit une fenêtre cachée et l'oreille s'endort.
+    webPreferences: { ...preferences, backgroundThrottling: false }
   })
   panneau.setAlwaysOnTop(true, 'floating')
   charger(panneau, 'panneau')

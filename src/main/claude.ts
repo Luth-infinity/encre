@@ -24,10 +24,19 @@ export function cheminClaude(): string | null {
   return candidats.find((c) => existsSync(c)) ?? null
 }
 
+/**
+ * Le fichier d'identifiants reste là quand la connexion expire : seul un
+ * tour refusé le dit. Retenu jusqu'au prochain tour réussi.
+ */
+let expiree = false
+export const noterConnexion = (ok: boolean): void => {
+  expiree = !ok
+}
+
 /** Connecté = des identifiants dans le dossier de Claude Code (sous macOS, ils sont dans le trousseau). */
 export function etatClaude(): EtatClaude {
   const chemin = cheminClaude()
   const dossier = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
   const connecte = process.platform === 'darwin' ? existsSync(dossier) : existsSync(join(dossier, '.credentials.json'))
-  return { installe: !!chemin, connecte, chemin }
+  return { installe: !!chemin, connecte: connecte && !expiree, chemin }
 }

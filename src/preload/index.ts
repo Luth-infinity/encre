@@ -1,10 +1,12 @@
-import { contextBridge, ipcRenderer } from 'electron'
-import type { Etat, Evenement, Humeur, Mode, Reponse } from '../shared/types'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type {
+  Bloc, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse
+} from '../shared/types'
 
-function recevoir<T>(canal: string, cb: (v: T) => void): () => void {
-  const h = (_e: unknown, v: T): void => cb(v)
-  ipcRenderer.on(canal, h)
-  return () => ipcRenderer.removeListener(canal, h)
+function recevoir<T extends unknown[]>(canal: string, cb: (...v: T) => void): () => void {
+  const h = (_e: unknown, ...v: T): void => cb(...v)
+  ipcRenderer.on(canal, h as never)
+  return () => ipcRenderer.removeListener(canal, h as never)
 }
 
 const api = {
@@ -12,18 +14,44 @@ const api = {
   surEtat: (cb: (e: Etat) => void) => recevoir('etat', cb),
   humeur: (): Promise<Humeur> => ipcRenderer.invoke('humeur'),
   surHumeur: (cb: (h: Humeur) => void) => recevoir('humeur', cb),
-  surEvenement: (cb: (e: Evenement) => void) => recevoir('evenement', cb),
+  /** Les événements d'un tour, avec le projet dont ils remplissent le fil. */
+  surEvenement: (cb: (projet: string, e: Evenement) => void) => recevoir('evenement', cb),
   surOuvert: (cb: () => void) => recevoir('ouvert', cb),
+  surTourFini: (cb: () => void) => recevoir('tour-fini', cb),
+  fil: (id: string): Promise<Bloc[]> => ipcRenderer.invoke('fil', id),
 
-  envoyer: (texte: string) => ipcRenderer.send('envoyer', texte),
+  envoyer: (texte: string, pieces: PieceJointe[] = [], voix = false) => ipcRenderer.send('envoyer', texte, pieces, voix),
   arreter: () => ipcRenderer.send('arreter'),
   repondre: (id: string, r: Reponse) => ipcRenderer.send('repondre', id, r),
   mode: (m: Mode) => ipcRenderer.send('mode', m),
   nouvelle: () => ipcRenderer.send('nouvelle'),
+  commandes: (): Promise<Commande[]> => ipcRenderer.invoke('commandes'),
   ajouterProjet: () => ipcRenderer.send('ajouter-projet'),
   choisirProjet: (id: string) => ipcRenderer.send('choisir-projet', id),
   menuCarte: (id: string) => ipcRenderer.send('menu-carte', id),
   fermer: () => ipcRenderer.send('fermer-panneau'),
+  /** Le chemin d'un fichier glissé dans le panneau (Electron a retiré `File.path`). */
+  cheminFichier: (f: File): string => webUtils.getPathForFile(f),
+
+  reglages: (champs: Partial<Reglages>) => ipcRenderer.send('reglages', champs),
+  cleGroq: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-groq', cle),
+
+  // Mode Parler.
+  transcrire: (audio: ArrayBuffer): Promise<{ texte?: string; erreur?: string }> => ipcRenderer.invoke('transcrire', audio),
+  surAudio: (cb: (mp3: string) => void) => recevoir('audio', cb),
+  surParler: (cb: () => void) => recevoir('parler', cb),
+  modeleVeille: (): Promise<Uint8Array | null> => ipcRenderer.invoke('modele-veille'),
+  veilleMot: () => ipcRenderer.send('veille-mot'),
+  /** Le micro est ouvert : le poulpe de la bulle prend l'humeur « écoute ». */
+  ecoute: (oui: boolean) => ipcRenderer.send('ecoute', oui),
+  noter: (ligne: string) => ipcRenderer.send('noter', ligne),
+
+  // Outils du projet.
+  comptesFigma: (): Promise<CompteFigma[]> => ipcRenderer.invoke('comptes-figma'),
+  serveursDossier: (id: string): Promise<string[]> => ipcRenderer.invoke('serveurs-dossier', id),
+  projetFigma: (id: string, serveurs: string[]) => ipcRenderer.send('projet-figma', id, serveurs),
+  jeton: (id: string, nom: string, valeur: string | null): Promise<string | null> => ipcRenderer.invoke('jeton', id, nom, valeur),
+  relierFigma: (nom: string): Promise<string | null> => ipcRenderer.invoke('relier-figma', nom),
 
   bulleClic: () => ipcRenderer.send('bulle-clic'),
   bulleDeplacer: (dx: number, dy: number) => ipcRenderer.send('bulle-deplacer', dx, dy),

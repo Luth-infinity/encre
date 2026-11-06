@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Diff, Etat, Evenement, Humeur, Mode, Outil, Reponse } from '@shared/types'
+import { appliquer, type Bloc, type Diff, type Etat, type Humeur, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
+import { Bulles, Micro, Prise, Roue } from './icones'
+import type { Veille } from './lib/veille'
+import { useParole } from './lib/parole'
 import { Markdown } from './markdown'
+import OutilsProjet from './OutilsProjet'
+import Parler from './Parler'
 import { COULEURS } from './poulpe'
-
-type Element =
-  | { type: 'moi'; texte: string }
-  | { type: 'ia'; texte: string }
-  | { type: 'outil'; outil: Outil }
-  | { type: 'demande'; demande: Outil }
-  | { type: 'fin'; erreur?: string; duree: number }
-  | { type: 'info'; texte: string }
+import Reglages from './Reglages'
+import { Saisie, versPiece, type SaisieRef } from './Saisie'
 
 const MODES: { id: Mode; nom: string; aide: string }[] = [
   { id: 'demander', nom: 'Demander', aide: 'Chaque action te sera demandée.' },
@@ -119,56 +118,114 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
   )
 }
 
+type Vue = 'chat' | 'hub' | 'parler' | 'reglages' | 'outils'
+
 export default function Panneau(): JSX.Element {
   const [etat, setEtat] = useState<Etat | null>(null)
   const [humeur, setHumeur] = useState<Humeur>('repos')
-  const [fil, setFil] = useState<Element[]>([])
-  const [saisie, setSaisie] = useState('')
-  const [hub, setHub] = useState(false)
-  const zone = useRef<HTMLTextAreaElement>(null)
+  const [fil, setFil] = useState<Bloc[]>([])
+  /** Le projet dont le fil est affiché : un événement d'un autre projet recharge le bon fil. */
+  const filDe = useRef<string | null>(null)
+  const [vue, setVue] = useState<Vue>('chat')
+  const [glisse, setGlisse] = useState(false)
+  const saisie = useRef<SaisieRef>(null)
   const bas = useRef<HTMLDivElement>(null)
+  const parole = useParole(etat?.reglages.suite ?? true)
+  // Les écouteurs posés au montage lisent la phase par ici : la leur serait figée.
+  const phase = useRef(parole.phase)
+  phase.current = parole.phase
+
+  const montrerFil = async (id: string): Promise<void> => {
+    filDe.current = id
+    const f = await window.api.fil(id)
+    if (filDe.current === id) setFil(f)
+  }
 
   useEffect(() => {
-    void window.api.etat().then(setEtat)
+    void window.api.etat().then((e) => {
+      setEtat(e)
+      if (e.actif) void montrerFil(e.actif)
+    })
     void window.api.humeur().then(setHumeur)
     const offs = [
       window.api.surEtat(setEtat),
       window.api.surHumeur(setHumeur),
-      window.api.surOuvert(() => setTimeout(() => zone.current?.focus(), 30)),
-      window.api.surEvenement((e: Evenement) =>
-        setFil((f) => {
-          if (e.type === 'texte') {
-            const dernier = f[f.length - 1]
-            if (dernier?.type === 'ia') return [...f.slice(0, -1), { type: 'ia', texte: dernier.texte + e.texte }]
-            return [...f, { type: 'ia', texte: e.texte }]
-          }
-          if (e.type === 'outil') return [...f, { type: 'outil', outil: e.outil }]
-          if (e.type === 'demande') return [...f, { type: 'demande', demande: e.demande }]
-          if (e.type === 'demande-close') return f.filter((x) => !(x.type === 'demande' && x.demande.id === e.id))
-          if (e.type === 'info') return [...f, { type: 'info', texte: e.texte }]
-          return [...f, { type: 'fin', erreur: e.erreur, duree: e.duree }]
-        })
-      )
+      window.api.surOuvert(() => setTimeout(() => saisie.current?.focus(), 30)),
+      window.api.surParler(() => {
+        setVue('parler')
+        parole.lancer()
+      }),
+      window.api.surEvenement((projet, e) => {
+        // Le fil enregistré par le main fait foi : on le recharge en entier
+        // (le premier message dans un projet créé depuis le chat y bascule).
+        if (projet !== filDe.current) void montrerFil(projet)
+        else setFil((f) => appliquer(f, e))
+      })
     ]
-    const echap = (e: KeyboardEvent): void => { if (e.key === 'Escape') window.api.fermer() }
+    const echap = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      if (phase.current === 'ecoute') parole.annuler()
+      else window.api.fermer()
+    }
     addEventListener('keydown', echap)
     return () => { offs.forEach((o) => o()); removeEventListener('keydown', echap) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil])
+  // La veille : dire « Encre » ouvre le mode Parler. Elle se tait pendant
+  // qu'on parle ou que le poulpe répond, sinon elle s'entendrait elle-même.
+  const veilleActive = !!etat?.reglages.veille && !!etat?.reglages.cleGroq
+  const veille = useRef<Veille | null>(null)
+  useEffect(() => {
+    if (!veilleActive) {
+      veille.current?.arreter()
+      veille.current = null
+      return
+    }
+    let fini = false
+    void (async () => {
+      const octets = await window.api.modeleVeille()
+      if (!octets || fini) return
+      try {
+        const { Veille } = await import('./lib/veille')
+        const v = await Veille.partagee(octets, '', () => window.api.veilleMot())
+        v.journal = (l) => window.api.noter(l)
+        if (fini) v.arreter()
+        else veille.current = v
+      } catch (e) {
+        window.api.noter(`veille : ${String(e)}`)
+      }
+    })()
+    return () => { fini = true; veille.current?.arreter(); veille.current = null }
+  }, [veilleActive])
+  useEffect(() => {
+    if (parole.phase === 'pret') veille.current?.reprendre()
+    else veille.current?.suspendre()
+  }, [parole.phase])
+
+  useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil, vue])
 
   const projet = etat?.projets.find((p) => p.id === etat.actif) ?? null
   const enCours = !!etat?.enCours
 
-  const envoyer = (): void => {
-    const t = saisie.trim()
-    if (!t || !projet || enCours) return
-    setFil((f) => [...f, { type: 'moi', texte: t }])
-    setSaisie('')
-    window.api.envoyer(t)
+  const envoyer = (texte: string, pieces: PieceJointe[]): void => {
+    if (!projet || enCours) return
+    window.api.envoyer(texte, pieces)
   }
   const repondre = (id: string, r: Reponse): void => window.api.repondre(id, r)
   const nouvelle = (): void => { if (!enCours) { setFil([]); window.api.nouvelle() } }
+  const basculer = (v: Vue): void => setVue(vue === v ? 'chat' : v)
+
+  // Glisser des fichiers n'importe où sur le panneau.
+  const deposer = async (e: React.DragEvent): Promise<void> => {
+    e.preventDefault()
+    setGlisse(false)
+    const p = (await Promise.all([...e.dataTransfer.files].map(versPiece))).filter((x): x is PieceJointe => !!x)
+    if (p.length) {
+      setVue('chat')
+      saisie.current?.ajouter(p)
+    }
+  }
 
   let corps: JSX.Element
   if (!etat) corps = <div className="vide" />
@@ -180,15 +237,15 @@ export default function Panneau(): JSX.Element {
         <code>npm install -g @anthropic-ai/claude-code</code>
       </div>
     )
-  } else if (hub) {
+  } else if (vue === 'reglages') corps = <Reglages etat={etat} />
+  else if (vue === 'hub') {
     corps = (
       <Hub
         etat={etat}
         ouvrir={(id) => {
-          // Un autre projet, une autre conversation : le fil repart vide.
-          if (id !== etat.actif) setFil([])
+          if (id !== filDe.current) void montrerFil(id)
           window.api.choisirProjet(id)
-          setHub(false)
+          setVue('chat')
         }}
       />
     )
@@ -200,7 +257,9 @@ export default function Panneau(): JSX.Element {
         <button type="button" className="btn pri" onClick={() => window.api.ajouterProjet()}>Ajouter un projet</button>
       </div>
     )
-  } else {
+  } else if (vue === 'outils') corps = <OutilsProjet projet={projet} />
+  else if (vue === 'parler') corps = <Parler parole={parole} humeur={humeur} fil={fil} veille={veilleActive} />
+  else {
     corps = (
       <div className="fil">
         {fil.length === 0 && (
@@ -216,7 +275,15 @@ export default function Panneau(): JSX.Element {
           </div>
         )}
         {fil.map((x, i) => {
-          if (x.type === 'moi') return <div key={i} className="moi">{x.texte}</div>
+          if (x.type === 'moi') {
+            return (
+              <div key={i} className={`moi ${x.voix ? 'voix' : ''}`}>
+                {x.voix && <span className="dit-voix"><Micro /></span>}
+                {x.texte}
+                {x.pieces?.length ? <div className="jointes">{x.pieces.map((n, j) => <span key={j}>{n}</span>)}</div> : null}
+              </div>
+            )
+          }
           if (x.type === 'ia') return <div key={i} className="ia"><Markdown texte={x.texte} /></div>
           if (x.type === 'outil') return <LigneOutil key={i} outil={x.outil} />
           if (x.type === 'demande') return <Demande key={i} d={x.demande} repondre={(r) => repondre(x.demande.id, r)} />
@@ -231,25 +298,38 @@ export default function Panneau(): JSX.Element {
     )
   }
 
+  const titres: Partial<Record<Vue, [string, string]>> = {
+    hub: ['Projets', 'Choisis où travailler'],
+    reglages: ['Réglages', 'Voix, démarrage, Claude Code'],
+    outils: ['Outils', projet?.nom ?? '']
+  }
+  const titre = titres[vue]
+
   return (
-    <div className="panneau" style={{ '--mood': COULEURS[humeur] } as React.CSSProperties}>
+    <div
+      className="panneau"
+      style={{ '--mood': COULEURS[parole.phase === 'ecoute' ? 'ecoute' : humeur] } as React.CSSProperties}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setGlisse(true) } }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setGlisse(false) }}
+      onDrop={(e) => void deposer(e)}
+    >
       <header>
-        <button
-          type="button"
-          className="projet"
-          onClick={() => setHub(!hub)}
-          title="Tes projets"
-        >
+        <button type="button" className="projet" onClick={() => basculer('hub')} title="Tes projets">
           <span className={`tag ${projet?.libre ? 'libre' : ''}`} style={projet?.libre ? undefined : { background: projet?.couleur }}>
             {projet?.libre ? '✦' : projet ? initiales(projet.nom) : '+'}
           </span>
           <span className="noms">
-            <strong>{hub ? 'Projets' : projet?.nom ?? 'Aucun projet'}</strong>
-            <small>{hub ? 'Choisis où travailler' : projet?.libre ? 'Questions sans projet' : projet?.dossier}</small>
+            <strong>{titre?.[0] ?? projet?.nom ?? 'Aucun projet'}</strong>
+            <small>{titre?.[1] ?? (projet?.libre ? 'Questions sans projet' : projet?.dossier)}</small>
           </span>
-          <span className="chevron">{hub ? '▴' : '▾'}</span>
+          <span className="chevron">{vue === 'hub' ? '▴' : '▾'}</span>
         </button>
         <div className="actions">
+          <button type="button" data-vue="parler" className={`icone ${vue === 'parler' ? 'on' : ''}`} title={vue === 'parler' ? 'Revenir au chat' : 'Parler'} onClick={() => basculer('parler')} disabled={!projet}>
+            {vue === 'parler' ? <Bulles /> : <Micro />}
+          </button>
+          <button type="button" data-vue="outils" className={`icone ${vue === 'outils' ? 'on' : ''}`} title="Outils du projet" onClick={() => basculer('outils')} disabled={!projet}><Prise /></button>
+          <button type="button" data-vue="reglages" className={`icone ${vue === 'reglages' ? 'on' : ''}`} title="Réglages" onClick={() => basculer('reglages')}><Roue /></button>
           <button type="button" className="icone" title="Nouvelle conversation" onClick={nouvelle} disabled={enCours || !projet}>＋</button>
           <button type="button" className="icone" title="Fermer (Échap)" onClick={() => window.api.fermer()}>✕</button>
         </div>
@@ -257,21 +337,11 @@ export default function Panneau(): JSX.Element {
 
       {corps}
 
-      {projet && !hub && etat?.claude.installe && (
+      {glisse && <div className="depot">Lâche pour joindre</div>}
+
+      {projet && vue === 'chat' && etat?.claude.installe && (
         <footer>
-          <div className="saisie">
-            <textarea
-              ref={zone}
-              rows={1}
-              value={saisie}
-              placeholder="Écris à Claude…"
-              onChange={(e) => setSaisie(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer() } }}
-            />
-            {enCours
-              ? <button type="button" className="envoi stop" title="Arrêter" onClick={() => window.api.arreter()}>■</button>
-              : <button type="button" className="envoi" title="Envoyer (Entrée)" onClick={envoyer} disabled={!saisie.trim()}>↑</button>}
-          </div>
+          <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} projet={projet.id} />
           <div className="modes" role="radiogroup" aria-label="Autorisations">
             {MODES.map((m) => (
               <button

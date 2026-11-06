@@ -1,6 +1,6 @@
 {
   "name": "encre",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Un poulpe sur ton écran : ton Claude Code, en chat ou à la voix",
   "author": "Luth",
@@ -9,16 +9,21 @@
     "dev": "electron-vite dev",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && electron-vite build",
-    "start": "electron-vite preview"
+    "start": "electron-vite preview",
+    "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --x64"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "*",
     "@electron-toolkit/utils": "^3.0.0",
     "@fontsource/inter-tight": "^5.0.0",
     "@fontsource/jetbrains-mono": "^5.0.0",
+    "electron-updater": "^6.8.11",
+    "msedge-tts": "^2.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "three": "^0.160.0"
+    "three": "^0.160.0",
+    "vosk-browser": "^0.0.8",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
@@ -26,8 +31,52 @@
     "@types/react-dom": "^18.2.18",
     "@types/three": "^0.160.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^41.10.7",
+    "electron-builder": "^24.13.3",
     "electron-vite": "^2.0.0",
     "typescript": "^5.3.3"
+  },
+  "build": {
+    "extends": null,
+    "appId": "com.luth.encre",
+    "productName": "Encre",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "out/**/*",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-*/**"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/",
+        "to": "assets/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "Encre-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "shortcutName": "Encre"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Luth-infinity",
+        "repo": "encre"
+      }
+    ]
   }
 }

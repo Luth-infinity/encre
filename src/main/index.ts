@@ -1,13 +1,20 @@
 import './avant'
 import { app, dialog, globalShortcut, ipcMain, Menu, shell } from 'electron'
-import type { Etat, Humeur, Mode, Reponse } from '@shared/types'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import type { Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse } from '@shared/types'
 import * as agent from './agent'
 import { etatClaude } from './claude'
 import {
   aTous, basculerPanneau, creerBulle, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
 } from './fenetres'
+import * as fils from './fils'
 import { journal } from './journal'
+import * as outils from './outils'
 import * as projets from './projets'
+import * as reglages from './reglages'
+import * as updates from './updates'
+import { attentePrete, prechaufferAttentes } from './voix'
 
 /**
  * Encre : une bulle toujours au-dessus, un panneau de chat branché sur le
@@ -27,6 +34,7 @@ const RACCOURCIS: [string, string][] = [
   ['Control+Shift+E', 'Ctrl+Maj+E']
 ]
 let raccourci = 'aucun'
+let majPrete: string | null = null
 
 let humeur: Humeur = 'repos'
 let retourRepos: NodeJS.Timeout | null = null
@@ -38,10 +46,27 @@ function changerHumeur(h: Humeur): void {
   aTous('humeur', h)
 }
 
+/** Le projet du tour en cours : il peut changer d'actif en plein tour (projet créé depuis le chat). */
+let tourDe: string | null = null
+
 function etat(): Etat {
-  return { projets: projets.projets(), actif: projets.actifId(), claude: etatClaude(), enCours: agent.enCours() }
+  return {
+    projets: projets.projets(),
+    actif: projets.actifId(),
+    claude: etatClaude(),
+    enCours: agent.enCours(),
+    reglages: reglages.reglages(),
+    version: app.getVersion(),
+    tourDe
+  }
 }
 const publierEtat = (): void => lePanneau()?.webContents.send('etat', etat())
+
+/** Note l'événement dans le fil du projet et le montre au panneau. */
+function diffuser(projet: string, ev: Evenement): void {
+  fils.noter(projet, ev)
+  lePanneau()?.webContents.send('evenement', projet, ev)
+}
 
 async function ajouterProjet(): Promise<void> {
   const p = lePanneau()
@@ -52,24 +77,92 @@ async function ajouterProjet(): Promise<void> {
   publierEtat()
 }
 
+/** Lancer Encre à l'ouverture de session. Seulement l'app installée : en développement, ce serait electron.exe. */
+function appliquerDemarrage(r: Reglages): void {
+  if (!app.isPackaged) return
+  app.setLoginItemSettings({ openAtLogin: r.demarrage, args: ['--demarrage'] })
+}
+
+function envoyer(texte: string, pieces: PieceJointe[], voix: boolean): void {
+  const p = projets.actif()
+  if (!p || agent.enCours() || (!texte.trim() && !pieces.length)) return
+  tourDe = p.id
+  diffuser(p.id, { type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined })
+  const r = reglages.reglages()
+  const audio = (mp3: Buffer): void => lePanneau()?.webContents.send('audio', mp3.toString('base64'))
+  // En mode Parler, un silence de plusieurs secondes sonne comme une panne :
+  // une courte phrase d'attente (« Je regarde. ») le comble, comme dans Iris.
+  let parle = false
+  const attente = voix
+    ? setTimeout(() => {
+        const mp3 = parle ? null : attentePrete()
+        if (mp3) audio(mp3)
+      }, 1800)
+    : null
+  void agent
+    .envoyer(
+      p,
+      texte,
+      {
+        evenement: (ev) => {
+          if (ev.type === 'texte') parle = true
+          diffuser(p.id, ev)
+        },
+        humeur: changerHumeur,
+        projets: publierEtat,
+        audio
+      },
+      { pieces, voix: voix ? r.voix : undefined }
+    )
+    .then(() => {
+      if (attente) clearTimeout(attente)
+      tourDe = null
+      fils.ecrire()
+      publierEtat()
+      lePanneau()?.webContents.send('tour-fini')
+    })
+  publierEtat()
+}
+
+/** La transcription du mode Parler, chez Groq (Whisper large v3 turbo) : la clé reste dans le main. */
+async function transcrire(audio: ArrayBuffer): Promise<{ texte?: string; erreur?: string }> {
+  const cle = reglages.cleGroq()
+  if (!cle) return { erreur: 'Il manque la clé Groq : ajoute-la dans les réglages (⚙).' }
+  const corps = new FormData()
+  corps.append('file', new Blob([audio], { type: 'audio/webm' }), 'question.webm')
+  corps.append('model', 'whisper-large-v3-turbo')
+  corps.append('language', 'fr')
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cle}` },
+      body: corps,
+      signal: AbortSignal.timeout(30000)
+    })
+    if (res.status === 401) return { erreur: 'Clé Groq refusée : change-la dans les réglages (⚙).' }
+    if (res.status === 429) return { erreur: 'Quota Groq atteint, réessaie dans un instant.' }
+    if (!res.ok) return { erreur: `Transcription impossible (erreur ${res.status}).` }
+    return { texte: String(((await res.json()) as { text?: string }).text ?? '').trim() }
+  } catch (e) {
+    journal(`transcription : ${String(e)}`)
+    return { erreur: 'Transcription impossible : pas de réseau ?' }
+  }
+}
+
+const dossierAssets = (): string => (app.isPackaged ? join(process.resourcesPath, 'assets') : join(__dirname, '../../assets'))
+
 function brancher(): void {
   ipcMain.handle('etat', () => etat())
   ipcMain.handle('humeur', () => humeur)
+  ipcMain.handle('fil', (_e, id: string) => fils.fil(id))
 
-  ipcMain.on('envoyer', (_e, texte: string) => {
-    const p = projets.actif()
-    if (!p || agent.enCours()) return
-    void agent
-      .envoyer(p, texte, {
-        evenement: (ev) => lePanneau()?.webContents.send('evenement', ev),
-        humeur: changerHumeur,
-        projets: publierEtat
-      })
-      .then(publierEtat)
-    publierEtat()
-  })
+  ipcMain.on('envoyer', (_e, texte: string, pieces: PieceJointe[] = [], voix = false) => envoyer(texte, pieces, voix))
   ipcMain.on('arreter', () => agent.arreter())
   ipcMain.on('repondre', (_e, id: string, r: Reponse) => agent.repondre(id, r))
+  ipcMain.handle('commandes', () => {
+    const p = projets.actif()
+    return p ? agent.commandes(p) : []
+  })
 
   ipcMain.on('mode', (_e, mode: Mode) => {
     const p = projets.actif()
@@ -80,7 +173,10 @@ function brancher(): void {
   })
   ipcMain.on('nouvelle', () => {
     const p = projets.actif()
-    if (p && !agent.enCours()) projets.modifier(p.id, { session: null })
+    if (p && !agent.enCours()) {
+      projets.modifier(p.id, { session: null })
+      fils.vider(p.id)
+    }
     publierEtat()
   })
   ipcMain.on('ajouter-projet', () => void ajouterProjet())
@@ -100,10 +196,78 @@ function brancher(): void {
       {
         label: 'Retirer d’Encre (le dossier reste)',
         enabled: !agent.enCours(),
-        click: () => { projets.retirer(id); publierEtat() }
+        click: () => {
+          projets.retirer(id)
+          outils.oublierJetons(id)
+          fils.vider(id)
+          publierEtat()
+        }
       }
     ]).popup({ window: p })
   })
+
+  // Réglages : la clé Groq ne repart jamais vers le panneau, seulement sa présence.
+  ipcMain.on('reglages', (_e, champs: Partial<Reglages>) => {
+    const { cleGroq: _ignore, ...reste } = champs
+    const r = reglages.modifier(reste)
+    if ('demarrage' in reste) appliquerDemarrage(r)
+    if ('voix' in reste) void prechaufferAttentes({ voix: r.voix, dossier: '' })
+    publierEtat()
+  })
+  ipcMain.handle('cle-groq', (_e, cle: string | null) => {
+    try {
+      reglages.poserCleGroq(cle)
+      publierEtat()
+      return null
+    } catch (e) {
+      return String((e as Error).message)
+    }
+  })
+
+  // Mode Parler.
+  ipcMain.handle('transcrire', (_e, audio: ArrayBuffer) => transcrire(audio))
+  ipcMain.handle('modele-veille', () => {
+    try {
+      return readFileSync(join(dossierAssets(), 'veille', 'vosk-fr.tar.gz'))
+    } catch {
+      // Modèle absent : la veille se tait, le bouton micro reste.
+      return null
+    }
+  })
+  // La veille a entendu « Encre » : le panneau s'ouvre en mode Parler et écoute.
+  ipcMain.on('veille-mot', () => {
+    journal('veille : « encre » entendu')
+    ouvrirPanneau()
+    lePanneau()?.webContents.send('parler')
+  })
+  ipcMain.on('ecoute', (_e, oui: boolean) => {
+    if (oui) changerHumeur('ecoute')
+    else if (humeur === 'ecoute') changerHumeur('repos')
+  })
+  ipcMain.on('noter', (_e, ligne: string) => journal(`panneau : ${String(ligne).slice(0, 300)}`))
+
+  // Outils du projet.
+  ipcMain.handle('comptes-figma', () => outils.comptesFigma())
+  ipcMain.handle('serveurs-dossier', (_e, id: string) => {
+    const p = projets.trouver(id)
+    return p ? outils.serveursDuDossier(p.dossier) : []
+  })
+  ipcMain.on('projet-figma', (_e, id: string, serveurs: string[]) => {
+    projets.modifier(id, { figma: serveurs })
+    publierEtat()
+  })
+  ipcMain.handle('jeton', (_e, id: string, nom: string, valeur: string | null) => {
+    const p = projets.trouver(id)
+    if (!p) return 'Projet introuvable.'
+    try {
+      projets.modifier(id, { jetons: outils.poserJeton(p, nom, valeur) })
+      publierEtat()
+      return null
+    } catch (e) {
+      return String((e as Error).message)
+    }
+  })
+  ipcMain.handle('relier-figma', (_e, nom: string) => outils.relierFigma(nom))
 
   ipcMain.on('fermer-panneau', () => lePanneau()?.hide())
 
@@ -116,7 +280,17 @@ function brancher(): void {
     if (!b) return
     Menu.buildFromTemplate([
       { label: 'Ouvrir Encre', click: () => ouvrirPanneau() },
+      {
+        label: 'Parler',
+        click: () => {
+          ouvrirPanneau()
+          lePanneau()?.webContents.send('parler')
+        }
+      },
       { label: `Raccourci : ${raccourci}`, enabled: false },
+      ...(majPrete
+        ? [{ label: `Installer la version ${majPrete}`, click: () => void updates.installer() } as Electron.MenuItemConstructorOptions]
+        : []),
       { type: 'separator' },
       { label: 'Quitter', click: () => app.quit() }
     ]).popup({ window: b })
@@ -127,48 +301,105 @@ void app.whenReady().then(() => {
   journal(`démarrage ${app.getVersion()}`)
   Menu.setApplicationMenu(null)
   brancher()
+  if (process.env.ENCRE_ICONE) return void icone(process.env.ENCRE_ICONE)
   creerBulle()
   creerPanneau()
   const libre = RACCOURCIS.find(([acc]) => globalShortcut.register(acc, () => basculerPanneau()))
   raccourci = libre?.[1] ?? 'aucun'
   journal(`raccourci : ${raccourci}`)
+  const r = reglages.reglages()
+  appliquerDemarrage(r)
+  // Les phrases d'attente du mode Parler, prêtes avant qu'on en ait besoin.
+  void prechaufferAttentes({ voix: r.voix, dossier: '' })
+  updates.surveiller((v) => (majPrete = v))
   if (process.env.ENCRE_VERIF) void verifier(process.env.ENCRE_VERIF)
 })
+
+/**
+ * `ENCRE_ICONE=<fichier.png>` : dessine le poulpe en 512 px sur un disque et
+ * l'enregistre, pour l'icône de l'app et de l'installeur. Puis quitte.
+ */
+async function icone(sortie: string): Promise<void> {
+  const { BrowserWindow } = await import('electron')
+  const { writeFileSync } = await import('fs')
+  const f = new BrowserWindow({
+    width: 512, height: 512, show: false, frame: false, transparent: true, useContentSize: true,
+    webPreferences: { offscreen: true, preload: join(__dirname, '../preload/index.js'), sandbox: false }
+  })
+  const url = process.env.ELECTRON_RENDERER_URL
+  if (url) await f.loadURL(`${url}?vue=icone`)
+  else await f.loadFile(join(__dirname, '../renderer/index.html'), { query: { vue: 'icone' } })
+  await new Promise((r) => setTimeout(r, 2500))
+  writeFileSync(sortie, (await f.webContents.capturePage()).toPNG())
+  journal(`icône enregistrée : ${sortie}`)
+  app.quit()
+}
 
 /**
  * Vérification sans écran : `ENCRE_VERIF=<dossier> ENCRE_VERIF_SORTIE=<dossier>`
  * ajoute le projet, ouvre le panneau, envoie un vrai message à Claude et
  * enregistre une capture de la bulle et du panneau, puis quitte.
+ * `ENCRE_VERIF_ETAPES=sans-claude` s'arrête avant le message (captures de l'interface seules).
  */
 async function verifier(dossier: string): Promise<void> {
   const sortie = process.env.ENCRE_VERIF_SORTIE ?? dossier
   const attendre = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
   const { writeFileSync } = await import('fs')
-  const { join } = await import('path')
   const capturer = async (nom: string): Promise<void> => {
     for (const [f, n] of [[laBulle(), 'bulle'], [lePanneau(), 'panneau']] as const) {
       if (f) writeFileSync(join(sortie, `${nom}-${n}.png`), (await f.webContents.capturePage()).toPNG())
     }
   }
+  const js = (code: string): Promise<unknown> | undefined => lePanneau()?.webContents.executeJavaScript(code)
   const p = projets.ajouter(dossier)
   projets.modifier(p.id, { mode: (process.env.ENCRE_VERIF_MODE as Mode) || 'demander', session: null })
   await attendre(2500)
   ouvrirPanneau()
   publierEtat()
   await attendre(1500)
-  const cliquerProjet = (): Promise<unknown> | undefined =>
-    lePanneau()?.webContents.executeJavaScript(`document.querySelector('.projet')?.click()`)
-  await cliquerProjet()
+  await js(`document.querySelector('.projet')?.click()`)
   await attendre(900)
   await capturer('0-hub')
-  await cliquerProjet()
+  await js(`document.querySelector('.projet')?.click()`)
   await attendre(500)
   await capturer('1-vide')
+  // Les vues ajoutées : réglages, outils, commandes, mode Parler.
+  for (const [nom, sel] of [['4-reglages', '[data-vue=reglages]'], ['5-outils', '[data-vue=outils]'], ['6-parler', '[data-vue=parler]']]) {
+    await js(`document.querySelector('${sel}')?.click()`)
+    await attendre(1200)
+    await capturer(nom)
+    await js(`document.querySelector('${sel}')?.click()`)
+    await attendre(400)
+  }
+  await js(`(() => { const t = document.querySelector('textarea'); const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; s.call(t, '/'); t.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await attendre(8000)
+  await capturer('7-commandes')
+  await js(`(() => { const t = document.querySelector('textarea'); const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; s.call(t, ''); t.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  // La chaîne du mode Parler, sans micro : la voix d'Edge dit une phrase, Groq la retranscrit.
+  if (process.env.ENCRE_VERIF_ETAPES === 'sans-claude') {
+    const { synthetiser } = await import('./voix')
+    const phrase = 'Bonjour, je suis le poulpe Encre et je teste ma voix.'
+    try {
+      const mp3 = await synthetiser(phrase, { voix: reglages.reglages().voix, dossier: '' })
+      writeFileSync(join(sortie, 'voix.mp3'), mp3)
+      const r = await transcrire(mp3.buffer.slice(mp3.byteOffset, mp3.byteOffset + mp3.byteLength) as ArrayBuffer)
+      journal(`verif voix : ${mp3.length} octets, transcrit « ${r.texte ?? r.erreur} »`)
+    } catch (e) {
+      journal(`verif voix en erreur : ${String(e)}`)
+    }
+  }
+  if (process.env.ENCRE_VERIF_ETAPES === 'sans-claude') {
+    journal('verif terminée (sans Claude)')
+    return app.quit()
+  }
   const message = process.env.ENCRE_VERIF_MESSAGE ?? 'Crée un fichier bonjour.txt qui contient « Bonjour Lucas », puis dis-moi en une phrase ce que tu as fait.'
   let demande = false
-  const fin = agent.envoyer(projets.actif()!, message, {
+  const actif = projets.actif()!
+  tourDe = actif.id
+  diffuser(actif.id, { type: 'moi', texte: message })
+  const fin = agent.envoyer(actif, message, {
     evenement: (ev) => {
-      lePanneau()?.webContents.send('evenement', ev)
+      diffuser(actif.id, ev)
       journal(`verif ${ev.type} ${JSON.stringify(ev).slice(0, 300)}`)
       if (ev.type === 'demande' && !demande) {
         demande = true
@@ -178,10 +409,13 @@ async function verifier(dossier: string): Promise<void> {
         })
       }
     },
-    humeur: changerHumeur
+    humeur: changerHumeur,
+    projets: publierEtat
   })
   publierEtat()
   await fin
+  tourDe = null
+  fils.ecrire()
   publierEtat()
   await attendre(1500)
   await capturer('3-fin')
@@ -192,6 +426,7 @@ async function verifier(dossier: string): Promise<void> {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   agent.arreter()
+  fils.ecrire()
 })
 // Le panneau caché ne doit pas fermer l'app : seule la bulle (ou « Quitter ») le fait.
 app.on('window-all-closed', () => app.quit())

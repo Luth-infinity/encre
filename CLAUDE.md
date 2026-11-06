@@ -19,7 +19,11 @@ npm install
 npm run dev        # electron-vite, rechargement à chaud
 npm run build      # typecheck + build dans out/
 npx electron .     # lance le build
+npm run dist:win   # installeur dans dist/ (Encre-Setup-x.y.z.exe)
 ```
+
+Icône : `ENCRE_ICONE=<chemin>/assets/icon.png npx electron .` redessine le
+poulpe en PNG (vue `?vue=icone`), utilisé par electron-builder.
 
 Journal : `%APPDATA%/Encre/journal.log` (le `console.log` du main n'atteint pas
 la sortie standard sous Windows). Projets : `%APPDATA%/Encre/projets.json`.
@@ -33,7 +37,11 @@ ENCRE_VERIF='C:\chemin\projet-test' ENCRE_VERIF_SORTIE='C:\chemin\captures' npx 
 L'app ajoute le projet, ouvre le panneau, capture le hub, envoie un vrai
 message à Claude (`ENCRE_VERIF_MESSAGE`, mode `ENCRE_VERIF_MODE`), autorise la
 première demande, enregistre `0-hub-*.png`, `1-vide-*.png`, `2-demande-*.png`,
-`3-fin-*.png` (bulle et panneau) puis quitte. En mode vérif, `main/avant.ts`
+`3-fin-*.png` (bulle et panneau) puis quitte. Il capture aussi les vues
+Réglages, Outils, Parler et le menu `/` (`4-` à `7-`). Avec
+`ENCRE_VERIF_ETAPES=sans-claude`, il s'arrête avant le message et teste la
+chaîne vocale sans micro : la voix d'Edge dit une phrase, Groq la retranscrit
+(résultat dans le journal, `voix.mp3` dans la sortie). En mode vérif, `main/avant.ts`
 met `userData` et la racine des projets dans le dossier de sortie : le test ne
 touche ni aux projets de Lucas ni à l'Encre qui tourne (sinon le verrou
 d'instance unique ferme le test aussitôt).
@@ -46,7 +54,17 @@ d'instance unique ferme le test aussitôt).
 | `main/fenetres.ts` | La bulle (132 px, transparente, `focusable: false`, niveau `floating`) et le panneau (420×660), placé du côté de l'écran où il tient |
 | `main/agent.ts` | Le SDK Claude Agent : un `query()` par message, `resume` de la session du projet, flux partiel, demandes d'autorisation |
 | `main/projets.ts` | Projets = dossier + couleur + mode + dernière session |
-| `main/claude.ts` | Trouve le Claude Code installé, regarde s'il y a des identifiants |
+| `main/claude.ts` | Trouve le Claude Code installé, regarde s'il y a des identifiants (et retient une connexion expirée) |
+| `main/fils.ts` | Le fil de chaque projet, gardé dans `userData/fils/<id>.json` |
+| `main/voix.ts` | Voix d'Edge phrase par phrase (repris d'Iris), phrases d'attente |
+| `main/outils.ts` | Comptes Figma par projet, jetons, console `claude mcp login` |
+| `main/secrets.ts` | Clé Groq et jetons, chiffrés par `safeStorage` (DPAPI) |
+| `main/reglages.ts` | Voix, veille, enchaîner, démarrage avec Windows ; reprend la clé Groq d'Iris/VoiceType |
+| `main/updates.ts` | `electron-updater` sur les releases GitHub (installé à la fermeture) |
+| `renderer/src/Saisie.tsx` | Saisie, pièces jointes (glisser, coller, trombone), menu `/` |
+| `renderer/src/Parler.tsx` + `lib/parole.ts` | Mode Parler : poulpe en grand, écoute → Groq → Claude → voix → réécoute |
+| `renderer/src/lib/veille.ts` | Réveil au mot « Encre » (Vosk local, repris d'Iris ; « ancre » compte aussi) |
+| `renderer/src/Reglages.tsx` / `OutilsProjet.tsx` | Les deux pages de l'en-tête (⚙ et prise) |
 | `renderer/src/poulpe.ts` | Le poulpe 3D (Three.js r160) |
 | `renderer/src/Bulle.tsx` / `Panneau.tsx` | Les deux vues, une seule page (`?vue=bulle` ou `?vue=panneau`) |
 | `design/pistes.html` | La page de pistes validée (artifact claude.ai/artifact/HaKuWJJFYGGe1U1iT3rnLS) |
@@ -103,6 +121,51 @@ Claude Code les charge seul (`settingSources: ['user', 'project', 'local']`).
 Prévu ensuite : une interface pour brancher les outils et ranger les jetons
 dans le trousseau Windows, sans toucher aux fichiers.
 
+### Fil gardé
+
+Le main est la source du fil : chaque événement passe par `fils.noter` puis
+part au panneau avec l'id du projet (`appliquer()` dans `shared/types.ts`,
+même fonction des deux côtés). Un événement d'un autre projet fait recharger
+le fil entier : c'est ce qui bascule le panneau sur un projet créé depuis le
+chat, au message suivant. « ＋ » vide le fil et la session.
+
+### Commandes `/` et pièces jointes
+
+`agent.commandes()` ouvre une session sans message le temps de
+`supportedCommands()` (rien n'est envoyé à Claude), écarte les commandes
+internes, retirées ou de terminal (`HORS_ENCRE`) et garde la liste par
+dossier. Les images partent en blocs base64, les autres fichiers par leur
+chemin (Claude les lit lui-même). Chemin d'un fichier glissé :
+`webUtils.getPathForFile`.
+
+### Mode Parler
+
+Micro (arrêt après 1,4 s de silence) → `transcrire` dans le main (Groq
+whisper-large-v3-turbo, la clé ne quitte pas le main) → `envoyer(…, voix)` :
+la consigne passe en « écris pour l'oreille » et un `Diseur` envoie le MP3
+phrase par phrase au panneau. Une phrase d'attente comble le silence après
+1,8 s. Seule une question dite reçoit une réponse dite. La veille vit dans
+le panneau (caché la plupart du temps : `backgroundThrottling: false`) et se
+tait pendant qu'on parle ou que le poulpe répond.
+
+### Outils par projet
+
+- **Figma** : on coche les comptes déjà reliés (entrées `mcpOAuth` du
+  `.credentials.json`). Encre les déclare au tour (`mcpServers`, même nom,
+  même adresse) et Claude Code reprend la connexion, comme Calque. « Relier »
+  ouvre une console PowerShell qui fait `claude mcp add --scope local` dans
+  `Documents/Encre` puis `claude mcp login`. `figma-remote-mcp` s'affiche
+  « avanteam ».
+- **Jetons** : chiffrés, donnés au Claude Code du projet en variables
+  d'environnement (un `.mcp.json` peut écrire `${NOM}`).
+- **Serveurs** : l'état donné par le message `init` du dernier tour.
+
+### Paquet
+
+L'installeur exclut `@anthropic-ai/claude-agent-sdk-win32-x64` (327 Mo) :
+Encre passe toujours par le Claude Code de la machine. Démarrage avec
+Windows seulement dans l'app installée (`setLoginItemSettings`).
+
 ### Humeurs
 
 `repos` (lavande), `ecoute` (bleu), `reflechit` (rose), `bosse` (orange),
@@ -131,26 +194,35 @@ d'humeur, les entrées à ressort, la bulle qui pulse. Suit le thème de Windows
 Le premier libre parmi Ctrl+Maj+Espace, Alt+Maj+E, Ctrl+Maj+E. **Pas de
 Ctrl+Alt** : c'est AltGr sur un clavier AZERTY (Ctrl+Alt+E tape €).
 
-## État au 06/11/2026 (V0)
+## État au 06/11/2026 (v0.1.0)
 
-Fait : bulle 3D déplaçable (se range au bord), clic / clic droit, panneau,
-mode Libre, hub de projets en cartes, création de projet depuis le chat,
-chat en flux avec Markdown, lignes d'outils dépliables
-avec diff, carte d'autorisation, trois modes, arrêt, nouvelle conversation,
-reprise de session par projet, raccourci global.
+Fait : bulle 3D déplaçable, panneau, mode Libre, hub de projets, création de
+projet depuis le chat, chat en flux avec Markdown et diffs, carte
+d'autorisation, trois modes, reprise de session, raccourci global, **fil
+gardé à la réouverture**, **commandes `/`**, **pièces jointes**, **mode
+Parler** (micro, Groq, voix Edge, enchaîner, réveil au mot « Encre »),
+**outils par projet** (Figma, jetons, serveurs), **réglages**, **icône**,
+**installeur NSIS**, **démarrage avec Windows**, **mise à jour auto** câblée.
 
-Vérifié : build, typecheck, captures de la bulle et du panneau, chaîne
-jusqu'au Claude Code. **Pas encore vu** : un tour complet avec réponse, car
-la connexion du Claude Code de la machine avait expiré le 06/11.
+Vérifié le 06/11 : build et typecheck ; captures de toutes les vues en dev
+et dans l'app empaquetée ; voix Edge → transcription Groq (phrase
+retrouvée) ; fil enregistré sur le disque ; message « connexion expirée ».
 
-À faire, dans l'ordre :
-1. Tour complet vérifié (après `/login`), carte d'autorisation et création
-   de projet depuis le chat comprises.
-2. Historique du fil gardé à la réouverture (aujourd'hui, seule la session
-   Claude reprend : le fil affiché repart vide au redémarrage).
-3. Commandes `/` (lister celles du SDK) et pièces jointes (glisser un fichier).
-4. Mode Parler : reprendre `micro.ts` (Groq), `voix.ts` (edge-tts) et la
-   veille d'Iris ; le poulpe en grand dans le panneau.
-5. Outils par projet dans l'interface (Figma multi-comptes façon Calque,
-   jetons dans le trousseau).
-6. Démarrage avec Windows, icône, installeur, mise à jour auto.
+**Pas encore vu** :
+- un tour complet avec réponse de Claude : la connexion du Claude Code de la
+  machine est toujours expirée (`claude` puis `/login`, à faire par Lucas) ;
+- le micro et la veille en vrai (pas d'accès au micro depuis une session
+  Code) ;
+- un compte Figma branché sur un projet pendant un vrai tour ;
+- la mise à jour auto : il faut une release GitHub, or le dépôt est privé
+  (electron-updater ne lit pas un dépôt privé sans jeton). À décider avec
+  Lucas : dépôt public façon Hublink, ou mises à jour à la main.
+
+À faire ensuite :
+1. Tour complet (après `/login`) : carte d'autorisation, projet créé depuis
+   le chat, compte Figma branché.
+2. Essayer le mode Parler et la veille en vrai, régler les seuils
+   (`micro.ts` : `SEUIL`, `FIN_SILENCE`).
+3. Décider de la publication (release, site Luth), puis retirer Iris et
+   Calque une fois Encre à parité, avec l'accord de Lucas.
+4. macOS : rien n'est testé (chemins, trousseau, micro).
