@@ -14,7 +14,7 @@ import { creerPoulpe } from './poulpe'
 function Icone(): JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
-    const p = creerPoulpe(canvas.current!, { distance: 7.8, fov: 30, hauteurCamera: 0.5, vise: 0.2 })
+    const p = creerPoulpe(canvas.current!, { remplir: 0.82 })
     return () => p.detruire()
   }, [])
   return <div className="icone-app"><canvas ref={canvas} /></div>

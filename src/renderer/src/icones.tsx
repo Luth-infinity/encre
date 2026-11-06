@@ -27,8 +27,13 @@ export const Trombone = (): JSX.Element => (
     <path d="m21 11-8.6 8.6a5 5 0 0 1-7-7l8.5-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9" />
   </Svg>
 )
-export const Bulles = (): JSX.Element => (
+export const Agrandir = (): JSX.Element => (
   <Svg>
-    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+  </Svg>
+)
+export const Reduire = (): JSX.Element => (
+  <Svg>
+    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
   </Svg>
 )

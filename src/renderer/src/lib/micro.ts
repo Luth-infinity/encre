@@ -20,15 +20,23 @@ export async function flux(peripherique: string, options: MediaTrackConstraints 
 
 /** Au-dessus : quelqu'un parle. Repris de la veille d'Iris, un peu plus haut (micro ouvert près de la bouche). */
 const SEUIL = 0.02
-/** Silence après la parole qui clôt la demande. */
-const FIN_SILENCE = 1400
-/** Sans un mot dans ce délai, on referme (utile quand le micro se rouvre seul après une réponse). */
-const ATTENTE_DEBUT = { normale: 8000, suite: 5000 }
-const MAX = 90_000
+/**
+ * Silence après la parole qui clôt la demande. À 1,4 s, une hésitation
+ * (« Non mais… ») partait comme une demande entière : on laisse le temps
+ * de chercher ses mots.
+ */
+const FIN_SILENCE = 2300
+/** Il faut au moins ça de voix pour que ce soit une phrase, et pas un bruit (que Whisper transformerait en texte inventé). */
+const PAROLE_MIN = 400
+/** Mains libres, sans un mot dans ce délai, on referme. */
+const ATTENTE_DEBUT = 10000
+const MAX = 180_000
 
 export type Ecoute = {
   /** Le niveau du micro (0 à 1), pour animer le poulpe et l'anneau. */
   niveau: () => number
+  /** Pendant une pause après avoir parlé : de 0 (on vient de se taire) à 1 (ça part). */
+  pause: () => number
   /** Arrête tout de suite et rend ce qui a été dit. */
   finir: () => void
   /** Abandonne : rien n'est rendu. */
@@ -37,7 +45,12 @@ export type Ecoute = {
   resultat: Promise<Blob | null>
 }
 
-export async function ecouter(suite = false): Promise<Ecoute> {
+/**
+ * `auto` : l'écoute se ferme seule après un silence (réveil au mot). Sinon,
+ * comme dans VoiceType, c'est l'appui suivant qui envoie : on peut chercher
+ * ses mots aussi longtemps qu'on veut.
+ */
+export async function ecouter({ auto }: { auto: boolean }): Promise<Ecoute> {
   const stream = await flux('', { echoCancellation: true, noiseSuppression: true })
   const ctx = new AudioContext()
   const analyseur = ctx.createAnalyser()
@@ -51,6 +64,8 @@ export async function ecouter(suite = false): Promise<Ecoute> {
 
   let niveau = 0
   let aParle = false
+  let voix = 0
+  let pause = 0
   let dernierSon = Date.now()
   const debut = Date.now()
   let annule = false
@@ -75,20 +90,23 @@ export async function ecouter(suite = false): Promise<Ecoute> {
     niveau = Math.min(1, rms * 12)
     const maintenant = Date.now()
     if (rms > SEUIL) {
-      aParle = true
+      voix += 60
+      if (voix >= PAROLE_MIN) aParle = true
       dernierSon = maintenant
     }
-    if (aParle && maintenant - dernierSon > FIN_SILENCE) fermer()
-    else if (!aParle && maintenant - debut > (suite ? ATTENTE_DEBUT.suite : ATTENTE_DEBUT.normale)) fermer()
+    pause = auto && aParle ? Math.min(1, Math.max(0, (maintenant - dernierSon - 300) / (FIN_SILENCE - 300))) : 0
+    if (auto && aParle && maintenant - dernierSon > FIN_SILENCE) fermer()
+    else if (auto && !aParle && maintenant - debut > ATTENTE_DEBUT) fermer()
     else if (maintenant - debut > MAX) fermer()
   }, 60)
 
   enregistreur.start(250)
   return {
     niveau: () => niveau,
-    // « Finir » à la main vaut parole : on envoie même un murmure sous le seuil.
+    pause: () => pause,
+    // Envoyer à la main vaut parole, même à voix basse ; un appui sans un mot n'envoie rien.
     finir: () => {
-      aParle = aParle || morceaux.length > 0
+      aParle = aParle || voix >= 180
       fermer()
     },
     annuler: () => {

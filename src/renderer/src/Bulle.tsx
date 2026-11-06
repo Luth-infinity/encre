@@ -17,7 +17,7 @@ export default function Bulle(): JSX.Element {
   const [humeur, setHumeur] = useState<Humeur>('repos')
 
   useEffect(() => {
-    poulpe.current = creerPoulpe(canvas.current!, { distance: 6.4, fov: 30, hauteurCamera: 0.5, vise: 0.25 })
+    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.8 })
     void window.api.humeur().then((h) => { setHumeur(h); poulpe.current?.humeur(h) })
     const off = window.api.surHumeur((h) => { setHumeur(h); poulpe.current?.humeur(h) })
     return () => { off(); poulpe.current?.detruire() }

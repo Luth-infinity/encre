@@ -30,6 +30,9 @@ const api = {
   choisirProjet: (id: string) => ipcRenderer.send('choisir-projet', id),
   menuCarte: (id: string) => ipcRenderer.send('menu-carte', id),
   fermer: () => ipcRenderer.send('fermer-panneau'),
+  /** Le panneau prend tout l'écran, ou revient contre la bulle. */
+  pleinEcran: () => ipcRenderer.send('plein-ecran'),
+  surPlein: (cb: (plein: boolean) => void) => recevoir('plein', cb),
   /** Le chemin d'un fichier glissé dans le panneau (Electron a retiré `File.path`). */
   cheminFichier: (f: File): string => webUtils.getPathForFile(f),
 
@@ -39,7 +42,11 @@ const api = {
   // Mode Parler.
   transcrire: (audio: ArrayBuffer): Promise<{ texte?: string; erreur?: string }> => ipcRenderer.invoke('transcrire', audio),
   surAudio: (cb: (mp3: string) => void) => recevoir('audio', cb),
-  surParler: (cb: () => void) => recevoir('parler', cb),
+  /** Le raccourci pour parler (ou le mot « Encre », mains libres) : ouvrir l'écoute, ou envoyer. */
+  surDicter: (cb: (mainsLibres: boolean) => void) => recevoir('dicter', cb),
+  surAnnulerDictee: (cb: () => void) => recevoir('annuler-dictee', cb),
+  /** Un échange à la voix commence ou finit : Échap devient global le temps qu'il dure. */
+  echange: (oui: boolean) => ipcRenderer.send('echange', oui),
   modeleVeille: (): Promise<Uint8Array | null> => ipcRenderer.invoke('modele-veille'),
   veilleMot: () => ipcRenderer.send('veille-mot'),
   /** Le micro est ouvert : le poulpe de la bulle prend l'humeur « écoute ». */

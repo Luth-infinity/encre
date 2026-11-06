@@ -42,7 +42,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
       </section>
 
       <section>
-        <h4>Parler</h4>
+        <h4>Voix</h4>
         {r.cleGroq && !remplacer
           ? (
             <div className="ligne">
@@ -64,8 +64,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
             <button key={v.id} type="button" className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })}>{v.nom}</button>
           ))}
         </div>
-        <Bascule on={r.veille} changer={(v) => poser({ veille: v })} titre="Réveil au mot « Encre »" aide="Reconnaissance sur la machine, rien ne sort." />
-        <Bascule on={r.suite} changer={(v) => poser({ suite: v })} titre="Enchaîner" aide="Après une réponse, le micro se rouvre quelques secondes." />
+        <Bascule on={r.veille} changer={(v) => poser({ veille: v })} titre="Réveil au mot « Encre »" aide="Ouvre une conversation à la voix. Reconnaissance sur la machine, rien ne sort." />
       </section>
 
       <section>

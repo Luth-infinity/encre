@@ -138,15 +138,41 @@ dossier. Les images partent en blocs base64, les autres fichiers par leur
 chemin (Claude les lit lui-même). Chemin d'un fichier glissé :
 `webUtils.getPathForFile`.
 
-### Mode Parler
+### Parler (façon VoiceType, dans le chat)
 
-Micro (arrêt après 1,4 s de silence) → `transcrire` dans le main (Groq
-whisper-large-v3-turbo, la clé ne quitte pas le main) → `envoyer(…, voix)` :
-la consigne passe en « écris pour l'oreille » et un `Diseur` envoie le MP3
-phrase par phrase au panneau. Une phrase d'attente comble le silence après
-1,8 s. Seule une question dite reçoit une réponse dite. La veille vit dans
-le panneau (caché la plupart du temps : `backgroundThrottling: false`) et se
-tait pendant qu'on parle ou que le poulpe répond.
+Lucas ne veut **pas** d'onglet « Parler » séparé ni d'écoute qui se coupe
+toute seule (essai du 06/11 : ses phrases partaient à la première hésitation,
+et il ne savait pas quand ça écoutait). Le modèle est **VoiceType, mais c'est
+Claude qui répond** :
+
+- **Alt+Maj+E** de n'importe où (ou le bouton micro de la saisie, quand rien
+  n'est écrit) ouvre l'écoute ; un second appui envoie ; **Échap** annule
+  (posé en `globalShortcut` le temps de l'échange, le panneau est souvent
+  caché). Le panneau peut rester fermé : la bulle passe en humeur `ecoute`.
+- Pendant l'échange, la barre `Appel.tsx` remplace la saisie (petit poulpe +
+  halo au niveau du micro, état en clair, ✕ / ↑). Demande et réponse
+  s'écrivent dans le fil ; seule une demande dite reçoit une réponse dite.
+- Deux bips : note qui monte à l'ouverture, qui descend à l'envoi.
+- Seul le réveil au mot « Encre » termine sur un silence (2,3 s, jauge
+  visible) : mains libres, rien sur quoi appuyer.
+- Groq whisper-large-v3-turbo dans le main, `language=fr`, `temperature=0`,
+  et un filtre des hallucinations (« sous-titres… Amara.org ») ; il faut
+  ~0,4 s de voix pour que ce soit une phrase.
+- **Voix : jamais de multilingue** (Vivienne, Rémy) : elles devinent la langue
+  à chaque phrase et partaient en espagnol. Défaut : Éloïse (voix d'enfant,
+  « mignonne » demandé par Lucas).
+
+### Plein écran
+
+Bouton ⤢ du panneau : il prend l'écran de travail, n'est plus au-dessus de
+tout, la bulle se cache ; le chat passe en colonne de 820 px. Fermer le
+panneau le ramène contre la bulle.
+
+### Poulpe centré
+
+`creerPoulpe(canvas, { remplir })` cadre sur la vraie silhouette (Box3 de
+la pose de repos ramenée à l'origine, qui est aussi le pivot) : centré dans
+tous les cadres. Ne plus revenir à des réglages de caméra à la main.
 
 ### Outils par projet
 
@@ -191,7 +217,8 @@ d'humeur, les entrées à ressort, la bulle qui pulse. Suit le thème de Windows
 
 ## Raccourci
 
-Le premier libre parmi Ctrl+Maj+Espace, Alt+Maj+E, Ctrl+Maj+E. **Pas de
+Ouvrir : Ctrl+Maj+Espace (sinon Ctrl+Maj+Alt+Espace). Parler : Alt+Maj+E
+(sinon Ctrl+Maj+E). **Pas de
 Ctrl+Alt** : c'est AltGr sur un clavier AZERTY (Ctrl+Alt+E tape €).
 
 ## État au 06/11/2026 (v0.1.0)

@@ -96,9 +96,11 @@ export type EtatClaude = { installe: boolean; connecte: boolean; chemin: string 
 
 /** Les voix françaises de l'endpoint d'Edge, gratuites et sans clé (reprises d'Iris). */
 export const VOIX = [
-  { id: 'fr-FR-VivienneMultilingualNeural', nom: 'Vivienne' },
-  { id: 'fr-FR-RemyMultilingualNeural', nom: 'Rémy' },
+  // Que des voix françaises « simples » : les multilingues (Vivienne, Rémy)
+  // devinent la langue à chaque phrase et partaient parfois en espagnol.
+  { id: 'fr-FR-EloiseNeural', nom: 'Éloïse' },
   { id: 'fr-FR-DeniseNeural', nom: 'Denise' },
+  { id: 'fr-CA-SylvieNeural', nom: 'Sylvie' },
   { id: 'fr-FR-HenriNeural', nom: 'Henri' }
 ]
 
@@ -127,4 +129,6 @@ export type Etat = {
   version: string
   /** Le projet dont le tour en cours dépend : ses événements vont dans son fil. */
   tourDe: string | null
+  /** Le raccourci global pour parler (« Alt+Maj+E »), ou « aucun » s'il était pris. */
+  toucheParler: string
 }

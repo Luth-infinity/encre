@@ -13,6 +13,8 @@ const PANNEAU = { largeur: 420, hauteur: 660 }
 
 let bulle: BrowserWindow | null = null
 let panneau: BrowserWindow | null = null
+/** Le panneau occupe tout l'écran de travail (la bulle se cache, elle ferait doublon). */
+let plein = false
 
 const vivante = (f: BrowserWindow | null): BrowserWindow | null => (f && !f.isDestroyed() ? f : null)
 export const laBulle = (): BrowserWindow | null => vivante(bulle)
@@ -73,6 +75,8 @@ export function creerPanneau(): BrowserWindow {
     webPreferences: { ...preferences, backgroundThrottling: false }
   })
   panneau.setAlwaysOnTop(true, 'floating')
+  // Fermé en plein écran, il se rouvrira contre la bulle.
+  panneau.on('hide', () => { if (plein) poserPlein(false) })
   charger(panneau, 'panneau')
   panneau.on('closed', () => (panneau = null))
   return panneau
@@ -81,7 +85,7 @@ export function creerPanneau(): BrowserWindow {
 /** Place le panneau contre la bulle, du côté de l'écran où il tient. */
 function placer(): void {
   const b = laBulle(), p = lePanneau()
-  if (!b || !p) return
+  if (!b || !p || plein) return
   const [bx, by] = b.getPosition()
   const zone = screen.getDisplayNearestPoint({ x: bx, y: by }).workArea
   const aGauche = bx + TAILLE_BULLE / 2 > zone.x + zone.width / 2
@@ -96,6 +100,29 @@ export function ouvrirPanneau(): void {
   p.show()
   p.focus()
   p.webContents.send('ouvert')
+}
+
+function poserPlein(oui: boolean): void {
+  const p = lePanneau(), b = laBulle()
+  if (!p) return
+  plein = oui
+  if (oui) {
+    const [x, y] = p.getPosition()
+    const zone = screen.getDisplayNearestPoint({ x, y }).workArea
+    // Plus au-dessus de tout : en grand, c'est une fenêtre de travail comme les autres.
+    p.setAlwaysOnTop(false)
+    p.setBounds(zone)
+    b?.hide()
+  } else {
+    p.setAlwaysOnTop(true, 'floating')
+    b?.showInactive()
+    placer()
+  }
+  p.webContents.send('plein', oui)
+}
+
+export function basculerPlein(): void {
+  poserPlein(!plein)
 }
 
 export function basculerPanneau(): void {

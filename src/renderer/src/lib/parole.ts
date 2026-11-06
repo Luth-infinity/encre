@@ -1,125 +1,144 @@
 import { useEffect, useRef, useState } from 'react'
+import { bipEnvoye, bipOuvert } from './bip'
 import { estCloture, lireDemande } from './commandes'
 import { FileLecture } from './lecture'
 import { ecouter, type Ecoute } from './micro'
 
 /**
- * Le moteur du mode Parler : écouter, transcrire, envoyer, dire la réponse,
- * puis rouvrir le micro quelques secondes pour enchaîner (comme Iris).
- * Il vit dans le panneau et pas dans la vue Parler : la réponse continue de
- * se dire si on repasse au chat pendant qu'elle parle.
+ * Parler à Encre comme on dicte avec VoiceType, mais c'est Claude qui répond :
+ * Alt+Maj+E (ou le micro du chat) ouvre l'écoute, on parle aussi longtemps
+ * qu'on veut, on re-appuie pour envoyer, Échap annule. La demande et la
+ * réponse s'écrivent dans le fil, et la réponse se dit à voix haute — même
+ * panneau fermé : le poulpe de la bulle suffit.
+ *
+ * Seul le réveil au mot « Encre » termine l'écoute sur un silence : là, on a
+ * les mains libres et rien sur quoi appuyer.
  */
 
-export type Phase = 'pret' | 'ecoute' | 'transcrit' | 'attend' | 'parle'
+export type Phase = 'ecoute' | 'transcrit' | 'attend' | 'parle'
 
 export type Parole = {
+  /** Un échange à la voix est en cours (de l'écoute jusqu'à la fin de la réponse dite). */
+  actif: boolean
   phase: Phase
+  /** L'écoute se termine sur un silence (réveil au mot), sinon sur un appui. */
+  mainsLibres: boolean
   erreur: string | null
-  /** Ce que Lucas vient de dire, le temps qu'il parte. */
-  entendu: string
+  /** Niveau du micro (0 à 1). */
   niveau: () => number
-  lancer: () => void
-  finir: () => void
+  /** Mains libres : de 0 à 1 pendant le silence qui précède l'envoi. */
+  pause: () => number
+  /** Le geste unique, comme VoiceType : ouvre l'écoute, ou envoie si elle est ouverte. */
+  basculer: (mainsLibres?: boolean) => void
+  /** Échap : abandonne l'écoute, ou fait taire la réponse. */
   annuler: () => void
-  /** Coupe la voix (la réponse continue de s'écrire). */
-  taire: () => void
 }
 
-export function useParole(suite: boolean): Parole {
-  const [phase, setPhase] = useState<Phase>('pret')
+export function useParole(): Parole {
+  const [actif, setActif] = useState(false)
+  const [phase, setPhase] = useState<Phase>('ecoute')
+  const [mainsLibres, setMainsLibres] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [entendu, setEntendu] = useState('')
+  const phaseRef = useRef<Phase | null>(null)
   const ecoute = useRef<Ecoute | null>(null)
   const lecture = useRef<FileLecture | null>(null)
-  /** Le tour en cours a été lancé à la voix : lui seul rouvre le micro après. */
+  /** Le tour en cours vient de la voix : lui seul se dit à voix haute. */
   const tourVocal = useRef(false)
   const tourFini = useRef(true)
-  const suiteRef = useRef(suite)
-  suiteRef.current = suite
-  const lancerRef = useRef<(enSuite?: boolean) => void>(() => {})
 
-  /** Fin de la réponse (texte fini et voix tue) : on rend la main, ou on réécoute. */
-  const apres = (): void => {
-    if (!tourFini.current || lecture.current?.enLecture) return
-    const rouvrir = tourVocal.current && suiteRef.current
+  const poser = (p: Phase | null): void => {
+    phaseRef.current = p
+    setActif(p !== null)
+    if (p) setPhase(p)
+  }
+
+  /** Réponse écrite et dite jusqu'au bout : l'échange est fini, la saisie revient. */
+  const finir = (): void => {
+    if (!tourVocal.current || !tourFini.current || lecture.current?.enLecture || ecoute.current) return
     tourVocal.current = false
-    setPhase('pret')
-    window.api.ecoute(false)
-    if (rouvrir) lancerRef.current(true)
+    poser(null)
   }
 
   useEffect(() => {
-    lecture.current = new FileLecture(() => apres())
+    lecture.current = new FileLecture(() => finir())
     const offs = [
       window.api.surAudio((mp3) => {
-        // La voix d'une réponse écrite au clavier ne se dit pas : seule une question dite appelle une réponse dite.
         if (!tourVocal.current) return
         lecture.current?.ajouter(mp3)
-        setPhase('parle')
+        poser('parle')
       }),
       window.api.surTourFini(() => {
         tourFini.current = true
-        apres()
+        finir()
       })
     ]
     return () => {
       offs.forEach((o) => o())
-      lecture.current?.taire()
       ecoute.current?.annuler()
+      lecture.current?.taire()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const lancer = async (enSuite = false): Promise<void> => {
+  const ouvrir = async (libres: boolean): Promise<void> => {
     if (ecoute.current) return
+    // Reprendre la parole coupe la voix (le texte, lui, finit de s'écrire).
     lecture.current?.taire()
+    tourVocal.current = false
     setErreur(null)
-    setEntendu('')
+    setMainsLibres(libres)
     let e: Ecoute
     try {
-      e = await ecouter(enSuite)
+      e = await ecouter({ auto: libres })
     } catch (err) {
       const nom = String((err as Error)?.name || '')
       setErreur(nom === 'NotAllowedError' ? 'Accès au micro refusé : Windows → Confidentialité → Microphone.' : 'Aucun micro disponible.')
-      setPhase('pret')
-      return
+      return poser(null)
     }
     ecoute.current = e
-    setPhase('ecoute')
+    poser('ecoute')
+    bipOuvert()
     window.api.ecoute(true)
     const son = await e.resultat
     ecoute.current = null
     window.api.ecoute(false)
-    if (!son) return setPhase('pret')
-    setPhase('transcrit')
+    if (!son) return poser(null)
+    bipEnvoye()
+    poser('transcrit')
     const r = await window.api.transcrire(await son.arrayBuffer())
+    // Annulé pendant la transcription : la réponse arrive trop tard, on l'oublie.
+    if (phaseRef.current !== 'transcrit') return
     if (r.erreur) {
       setErreur(r.erreur)
-      return setPhase('pret')
+      return poser(null)
     }
     const demande = lireDemande(r.texte ?? '')
-    // « Merci, c'est parfait » ferme l'échange : ce n'est pas une demande.
-    if (!demande || estCloture(demande)) return setPhase('pret')
-    setEntendu(demande)
+    if (!demande || estCloture(demande)) return poser(null)
     tourVocal.current = true
     tourFini.current = false
-    setPhase('attend')
+    poser('attend')
     window.api.envoyer(demande, [], true)
   }
-  lancerRef.current = (s) => void lancer(s)
 
   return {
+    actif,
     phase,
+    mainsLibres,
     erreur,
-    entendu,
-    niveau: () => ecoute.current?.niveau() ?? 0,
-    lancer: () => void lancer(false),
-    finir: () => ecoute.current?.finir(),
-    annuler: () => ecoute.current?.annuler(),
-    taire: () => {
-      lecture.current?.taire()
-      tourVocal.current = false
-      setPhase(tourFini.current ? 'pret' : 'attend')
+    niveau: () => (phaseRef.current === 'ecoute' ? ecoute.current?.niveau() ?? 0 : 0),
+    pause: () => (phaseRef.current === 'ecoute' ? ecoute.current?.pause() ?? 0 : 0),
+    basculer: (libres = false) => {
+      if (phaseRef.current === 'ecoute') ecoute.current?.finir()
+      else if (phaseRef.current !== 'transcrit') void ouvrir(libres)
+    },
+    annuler: () => {
+      if (phaseRef.current === 'ecoute') ecoute.current?.annuler()
+      else if (phaseRef.current) {
+        // La voix se tait ; la réponse, elle, finit de s'écrire dans le fil.
+        lecture.current?.taire()
+        tourVocal.current = false
+        poser(null)
+      }
     }
   }
 }

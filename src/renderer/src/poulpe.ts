@@ -97,7 +97,11 @@ function motifTentacules(): THREE.CanvasTexture {
 
 // ─── Le poulpe ───────────────────────────────────────────────────────────────
 
-export type Options = { distance?: number; fov?: number; hauteurCamera?: number; vise?: number }
+/**
+ * `remplir` : la part du cadre (0 à 1) que le poulpe occupe, mesurée sur sa
+ * vraie silhouette. `plongee` : la caméra le regarde un peu d'en haut (radians).
+ */
+export type Options = { remplir?: number; plongee?: number; fov?: number }
 
 export type Poulpe = { humeur: (h: Humeur) => void; detruire: () => void }
 
@@ -106,8 +110,6 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   rendu.setPixelRatio(Math.min(devicePixelRatio || 1, 2))
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(o.fov ?? 28, 1, 0.1, 50)
-  camera.position.set(0, o.hauteurCamera ?? 0.9, o.distance ?? 8.2)
-  camera.lookAt(0, o.vise ?? 0.15, 0)
 
   const rampe = new THREE.DataTexture(new Uint8Array([95, 175, 255]), 3, 1, THREE.RedFormat)
   rampe.minFilter = rampe.magFilter = THREE.NearestFilter
@@ -177,12 +179,55 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     if (h === 'fini') Object.assign(cible, { oeil: 0.32, bouche: 1.6, vitesse: 1.4 })
   }
 
+  function poserTentacules(t: number, tt: number, k: number): void {
+  tentacules.forEach((tn, i) => {
+    tn.leve += ((humeur === 'accord' && i === 1 ? 1 : 0) - tn.leve) * k
+    const ph = i * 0.85
+    tn.pts.forEach((p, s) => {
+      const u = s / (tn.pts.length - 1)
+      const vague = Math.sin(t * 2.2 + ph - u * 3.2) * 0.34 * u
+      let dist = 0.3 + u * 1.2, y = 0.12 - u * 0.85 + Math.sin(u * Math.PI) * 0.1
+      if (u > 0.5) { const c = (u - 0.5) / 0.5; y += c * c * 0.85; dist -= c * c * 0.55 }
+      const l = tn.leve
+      dist = dist * (1 - l) + (0.4 + u * 0.9) * l
+      y = y * (1 - l) + (0.15 + u * 1.55 + Math.sin(tt * 6 + u * 4) * 0.1 * u) * l
+      const a = tn.a + vague * 0.5
+      p.set(Math.cos(a) * dist, y + vague * 0.35, Math.sin(a) * dist * 0.95)
+    })
+    tn.courbe.updateArcLengths()
+    majTube(tn.g, tn.courbe, SEGS, RAD, 0.27, 0.05)
+    majTube(tn.gl, tn.courbe, SEGS, RAD, 0.31, 0.08)
+  })
+  }
+
+  // Cadrage sur la vraie silhouette : le centre du poulpe (tête + tentacules)
+  // est ramené à l'origine, qui est aussi le pivot des rotations. Il reste
+  // centré quel que soit le cadre, et tourner ne le décale plus.
+  poserTentacules(0, 0, 1)
+  corps.updateMatrixWorld(true)
+  const boite = new THREE.Box3().setFromObject(corps, true)
+  const centre = boite.getCenter(new THREE.Vector3())
+  corps.position.sub(centre)
+  const taille = boite.getSize(new THREE.Vector3())
+  const remplir = o.remplir ?? 0.8
+  const plongee = o.plongee ?? 0.08
+
+  function cadrer(): void {
+    // La silhouette (plus une marge pour la nage) tient dans le cadre, en largeur comme en hauteur.
+    const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+    const th = tv * camera.aspect
+    const d = Math.max(taille.y / 2 / tv, taille.x / 2 / th) / remplir + taille.z / 2
+    camera.position.set(0, Math.sin(plongee) * d, Math.cos(plongee) * d)
+    camera.lookAt(0, 0, 0)
+  }
+
   function redimensionner(): void {
     const w = canvas.clientWidth, h = canvas.clientHeight
     if (!w || !h) return
     rendu.setSize(w, h, false)
     camera.aspect = w / h
     camera.updateProjectionMatrix()
+    cadrer()
   }
   const ro = new ResizeObserver(redimensionner); ro.observe(canvas); redimensionner()
 
@@ -206,8 +251,8 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     const tt = (maintenant / 1000) * lent
     tx += (mx - tx) * k; ty += (my - ty) * k
 
-    racine.rotation.y = tx * 0.45
-    racine.rotation.x = ty * 0.18 + cur.penche
+    racine.rotation.y = tx * 0.3
+    racine.rotation.x = ty * 0.12 + cur.penche
     racine.position.y = Math.sin(tt * 1.5) * 0.07 + (humeur === 'fini' ? Math.abs(Math.sin(tt * 4.2)) * 0.28 : 0)
     tete.rotation.z = cur.incline + Math.sin(tt * 0.9) * 0.03
     const souffle = 1 + Math.sin(tt * 2.1) * 0.02
@@ -229,24 +274,7 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     joue.opacity = 0.55 + Math.sin(tt * 3) * 0.25
     void joues
 
-    tentacules.forEach((tn, i) => {
-      tn.leve += ((humeur === 'accord' && i === 1 ? 1 : 0) - tn.leve) * k
-      const ph = i * 0.85
-      tn.pts.forEach((p, s) => {
-        const u = s / (tn.pts.length - 1)
-        const vague = Math.sin(t * 2.2 + ph - u * 3.2) * 0.34 * u
-        let dist = 0.3 + u * 1.2, y = 0.12 - u * 0.85 + Math.sin(u * Math.PI) * 0.1
-        if (u > 0.5) { const c = (u - 0.5) / 0.5; y += c * c * 0.85; dist -= c * c * 0.55 }
-        const l = tn.leve
-        dist = dist * (1 - l) + (0.4 + u * 0.9) * l
-        y = y * (1 - l) + (0.15 + u * 1.55 + Math.sin(tt * 6 + u * 4) * 0.1 * u) * l
-        const a = tn.a + vague * 0.5
-        p.set(Math.cos(a) * dist, y + vague * 0.35, Math.sin(a) * dist * 0.95)
-      })
-      tn.courbe.updateArcLengths()
-      majTube(tn.g, tn.courbe, SEGS, RAD, 0.27, 0.05)
-      majTube(tn.gl, tn.courbe, SEGS, RAD, 0.31, 0.08)
-    })
+    poserTentacules(t, tt, k)
     rendu.render(scene, camera)
   }
   anim = requestAnimationFrame(image)

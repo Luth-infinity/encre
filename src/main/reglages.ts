@@ -25,6 +25,8 @@ function charger(): Stock {
     // Illisible : les défauts.
   }
   stock ??= { ...DEFAUT }
+  // Une voix retirée de la liste (les multilingues) : on revient à celle par défaut.
+  if (!VOIX.some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
   if (!existe('groq')) heriterCle()
   return stock
 }

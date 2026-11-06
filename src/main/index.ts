@@ -6,7 +6,7 @@ import type { Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse } fr
 import * as agent from './agent'
 import { etatClaude } from './claude'
 import {
-  aTous, basculerPanneau, creerBulle, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
+  aTous, basculerPanneau, basculerPlein, creerBulle, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
 } from './fenetres'
 import * as fils from './fils'
 import { journal } from './journal'
@@ -30,9 +30,19 @@ app.on('second-instance', () => ouvrirPanneau())
 // un clavier AZERTY (Ctrl+Alt+E tape €) : on prend le premier libre.
 const RACCOURCIS: [string, string][] = [
   ['Control+Shift+Space', 'Ctrl+Maj+Espace'],
+  ['Control+Shift+Alt+Space', 'Ctrl+Maj+Alt+Espace']
+]
+/** Parler, comme VoiceType (Alt+Maj+R) : E pour Encre. Jamais Ctrl+Alt (AltGr en AZERTY). */
+const RACCOURCIS_PARLER: [string, string][] = [
   ['Alt+Shift+E', 'Alt+Maj+E'],
   ['Control+Shift+E', 'Ctrl+Maj+E']
 ]
+let toucheParler = 'aucun'
+
+/** Ouvre l'écoute, ou envoie ce qui a été dit. Le panneau peut rester fermé : la bulle montre qu'Encre écoute. */
+function dicter(mainsLibres: boolean): void {
+  ;(lePanneau() ?? creerPanneau()).webContents.send('dicter', mainsLibres)
+}
 let raccourci = 'aucun'
 let majPrete: string | null = null
 
@@ -57,7 +67,8 @@ function etat(): Etat {
     enCours: agent.enCours(),
     reglages: reglages.reglages(),
     version: app.getVersion(),
-    tourDe
+    tourDe,
+    toucheParler
   }
 }
 const publierEtat = (): void => lePanneau()?.webContents.send('etat', etat())
@@ -124,6 +135,10 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean): void {
   publierEtat()
 }
 
+const HALLUCINATIONS = [
+  /sous-titr/i, /amara\.org/i, /merci d'avoir regard/i, /abonnez-vous/i, /^\W*(musique|rires?)\W*$/i, /^\W*$/
+]
+
 /** La transcription du mode Parler, chez Groq (Whisper large v3 turbo) : la clé reste dans le main. */
 async function transcrire(audio: ArrayBuffer): Promise<{ texte?: string; erreur?: string }> {
   const cle = reglages.cleGroq()
@@ -132,6 +147,7 @@ async function transcrire(audio: ArrayBuffer): Promise<{ texte?: string; erreur?
   corps.append('file', new Blob([audio], { type: 'audio/webm' }), 'question.webm')
   corps.append('model', 'whisper-large-v3-turbo')
   corps.append('language', 'fr')
+  corps.append('temperature', '0')
   try {
     const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
@@ -142,7 +158,13 @@ async function transcrire(audio: ArrayBuffer): Promise<{ texte?: string; erreur?
     if (res.status === 401) return { erreur: 'Clé Groq refusée : change-la dans les réglages (⚙).' }
     if (res.status === 429) return { erreur: 'Quota Groq atteint, réessaie dans un instant.' }
     if (!res.ok) return { erreur: `Transcription impossible (erreur ${res.status}).` }
-    return { texte: String(((await res.json()) as { text?: string }).text ?? '').trim() }
+    const texte = String(((await res.json()) as { text?: string }).text ?? '').trim()
+    // Sur un souffle ou un bruit, Whisper invente des génériques de vidéo.
+    if (HALLUCINATIONS.some((h) => h.test(texte))) {
+      journal(`transcription ignorée : « ${texte.slice(0, 80)} »`)
+      return { texte: '' }
+    }
+    return { texte }
   } catch (e) {
     journal(`transcription : ${String(e)}`)
     return { erreur: 'Transcription impossible : pas de réseau ?' }
@@ -234,11 +256,16 @@ function brancher(): void {
       return null
     }
   })
-  // La veille a entendu « Encre » : le panneau s'ouvre en mode Parler et écoute.
+  // La veille a entendu « Encre » : Encre écoute, mains libres (l'écoute se ferme sur un silence).
   ipcMain.on('veille-mot', () => {
     journal('veille : « encre » entendu')
-    ouvrirPanneau()
-    lePanneau()?.webContents.send('parler')
+    dicter(true)
+  })
+  // Pendant un échange à la voix, Échap l'annule de partout, comme dans VoiceType :
+  // le panneau, souvent caché, ne reçoit pas les touches.
+  ipcMain.on('echange', (_e, oui: boolean) => {
+    if (oui && !globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => lePanneau()?.webContents.send('annuler-dictee'))
+    if (!oui && globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape')
   })
   ipcMain.on('ecoute', (_e, oui: boolean) => {
     if (oui) changerHumeur('ecoute')
@@ -270,6 +297,7 @@ function brancher(): void {
   ipcMain.handle('relier-figma', (_e, nom: string) => outils.relierFigma(nom))
 
   ipcMain.on('fermer-panneau', () => lePanneau()?.hide())
+  ipcMain.on('plein-ecran', () => basculerPlein())
 
   // Bulle : clic = panneau, glisser = déplacer, clic droit = menu.
   ipcMain.on('bulle-clic', () => basculerPanneau())
@@ -281,13 +309,10 @@ function brancher(): void {
     Menu.buildFromTemplate([
       { label: 'Ouvrir Encre', click: () => ouvrirPanneau() },
       {
-        label: 'Parler',
-        click: () => {
-          ouvrirPanneau()
-          lePanneau()?.webContents.send('parler')
-        }
+        label: `Parler (${toucheParler})`,
+        click: () => dicter(false)
       },
-      { label: `Raccourci : ${raccourci}`, enabled: false },
+      { label: `Ouvrir : ${raccourci}`, enabled: false },
       ...(majPrete
         ? [{ label: `Installer la version ${majPrete}`, click: () => void updates.installer() } as Electron.MenuItemConstructorOptions]
         : []),
@@ -306,7 +331,9 @@ void app.whenReady().then(() => {
   creerPanneau()
   const libre = RACCOURCIS.find(([acc]) => globalShortcut.register(acc, () => basculerPanneau()))
   raccourci = libre?.[1] ?? 'aucun'
-  journal(`raccourci : ${raccourci}`)
+  const parler = RACCOURCIS_PARLER.find(([acc]) => globalShortcut.register(acc, () => dicter(false)))
+  toucheParler = parler?.[1] ?? 'aucun'
+  journal(`raccourcis : ${raccourci}, parler ${toucheParler}`)
   const r = reglages.reglages()
   appliquerDemarrage(r)
   // Les phrases d'attente du mode Parler, prêtes avant qu'on en ait besoin.
@@ -347,7 +374,8 @@ async function verifier(dossier: string): Promise<void> {
   const { writeFileSync } = await import('fs')
   const capturer = async (nom: string): Promise<void> => {
     for (const [f, n] of [[laBulle(), 'bulle'], [lePanneau(), 'panneau']] as const) {
-      if (f) writeFileSync(join(sortie, `${nom}-${n}.png`), (await f.webContents.capturePage()).toPNG())
+      // Une fenêtre cachée (la bulle, en plein écran) ne se capture pas : capturePage ne rendrait jamais la main.
+      if (f?.isVisible()) writeFileSync(join(sortie, `${nom}-${n}.png`), (await f.webContents.capturePage()).toPNG())
     }
   }
   const js = (code: string): Promise<unknown> | undefined => lePanneau()?.webContents.executeJavaScript(code)
@@ -363,8 +391,8 @@ async function verifier(dossier: string): Promise<void> {
   await js(`document.querySelector('.projet')?.click()`)
   await attendre(500)
   await capturer('1-vide')
-  // Les vues ajoutées : réglages, outils, commandes, mode Parler.
-  for (const [nom, sel] of [['4-reglages', '[data-vue=reglages]'], ['5-outils', '[data-vue=outils]'], ['6-parler', '[data-vue=parler]']]) {
+  // Les vues ajoutées : réglages, outils, commandes.
+  for (const [nom, sel] of [['4-reglages', '[data-vue=reglages]'], ['5-outils', '[data-vue=outils]']]) {
     await js(`document.querySelector('${sel}')?.click()`)
     await attendre(1200)
     await capturer(nom)
@@ -374,6 +402,23 @@ async function verifier(dossier: string): Promise<void> {
   await js(`(() => { const t = document.querySelector('textarea'); const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; s.call(t, '/'); t.dispatchEvent(new Event('input', { bubbles: true })) })()`)
   await attendre(8000)
   await capturer('7-commandes')
+  // La conversation à la voix (le vrai micro s'ouvre), puis le plein écran.
+  await js(`(() => { const t = document.querySelector('textarea'); const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; s.call(t, ''); t.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await attendre(300)
+  await js(`document.querySelector('[data-action=parler]')?.click()`)
+  await attendre(1800)
+  await capturer('6-appel')
+  await js(`document.querySelector('.appel .annuler')?.click()`)
+  await attendre(400)
+  await js(`document.querySelector('[data-action=plein]')?.click()`)
+  await attendre(1500)
+  await capturer('8-plein')
+  await js(`document.querySelector('[data-action=parler]')?.click()`)
+  await attendre(1800)
+  await capturer('9-plein-appel')
+  await js(`document.querySelector('.appel .annuler')?.click()`)
+  await js(`document.querySelector('[data-action=plein]')?.click()`)
+  await attendre(800)
   await js(`(() => { const t = document.querySelector('textarea'); const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; s.call(t, ''); t.dispatchEvent(new Event('input', { bubbles: true })) })()`)
   // La chaîne du mode Parler, sans micro : la voix d'Edge dit une phrase, Groq la retranscrit.
   if (process.env.ENCRE_VERIF_ETAPES === 'sans-claude') {

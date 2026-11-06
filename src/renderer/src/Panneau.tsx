@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { appliquer, type Bloc, type Diff, type Etat, type Humeur, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
-import { Bulles, Micro, Prise, Roue } from './icones'
+import Appel from './Appel'
+import { Agrandir, Micro, Prise, Reduire, Roue } from './icones'
 import type { Veille } from './lib/veille'
 import { useParole } from './lib/parole'
 import { Markdown } from './markdown'
 import OutilsProjet from './OutilsProjet'
-import Parler from './Parler'
 import { COULEURS } from './poulpe'
 import Reglages from './Reglages'
 import { Saisie, versPiece, type SaisieRef } from './Saisie'
@@ -118,7 +118,7 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
   )
 }
 
-type Vue = 'chat' | 'hub' | 'parler' | 'reglages' | 'outils'
+type Vue = 'chat' | 'hub' | 'reglages' | 'outils'
 
 export default function Panneau(): JSX.Element {
   const [etat, setEtat] = useState<Etat | null>(null)
@@ -130,10 +130,11 @@ export default function Panneau(): JSX.Element {
   const [glisse, setGlisse] = useState(false)
   const saisie = useRef<SaisieRef>(null)
   const bas = useRef<HTMLDivElement>(null)
-  const parole = useParole(etat?.reglages.suite ?? true)
-  // Les écouteurs posés au montage lisent la phase par ici : la leur serait figée.
-  const phase = useRef(parole.phase)
-  phase.current = parole.phase
+  const [plein, setPlein] = useState(false)
+  const parole = useParole()
+  // Les écouteurs posés au montage lisent l'appel par ici : le leur serait figé.
+  const appel = useRef(parole)
+  appel.current = parole
 
   const montrerFil = async (id: string): Promise<void> => {
     filDe.current = id
@@ -151,10 +152,10 @@ export default function Panneau(): JSX.Element {
       window.api.surEtat(setEtat),
       window.api.surHumeur(setHumeur),
       window.api.surOuvert(() => setTimeout(() => saisie.current?.focus(), 30)),
-      window.api.surParler(() => {
-        setVue('parler')
-        parole.lancer()
-      }),
+      window.api.surPlein(setPlein),
+      // Alt+Maj+E (même panneau fermé) : ouvrir l'écoute, ou envoyer. Le mot « Encre » : pareil, mains libres.
+      window.api.surDicter((mainsLibres) => appel.current.basculer(mainsLibres)),
+      window.api.surAnnulerDictee(() => appel.current.annuler()),
       window.api.surEvenement((projet, e) => {
         // Le fil enregistré par le main fait foi : on le recharge en entier
         // (le premier message dans un projet créé depuis le chat y bascule).
@@ -164,7 +165,7 @@ export default function Panneau(): JSX.Element {
     ]
     const echap = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
-      if (phase.current === 'ecoute') parole.annuler()
+      if (appel.current.actif) appel.current.annuler()
       else window.api.fermer()
     }
     addEventListener('keydown', echap)
@@ -199,9 +200,10 @@ export default function Panneau(): JSX.Element {
     return () => { fini = true; veille.current?.arreter(); veille.current = null }
   }, [veilleActive])
   useEffect(() => {
-    if (parole.phase === 'pret') veille.current?.reprendre()
-    else veille.current?.suspendre()
-  }, [parole.phase])
+    if (parole.actif) veille.current?.suspendre()
+    else veille.current?.reprendre()
+    window.api.echange(parole.actif)
+  }, [parole.actif])
 
   useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil, vue])
 
@@ -258,7 +260,6 @@ export default function Panneau(): JSX.Element {
       </div>
     )
   } else if (vue === 'outils') corps = <OutilsProjet projet={projet} />
-  else if (vue === 'parler') corps = <Parler parole={parole} humeur={humeur} fil={fil} veille={veilleActive} />
   else {
     corps = (
       <div className="fil">
@@ -307,8 +308,8 @@ export default function Panneau(): JSX.Element {
 
   return (
     <div
-      className="panneau"
-      style={{ '--mood': COULEURS[parole.phase === 'ecoute' ? 'ecoute' : humeur] } as React.CSSProperties}
+      className={`panneau ${plein ? 'plein' : ''}`}
+      style={{ '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur] } as React.CSSProperties}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setGlisse(true) } }}
       onDragLeave={(e) => { if (e.currentTarget === e.target) setGlisse(false) }}
       onDrop={(e) => void deposer(e)}
@@ -325,12 +326,10 @@ export default function Panneau(): JSX.Element {
           <span className="chevron">{vue === 'hub' ? '▴' : '▾'}</span>
         </button>
         <div className="actions">
-          <button type="button" data-vue="parler" className={`icone ${vue === 'parler' ? 'on' : ''}`} title={vue === 'parler' ? 'Revenir au chat' : 'Parler'} onClick={() => basculer('parler')} disabled={!projet}>
-            {vue === 'parler' ? <Bulles /> : <Micro />}
-          </button>
           <button type="button" data-vue="outils" className={`icone ${vue === 'outils' ? 'on' : ''}`} title="Outils du projet" onClick={() => basculer('outils')} disabled={!projet}><Prise /></button>
           <button type="button" data-vue="reglages" className={`icone ${vue === 'reglages' ? 'on' : ''}`} title="Réglages" onClick={() => basculer('reglages')}><Roue /></button>
           <button type="button" className="icone" title="Nouvelle conversation" onClick={nouvelle} disabled={enCours || !projet}>＋</button>
+          <button type="button" data-action="plein" className="icone" title={plein ? 'Revenir à la bulle' : 'Plein écran'} onClick={() => window.api.pleinEcran()}>{plein ? <Reduire /> : <Agrandir />}</button>
           <button type="button" className="icone" title="Fermer (Échap)" onClick={() => window.api.fermer()}>✕</button>
         </div>
       </header>
@@ -341,7 +340,10 @@ export default function Panneau(): JSX.Element {
 
       {projet && vue === 'chat' && etat?.claude.installe && (
         <footer>
-          <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} projet={projet.id} />
+          {parole.erreur && !parole.actif && <p className="erreur-voix">{parole.erreur}</p>}
+          {parole.actif
+            ? <Appel parole={parole} humeur={humeur} grand={plein} touche={etat.toucheParler} />
+            : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id} />}
           <div className="modes" role="radiogroup" aria-label="Autorisations">
             {MODES.map((m) => (
               <button

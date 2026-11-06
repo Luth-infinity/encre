@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { Commande, PieceJointe } from '@shared/types'
-import { Trombone } from './icones'
+import { Micro, Trombone } from './icones'
 
 /** Les images partent telles quelles à Claude ; au-delà, mieux vaut le chemin. */
 const IMAGES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -35,6 +35,8 @@ type Props = {
   enCours: boolean
   envoyer: (texte: string, pieces: PieceJointe[]) => void
   arreter: () => void
+  /** Ouvre la conversation à la voix (le bouton micro, quand rien n'est écrit). */
+  parler: () => void
   /** Change à chaque projet : les commandes `/` dépendent du dossier. */
   projet: string
 }
@@ -43,7 +45,7 @@ type Props = {
  * La zone de saisie : texte, pièces jointes (glisser, coller, trombone) et
  * menu des commandes `/` dès qu'on tape une barre oblique en début de message.
  */
-export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, envoyer, arreter, projet }, ref) {
+export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, envoyer, arreter, parler, projet }, ref) {
   const [texte, setTexte] = useState('')
   const [pieces, setPieces] = useState<PieceJointe[]>([])
   const [commandes, setCommandes] = useState<Commande[] | null>(null)
@@ -164,7 +166,9 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
         />
         {enCours
           ? <button type="button" className="envoi stop" title="Arrêter" onClick={arreter}>■</button>
-          : <button type="button" className="envoi" title="Envoyer (Entrée)" onClick={partir} disabled={!texte.trim() && !pieces.length}>↑</button>}
+          : texte.trim() || pieces.length
+            ? <button type="button" className="envoi" title="Envoyer (Entrée)" onClick={partir}>↑</button>
+            : <button type="button" className="envoi parler" title="Parler" data-action="parler" onClick={parler}><Micro /></button>}
       </div>
     </div>
   )
