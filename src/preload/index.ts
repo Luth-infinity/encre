@@ -21,7 +21,8 @@ const api = {
   mode: (m: Mode) => ipcRenderer.send('mode', m),
   nouvelle: () => ipcRenderer.send('nouvelle'),
   ajouterProjet: () => ipcRenderer.send('ajouter-projet'),
-  menuProjets: (x: number, y: number) => ipcRenderer.send('menu-projets', x, y),
+  choisirProjet: (id: string) => ipcRenderer.send('choisir-projet', id),
+  menuCarte: (id: string) => ipcRenderer.send('menu-carte', id),
   fermer: () => ipcRenderer.send('fermer-panneau'),
 
   bulleClic: () => ipcRenderer.send('bulle-clic'),

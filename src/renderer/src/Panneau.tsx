@@ -9,6 +9,7 @@ type Element =
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
   | { type: 'fin'; erreur?: string; duree: number }
+  | { type: 'info'; texte: string }
 
 const MODES: { id: Mode; nom: string; aide: string }[] = [
   { id: 'demander', nom: 'Demander', aide: 'Chaque action te sera demandée.' },
@@ -63,11 +64,67 @@ function Demande({ d, repondre }: { d: Outil; repondre: (r: Reponse) => void }):
   )
 }
 
+function ilYa(ms: number): string {
+  if (!ms) return 'Jamais ouvert'
+  const m = Math.round((Date.now() - ms) / 60000)
+  if (m < 1) return 'À l’instant'
+  if (m < 60) return `Il y a ${m} min`
+  const h = Math.round(m / 60)
+  if (h < 24) return `Il y a ${h} h`
+  const j = Math.round(h / 24)
+  return j === 1 ? 'Hier' : `Il y a ${j} jours`
+}
+
+/** Le hub : tous les projets en cartes, Libre en premier, les plus récents ensuite. */
+function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JSX.Element {
+  const libre = etat.projets.find((p) => p.libre)
+  const autres = etat.projets.filter((p) => !p.libre).sort((a, b) => b.derniere - a.derniere)
+  return (
+    <div className="hub">
+      <div className="hub-tete">
+        <h3>Tes projets</h3>
+        <p>Pour en créer un, dis-le dans le chat : « je bosse sur L’Oréal, projet BIM ».</p>
+      </div>
+      <div className="cartes">
+        {libre && (
+          <button type="button" className={`carte libre ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)} disabled={etat.enCours}>
+            <span className="tag">✦</span>
+            <strong>Libre</strong>
+            <small>Questions sans projet</small>
+          </button>
+        )}
+        {autres.map((p, i) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`carte ${p.id === etat.actif ? 'on' : ''}`}
+            style={{ '--penche': `${[-6, 5, -3, 4][i % 4]}deg` } as React.CSSProperties}
+            onClick={() => ouvrir(p.id)}
+            onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}
+            disabled={etat.enCours}
+            title={p.dossier}
+          >
+            <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span>
+            <strong>{p.nom}</strong>
+            <small>{ilYa(p.derniere)}</small>
+          </button>
+        ))}
+        <button type="button" className="carte lier" onClick={() => window.api.ajouterProjet()} disabled={etat.enCours}>
+          <span className="tag">＋</span>
+          <strong>Lier un dossier</strong>
+          <small>Un projet qui existe déjà</small>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Panneau(): JSX.Element {
   const [etat, setEtat] = useState<Etat | null>(null)
   const [humeur, setHumeur] = useState<Humeur>('repos')
   const [fil, setFil] = useState<Element[]>([])
   const [saisie, setSaisie] = useState('')
+  const [hub, setHub] = useState(false)
   const zone = useRef<HTMLTextAreaElement>(null)
   const bas = useRef<HTMLDivElement>(null)
 
@@ -88,6 +145,7 @@ export default function Panneau(): JSX.Element {
           if (e.type === 'outil') return [...f, { type: 'outil', outil: e.outil }]
           if (e.type === 'demande') return [...f, { type: 'demande', demande: e.demande }]
           if (e.type === 'demande-close') return f.filter((x) => !(x.type === 'demande' && x.demande.id === e.id))
+          if (e.type === 'info') return [...f, { type: 'info', texte: e.texte }]
           return [...f, { type: 'fin', erreur: e.erreur, duree: e.duree }]
         })
       )
@@ -122,6 +180,18 @@ export default function Panneau(): JSX.Element {
         <code>npm install -g @anthropic-ai/claude-code</code>
       </div>
     )
+  } else if (hub) {
+    corps = (
+      <Hub
+        etat={etat}
+        ouvrir={(id) => {
+          // Un autre projet, une autre conversation : le fil repart vide.
+          if (id !== etat.actif) setFil([])
+          window.api.choisirProjet(id)
+          setHub(false)
+        }}
+      />
+    )
   } else if (!projet) {
     corps = (
       <div className="vide">
@@ -135,8 +205,14 @@ export default function Panneau(): JSX.Element {
       <div className="fil">
         {fil.length === 0 && (
           <div className="accueil">
-            <h3>On bosse sur quoi ?</h3>
-            <p>{projet.session ? 'La dernière conversation de ce projet reprend au prochain message.' : `Claude travaille dans ${projet.dossier}.`}</p>
+            <h3>{projet.libre ? 'Pose ta question.' : 'On bosse sur quoi ?'}</h3>
+            <p>
+              {projet.libre
+                ? 'Pas de projet ici. Pour en lancer un, dis-le : « je bosse sur L’Oréal, projet BIM ». Encre le crée et le range dans tes projets.'
+                : projet.session
+                  ? 'La dernière conversation de ce projet reprend au prochain message.'
+                  : `Claude travaille dans ${projet.dossier}.`}
+            </p>
           </div>
         )}
         {fil.map((x, i) => {
@@ -144,6 +220,7 @@ export default function Panneau(): JSX.Element {
           if (x.type === 'ia') return <div key={i} className="ia"><Markdown texte={x.texte} /></div>
           if (x.type === 'outil') return <LigneOutil key={i} outil={x.outil} />
           if (x.type === 'demande') return <Demande key={i} d={x.demande} repondre={(r) => repondre(x.demande.id, r)} />
+          if (x.type === 'info') return <div key={i} className="info">{x.texte}</div>
           return x.erreur
             ? <div key={i} className="erreur">{x.erreur}</div>
             : <div key={i} className="fait">Fait en {duree(x.duree)}</div>
@@ -160,14 +237,17 @@ export default function Panneau(): JSX.Element {
         <button
           type="button"
           className="projet"
-          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); window.api.menuProjets(r.left, r.bottom + 4) }}
+          onClick={() => setHub(!hub)}
+          title="Tes projets"
         >
-          <span className="tag" style={{ background: projet?.couleur ?? 'var(--canvas)' }}>{projet ? initiales(projet.nom) : '+'}</span>
-          <span className="noms">
-            <strong>{projet?.nom ?? 'Aucun projet'}</strong>
-            <small>{projet?.dossier ?? 'Choisir un dossier'}</small>
+          <span className={`tag ${projet?.libre ? 'libre' : ''}`} style={projet?.libre ? undefined : { background: projet?.couleur }}>
+            {projet?.libre ? '✦' : projet ? initiales(projet.nom) : '+'}
           </span>
-          <span className="chevron">▾</span>
+          <span className="noms">
+            <strong>{hub ? 'Projets' : projet?.nom ?? 'Aucun projet'}</strong>
+            <small>{hub ? 'Choisis où travailler' : projet?.libre ? 'Questions sans projet' : projet?.dossier}</small>
+          </span>
+          <span className="chevron">{hub ? '▴' : '▾'}</span>
         </button>
         <div className="actions">
           <button type="button" className="icone" title="Nouvelle conversation" onClick={nouvelle} disabled={enCours || !projet}>＋</button>
@@ -177,7 +257,7 @@ export default function Panneau(): JSX.Element {
 
       {corps}
 
-      {projet && etat?.claude.installe && (
+      {projet && !hub && etat?.claude.installe && (
         <footer>
           <div className="saisie">
             <textarea

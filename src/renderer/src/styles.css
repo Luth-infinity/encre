@@ -96,6 +96,31 @@ header button { -webkit-app-region: no-drag; }
 .btn.pri { background: var(--ink); color: var(--card); }
 .vide .btn:not(.pri) { background: var(--canvas); }
 
+.info { align-self: center; font-size: 12px; font-weight: 600; color: var(--soft); background: var(--canvas); padding: 4px 11px; border-radius: 999px; }
+.tag.libre { background: var(--ink); color: var(--lav); font-size: 14px; }
+
+/* ─── Hub ─── */
+.hub { flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+.hub > * { animation: monte .4s cubic-bezier(.25,1.3,.5,1) both; }
+.hub-tete { display: flex; flex-direction: column; gap: 4px; }
+.hub-tete h3 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.04em; }
+.hub-tete p { margin: 0; color: var(--soft); font-size: 13px; }
+.cartes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.carte {
+  border: 0; background: var(--canvas); border-radius: 20px; padding: 14px; min-height: 118px; text-align: left;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  transition: transform .35s cubic-bezier(.3,1.5,.5,1), box-shadow .3s, background .3s;
+}
+.carte:hover:not(:disabled) { transform: translateY(-3px) rotate(-.8deg); box-shadow: 0 12px 24px -14px rgba(11,12,14,.35); background: var(--card); }
+.carte:disabled { opacity: .5; cursor: default; }
+.carte .tag { width: 40px; height: 40px; border-radius: 13px; font-size: 13px; margin-bottom: auto; rotate: var(--penche, -6deg); }
+.carte strong { margin-top: 12px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.carte small { color: var(--soft); font-size: 12px; }
+.carte.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.carte.libre .tag { background: var(--ink); color: var(--lav); font-size: 16px; }
+.carte.lier { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
+.carte.lier .tag { background: var(--canvas); color: var(--soft); font-size: 18px; rotate: 0deg; }
+
 .fait { display: flex; gap: 8px; align-items: center; font-weight: 600; color: var(--soft); font-size: 13px; }
 .fait::before { content: "✓"; width: 20px; height: 20px; border-radius: 50%; background: var(--fini); color: #0B0C0E; display: grid; place-items: center; font-size: 11px; font-weight: 800; }
 .erreur { background: color-mix(in srgb, var(--erreur) 12%, var(--card)); color: var(--erreur); padding: 9px 12px; border-radius: 12px; font-weight: 500; }

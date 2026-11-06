@@ -30,10 +30,13 @@ la sortie standard sous Windows). Projets : `%APPDATA%/Encre/projets.json`.
 ENCRE_VERIF='C:\chemin\projet-test' ENCRE_VERIF_SORTIE='C:\chemin\captures' npx electron .
 ```
 
-L'app ajoute le projet, ouvre le panneau, envoie un vrai message à Claude
-(`ENCRE_VERIF_MESSAGE`, mode `ENCRE_VERIF_MODE`), autorise la première demande,
-enregistre `1-vide-*.png`, `2-demande-*.png`, `3-fin-*.png` (bulle et panneau)
-puis quitte. Le projet de test reste dans `projets.json` : le retirer après.
+L'app ajoute le projet, ouvre le panneau, capture le hub, envoie un vrai
+message à Claude (`ENCRE_VERIF_MESSAGE`, mode `ENCRE_VERIF_MODE`), autorise la
+première demande, enregistre `0-hub-*.png`, `1-vide-*.png`, `2-demande-*.png`,
+`3-fin-*.png` (bulle et panneau) puis quitte. En mode vérif, `main/avant.ts`
+met `userData` et la racine des projets dans le dossier de sortie : le test ne
+touche ni aux projets de Lucas ni à l'Encre qui tourne (sinon le verrou
+d'instance unique ferme le test aussitôt).
 
 ## Architecture
 
@@ -75,6 +78,23 @@ Réglées par projet, sous la zone de saisie :
 `updatedPermissions` (règle enregistrée par Claude Code). Le mode change aussi
 en plein tour (`setPermissionMode`).
 
+### Libre, hub et projets créés depuis le chat
+
+- **Libre** : le projet toujours là, en premier, jamais retiré. Questions sans
+  projet, dans `Documents/Encre/Libre`. Ouvert par défaut.
+- **Hub** : un clic sur le nom du projet en haut du panneau affiche tous les
+  projets en cartes (Libre, puis les plus récents, puis « Lier un dossier »).
+  Clic droit sur une carte : ouvrir le dossier, retirer d'Encre (le dossier
+  reste). Changer de projet vide le fil affiché.
+- **Créer depuis le chat** : Claude a trois outils servis dans le process
+  (`mcp__encre__lister_projets`, `creer_projet`, `ouvrir_projet`, toujours
+  autorisés). « Je bosse sur L'Oréal, projet BIM » → il cherche un projet
+  existant, sinon crée `Documents/Encre/Projets/<nom>` avec un CLAUDE.md qui
+  porte le contexte donné. Le tour en cours reste dans son dossier : le projet
+  prend la main **au message suivant** (une ligne « Projet créé » le dit).
+- Ces outils exigent l'**entrée en flux** (`prompt` = générateur d'un seul
+  message) ; `setPermissionMode` aussi.
+
 ### Environnement par projet
 
 Un projet = un dossier. Le contexte client vit dans le **CLAUDE.md** du dossier
@@ -114,7 +134,8 @@ Ctrl+Alt** : c'est AltGr sur un clavier AZERTY (Ctrl+Alt+E tape €).
 ## État au 06/11/2026 (V0)
 
 Fait : bulle 3D déplaçable (se range au bord), clic / clic droit, panneau,
-projets (menu natif), chat en flux avec Markdown, lignes d'outils dépliables
+mode Libre, hub de projets en cartes, création de projet depuis le chat,
+chat en flux avec Markdown, lignes d'outils dépliables
 avec diff, carte d'autorisation, trois modes, arrêt, nouvelle conversation,
 reprise de session par projet, raccourci global.
 
@@ -123,7 +144,8 @@ jusqu'au Claude Code. **Pas encore vu** : un tour complet avec réponse, car
 la connexion du Claude Code de la machine avait expiré le 06/11.
 
 À faire, dans l'ordre :
-1. Tour complet vérifié (après `/login`), carte d'autorisation comprise.
+1. Tour complet vérifié (après `/login`), carte d'autorisation et création
+   de projet depuis le chat comprises.
 2. Historique du fil gardé à la réouverture (aujourd'hui, seule la session
    Claude reprend : le fil affiché repart vide au redémarrage).
 3. Commandes `/` (lister celles du SDK) et pièces jointes (glisser un fichier).

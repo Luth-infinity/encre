@@ -1,4 +1,5 @@
-import { app, dialog, globalShortcut, ipcMain, Menu } from 'electron'
+import './avant'
+import { app, dialog, globalShortcut, ipcMain, Menu, shell } from 'electron'
 import type { Etat, Humeur, Mode, Reponse } from '@shared/types'
 import * as agent from './agent'
 import { etatClaude } from './claude'
@@ -61,7 +62,8 @@ function brancher(): void {
     void agent
       .envoyer(p, texte, {
         evenement: (ev) => lePanneau()?.webContents.send('evenement', ev),
-        humeur: changerHumeur
+        humeur: changerHumeur,
+        projets: publierEtat
       })
       .then(publierEtat)
     publierEtat()
@@ -83,25 +85,24 @@ function brancher(): void {
   })
   ipcMain.on('ajouter-projet', () => void ajouterProjet())
 
-  // Liste des projets : menu natif sous le nom du projet.
-  ipcMain.on('menu-projets', (_e, x: number, y: number) => {
-    const p = lePanneau()
-    if (!p) return
-    const actif = projets.actifId()
+  // Le hub : ouvrir un projet, ou le retirer (menu natif sur la carte).
+  ipcMain.on('choisir-projet', (_e, id: string) => {
+    if (agent.enCours()) return
+    projets.choisir(id)
+    publierEtat()
+  })
+  ipcMain.on('menu-carte', (_e, id: string) => {
+    const p = lePanneau(), pr = projets.trouver(id)
+    if (!p || !pr || pr.libre) return
     Menu.buildFromTemplate([
-      ...projets.projets().map((pr) => ({
-        label: pr.nom,
-        type: 'radio' as const,
-        checked: pr.id === actif,
-        enabled: !agent.enCours(),
-        click: () => { projets.choisir(pr.id); publierEtat() }
-      })),
+      { label: 'Ouvrir le dossier', click: () => void shell.openPath(pr.dossier) },
       { type: 'separator' },
-      { label: 'Ajouter un projet…', click: () => void ajouterProjet() },
-      ...(actif
-        ? [{ label: 'Retirer ce projet', enabled: !agent.enCours(), click: () => { projets.retirer(actif); publierEtat() } }]
-        : [])
-    ]).popup({ window: p, x: Math.round(x), y: Math.round(y) })
+      {
+        label: 'Retirer d’Encre (le dossier reste)',
+        enabled: !agent.enCours(),
+        click: () => { projets.retirer(id); publierEtat() }
+      }
+    ]).popup({ window: p })
   })
 
   ipcMain.on('fermer-panneau', () => lePanneau()?.hide())
@@ -155,6 +156,13 @@ async function verifier(dossier: string): Promise<void> {
   ouvrirPanneau()
   publierEtat()
   await attendre(1500)
+  const cliquerProjet = (): Promise<unknown> | undefined =>
+    lePanneau()?.webContents.executeJavaScript(`document.querySelector('.projet')?.click()`)
+  await cliquerProjet()
+  await attendre(900)
+  await capturer('0-hub')
+  await cliquerProjet()
+  await attendre(500)
   await capturer('1-vide')
   const message = process.env.ENCRE_VERIF_MESSAGE ?? 'Crée un fichier bonjour.txt qui contient « Bonjour Lucas », puis dis-moi en une phrase ce que tu as fait.'
   let demande = false

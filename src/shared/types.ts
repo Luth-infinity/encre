@@ -18,6 +18,10 @@ export type Projet = {
   mode: Mode
   /** La dernière conversation, reprise au message suivant. */
   session: string | null
+  /** Dernier message envoyé (ms), pour trier le hub. */
+  derniere: number
+  /** Le projet Libre : questions sans projet, toujours là, jamais retiré. */
+  libre?: boolean
 }
 
 export type Diff = { fichier: string; avant: string; apres: string }
@@ -32,6 +36,8 @@ export type Evenement =
   | { type: 'demande'; demande: Outil }
   | { type: 'demande-close'; id: string }
   | { type: 'fin'; erreur?: string; duree: number }
+  /** Une ligne d'Encre dans le fil, par exemple « Projet créé ». */
+  | { type: 'info'; texte: string }
 
 export type Reponse = 'oui' | 'toujours' | 'non'
 
