@@ -74,16 +74,36 @@ function ilYa(ms: number): string {
   return j === 1 ? 'Hier' : `Il y a ${j} jours`
 }
 
+/** Créer un projet sans passer par le chat : un nom, et ce que Claude doit savoir. */
+function NouveauProjet({ fini }: { fini: (id: string | null) => void }): JSX.Element {
+  const [nom, setNom] = useState('')
+  const [contexte, setContexte] = useState('')
+  return (
+    <form className="nouveau" onSubmit={(e) => { e.preventDefault(); void window.api.creerProjet(nom, contexte).then(fini) }}>
+      <strong>Nouveau projet</strong>
+      <input autoFocus placeholder="Nom (ex. L’Oréal · BIM)" value={nom} onChange={(e) => setNom(e.target.value)} />
+      <textarea rows={3} placeholder="De quoi il s’agit, le client, les outils… (facultatif, ça part dans le CLAUDE.md)" value={contexte} onChange={(e) => setContexte(e.target.value)} />
+      <small>Rangé dans Documents/Encre/Projets.</small>
+      <div className="btns">
+        <button type="button" className="btn" onClick={() => fini(null)}>Annuler</button>
+        <button type="submit" className="btn pri" disabled={!nom.trim()}>Créer</button>
+      </div>
+    </form>
+  )
+}
+
 /** Le hub : tous les projets en cartes, Libre en premier, les plus récents ensuite. */
 function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JSX.Element {
+  const [cree, setCree] = useState(false)
   const libre = etat.projets.find((p) => p.libre)
   const autres = etat.projets.filter((p) => !p.libre).sort((a, b) => b.derniere - a.derniere)
   return (
     <div className="hub">
       <div className="hub-tete">
         <h3>Tes projets</h3>
-        <p>Pour en créer un, dis-le dans le chat : « je bosse sur L’Oréal, projet BIM ».</p>
+        <p>Crée-en un ici, ou dis-le dans le chat : « je bosse sur L’Oréal, projet BIM ».</p>
       </div>
+      {cree && <NouveauProjet fini={(id) => { setCree(false); if (id) ouvrir(id) }} />}
       <div className="cartes">
         {libre && (
           <button type="button" className={`carte libre ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)} disabled={etat.enCours}>
@@ -108,6 +128,11 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
             <small>{ilYa(p.derniere)}</small>
           </button>
         ))}
+        <button type="button" className="carte lier" data-action="nouveau" onClick={() => setCree(true)} disabled={etat.enCours}>
+          <span className="tag">✦</span>
+          <strong>Nouveau projet</strong>
+          <small>Un dossier tout neuf</small>
+        </button>
         <button type="button" className="carte lier" onClick={() => window.api.ajouterProjet()} disabled={etat.enCours}>
           <span className="tag">＋</span>
           <strong>Lier un dossier</strong>

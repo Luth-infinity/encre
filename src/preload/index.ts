@@ -28,6 +28,7 @@ const api = {
   commandes: (): Promise<Commande[]> => ipcRenderer.invoke('commandes'),
   ajouterProjet: () => ipcRenderer.send('ajouter-projet'),
   choisirProjet: (id: string) => ipcRenderer.send('choisir-projet', id),
+  creerProjet: (nom: string, contexte: string): Promise<string | null> => ipcRenderer.invoke('creer-projet', nom, contexte),
   menuCarte: (id: string) => ipcRenderer.send('menu-carte', id),
   fermer: () => ipcRenderer.send('fermer-panneau'),
   /** Le panneau prend tout l'écran, ou revient contre la bulle. */

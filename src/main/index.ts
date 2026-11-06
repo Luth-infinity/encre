@@ -209,6 +209,15 @@ function brancher(): void {
     projets.choisir(id)
     publierEtat()
   })
+  // « Nouveau projet » du hub : même chemin que l'outil creer_projet du chat
+  // (Documents/Encre/Projets/<nom> + un CLAUDE.md qui porte le contexte).
+  ipcMain.handle('creer-projet', (_e, nom: string, contexte: string) => {
+    if (agent.enCours() || !nom.trim()) return null
+    const p = projets.creer(nom.trim(), contexte.trim() || `Projet ${nom.trim()}.`)
+    projets.choisir(p.id)
+    publierEtat()
+    return p.id
+  })
   ipcMain.on('menu-carte', (_e, id: string) => {
     const p = lePanneau(), pr = projets.trouver(id)
     if (!p || !pr || pr.libre) return
@@ -388,6 +397,11 @@ async function verifier(dossier: string): Promise<void> {
   await js(`document.querySelector('.projet')?.click()`)
   await attendre(900)
   await capturer('0-hub')
+  await js(`document.querySelector('[data-action=nouveau]')?.click()`)
+  await attendre(700)
+  await capturer('0b-nouveau')
+  await js(`document.querySelector('.nouveau .btn:not(.pri)')?.click()`)
+  await attendre(300)
   await js(`document.querySelector('.projet')?.click()`)
   await attendre(500)
   await capturer('1-vide')
