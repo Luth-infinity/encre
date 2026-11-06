@@ -19,8 +19,11 @@ import { flux as ouvrirFlux } from './micro'
  * Mesuré sur deux voix et une phrase piège, avec `verif/`.
  */
 
-/** « Ancre » s'entend pareil : le modèle écrit l'un ou l'autre. */
-const MOTS = ['encre', 'ancre']
+/**
+ * Le poulpe s'appelle Tako. Le petit modèle Vosk ne connaît pas ce mot : il
+ * écrit ce qui s'en approche (« taco », « tacot »…). « Encre » marche toujours.
+ */
+const MOTS = ['tako', 'taco', 'tacot', 'tacos', 'takot', 'encre', 'ancre']
 
 /** En dessous, c'est du silence : inutile de réveiller le reconnaisseur. */
 const SEUIL_SILENCE = 0.014
@@ -293,7 +296,7 @@ export class Veille {
   private examiner(texte: string, definitif: boolean): void {
     // Au repos, la veille entend tout ce qui se dit dans la pièce : on ne
     // consigne que ce qui la concerne (son nom), jamais le reste.
-    if (definitif && (this.mode === 'commande' || /\b(encre|ancre)\b/i.test(texte))) {
+    if (definitif && (this.mode === 'commande' || /\b(tako|taco|tacot|tacos|takot|encre|ancre)\b/i.test(texte))) {
       this.journal?.(
         `veille (${this.mode}${this.ignorerFinal ? ', ignoré' : ''}) : « ${texte.slice(0, 60)} »`
       )

@@ -282,3 +282,45 @@ footer { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; 
 .nouveau input:focus, .nouveau textarea:focus { box-shadow: inset 0 0 0 1.5px var(--mood); }
 .nouveau small { color: var(--soft); font-size: 12px; }
 .nouveau .btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ─── Accueil : Tako qui dit bonjour ─── */
+.accueil { margin: auto 0; align-items: center; text-align: center; gap: 8px; padding: 10px 4px 4px; }
+.accueil .tako-grand { width: 150px; height: 150px; }
+.accueil h3 { font-size: 26px; }
+.accueil p { margin: 0; color: var(--soft); max-width: 46ch; }
+.idees { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 8px; }
+.idees button { border: 0; background: var(--canvas); color: var(--ink); text-align: left; padding: 10px 14px; border-radius: 14px; font: inherit; font-size: 13.5px; font-weight: 500; transition: transform .2s cubic-bezier(.3,1.6,.5,1), background .2s; }
+.idees button:hover { background: color-mix(in srgb, var(--mood) 18%, var(--canvas)); transform: translateX(3px); }
+.accueil .astuce { font-size: 12px; margin-top: 4px; }
+kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(--canvas); border-radius: 6px; padding: 2px 6px; box-shadow: inset 0 -1px 0 var(--line); }
+
+/* ─── Tako dans le fil ─── */
+.qui { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--soft); margin-top: 4px; margin-bottom: -4px; }
+.qui img { width: 22px; height: 22px; border-radius: 50%; background: #0B0C0E; box-shadow: 0 0 0 2px var(--mood); }
+.etapes { background: var(--canvas); border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.etapes .compte { border: 0; background: transparent; padding: 0; display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; color: var(--soft); }
+.etapes .compte span { font-weight: 600; opacity: .8; }
+.etapes .compte:hover span { color: var(--ink); }
+.etapes.vivantes { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--bosse) 50%, transparent); }
+
+/* ─── Plein écran : barre de projets à gauche ─── */
+.colonne { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.panneau.plein { flex-direction: row; }
+.barre { width: 248px; flex: none; background: var(--canvas); display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; }
+.barre .marque { display: flex; align-items: center; gap: 9px; padding: 4px 8px 14px; font-weight: 800; letter-spacing: -0.03em; font-size: 17px; -webkit-app-region: drag; }
+.barre .marque img { width: 30px; height: 30px; border-radius: 50%; background: #0B0C0E; }
+.barre .rubrique { color: var(--soft); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 12px 8px 4px; }
+.barre .liste { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ligne-projet { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; color: var(--ink); padding: 6px 8px; border-radius: 11px; font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; min-width: 0; }
+.ligne-projet span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ligne-projet .tag { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; }
+.ligne-projet:hover:not(:disabled) { background: var(--card); }
+.ligne-projet.on { background: var(--card); box-shadow: 0 1px 3px rgba(11,12,14,.08); }
+.ligne-projet.ajouter { color: var(--soft); justify-content: flex-start; }
+
+/* ─── Tableaux Markdown ─── */
+.md .tableau { overflow-x: auto; margin: 6px 0; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); }
+.md table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.md th, .md td { text-align: left; padding: 7px 10px; vertical-align: top; }
+.md th { font-weight: 700; background: var(--canvas); }
+.md tr + tr td, .md tbody tr:first-child td { border-top: 1px solid var(--line); }

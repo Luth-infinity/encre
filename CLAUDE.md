@@ -162,6 +162,42 @@ Claude qui répond** :
   à chaque phrase et partaient en espagnol. Défaut : Éloïse (voix d'enfant,
   « mignonne » demandé par Lucas).
 
+### Tako (la mascotte)
+
+Le poulpe s'appelle **Tako** (choisi par Lucas le 06/11 ; poulpe en
+japonais, clin d'œil à son tatouage irezumi). L'app reste « Encre ». Tako se
+présente dans la consigne, l'accueil et l'en-tête des réponses. Mot de
+réveil : « Tako » (le petit Vosk n'a pas ce mot : on accepte taco, tacot,
+tacos, takot), « Encre » marche encore. **Pas testé au vrai micro.**
+
+Au repos, Tako **vit sa vie** : il regarde où il veut, fait coucou, sautille,
+s'étire, cligne, tourne la tête. Il ne suit la souris que quand elle passe
+tout près, 2,5 s. (Le suivi permanent était « relou ».)
+
+### Libre = brouillon
+
+Libre repart **à vide** (fil + session) chaque fois qu'on y va et au
+démarrage. Une question rapide s'y traite ; une demande de travail fait créer
+(ou ouvrir) un projet par Tako, sans demander. En fin de tour, `envoyer()` voit
+que le projet actif a changé : le fil de Libre déménage dans le projet
+(`fils.deplacer`), et un tour de relance part aussitôt là-bas avec la demande
+(sans réafficher la bulle de l'utilisateur). Vérifié le 06/11 :
+`ENCRE_VERIF_LIBRE="<demande>"` (autorise tout, trace les événements).
+
+### Interface
+
+Accueil : Tako en grand, « Salut, moi c'est Tako », trois suggestions
+cliquables, rappel du raccourci. Fil : en-tête « Tako » + avatar à chaque
+réponse, actions consécutives regroupées (« 5 étapes », Tout voir), tableaux
+Markdown. Plein écran : barre de projets à gauche. Ombre du panneau neutre
+(teintée, elle faisait un halo « dégueu » sur les fenêtres).
+
+### Bulle
+
+Toujours `setBounds` avec la taille fixe : `setPosition` la faisait gonfler
+pendant le glisser (Windows mis à l'échelle). Elle reste où on la pose (plus
+d'aimant au bord), ramenée seulement si elle sort de l'écran.
+
 ### Plein écran
 
 Bouton ⤢ du panneau : il prend l'écran de travail, n'est plus au-dessus de

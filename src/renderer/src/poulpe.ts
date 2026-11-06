@@ -168,6 +168,16 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   const cur = { ...cible }
   let t = 0, mx = 0, my = 0, tx = 0, ty = 0, clin = 1, avantClin = 2
 
+  // Tako vit sa vie : il regarde ailleurs, fait coucou, sautille, s'étire.
+  // Il ne suit la souris que quand elle passe tout près, et quelques
+  // secondes seulement (la suivre tout le temps était « relou »).
+  let suivreJusqua = 0
+  let regard = { x: 0, y: 0 }, avantRegard = 1.5
+  type Geste = 'coucou' | 'saut' | 'etire' | 'clins' | 'tour'
+  let geste: { nom: Geste; p: number; duree: number } | null = null
+  let avantGeste = 5 + Math.random() * 5
+  const GESTES: [Geste, number][] = [['coucou', 1.8], ['saut', 0.9], ['etire', 1.4], ['clins', 0.7], ['tour', 2.2]]
+
   function changer(h: Humeur): void {
     humeur = h
     joue.color.set(COULEURS[h])
@@ -181,7 +191,8 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
 
   function poserTentacules(t: number, tt: number, k: number): void {
   tentacules.forEach((tn, i) => {
-    tn.leve += ((humeur === 'accord' && i === 1 ? 1 : 0) - tn.leve) * k
+    const leve = (humeur === 'accord' && i === 1) || (geste?.nom === 'coucou' && i === 2 && geste.p > 0.05 && geste.p < 0.85)
+    tn.leve += ((leve ? 1 : 0) - tn.leve) * k
     const ph = i * 0.85
     tn.pts.forEach((p, s) => {
       const u = s / (tn.pts.length - 1)
@@ -233,8 +244,12 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
 
   const souris = (e: PointerEvent): void => {
     const r = canvas.getBoundingClientRect()
-    mx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (innerWidth / 2)))
-    my = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (innerHeight / 2)))
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2)
+    const portee = Math.max(r.width, 140) * 1.2
+    if (Math.hypot(dx, dy) > portee) return
+    mx = Math.max(-1, Math.min(1, dx / portee))
+    my = Math.max(-1, Math.min(1, dy / portee))
+    suivreJusqua = performance.now() + 2500
   }
   addEventListener('pointermove', souris)
 
@@ -249,13 +264,40 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     for (const c in cible) (cur as Record<string, number>)[c] += ((cible as Record<string, number>)[c] - (cur as Record<string, number>)[c]) * k
     t += dt * lent * cur.vitesse
     const tt = (maintenant / 1000) * lent
-    tx += (mx - tx) * k; ty += (my - ty) * k
+    // Où regarder : la souris si elle vient d'approcher, sinon un point qu'il choisit lui-même.
+    avantRegard -= dt
+    if (avantRegard < 0) {
+      avantRegard = 1.8 + Math.random() * 3.5
+      regard = Math.random() < 0.3 ? { x: 0, y: 0 } : { x: (Math.random() * 2 - 1) * 0.8, y: (Math.random() * 2 - 1) * 0.5 }
+    }
+    const suit = maintenant < suivreJusqua
+    const vx = suit ? mx : regard.x, vy = suit ? my : regard.y
+    const kr = suit ? k : 1 - Math.pow(0.25, dt)
+    tx += (vx - tx) * kr; ty += (vy - ty) * kr
 
-    racine.rotation.y = tx * 0.3
+    // Un petit geste de temps en temps, seulement au repos.
+    if (geste) {
+      geste.p += dt / geste.duree
+      if (geste.p >= 1) geste = null
+    } else if (humeur === 'repos' && !suit && lent === 1) {
+      avantGeste -= dt
+      if (avantGeste < 0) {
+        avantGeste = 6 + Math.random() * 8
+        const [nom, duree] = GESTES[Math.floor(Math.random() * GESTES.length)]
+        geste = { nom, p: 0, duree }
+        if (nom === 'clins') clin = 0
+      }
+    }
+    const gp = geste?.p ?? 0
+    const cloche = Math.sin(gp * Math.PI)
+
+    racine.rotation.y = tx * 0.3 + (geste?.nom === 'tour' ? Math.sin(gp * Math.PI * 2) * 0.55 : 0)
     racine.rotation.x = ty * 0.12 + cur.penche
     racine.position.y = Math.sin(tt * 1.5) * 0.07 + (humeur === 'fini' ? Math.abs(Math.sin(tt * 4.2)) * 0.28 : 0)
-    tete.rotation.z = cur.incline + Math.sin(tt * 0.9) * 0.03
-    const souffle = 1 + Math.sin(tt * 2.1) * 0.02
+      + (geste?.nom === 'saut' ? Math.abs(Math.sin(gp * Math.PI * 2)) * 0.3 : 0)
+    tete.rotation.z = cur.incline + Math.sin(tt * 0.9) * 0.03 + (geste?.nom === 'coucou' ? cloche * 0.12 : 0)
+    if (geste?.nom === 'clins' && gp > 0.45 && gp < 0.5 && clin > 0.9) clin = 0
+    const souffle = 1 + Math.sin(tt * 2.1) * 0.02 + (geste?.nom === 'etire' ? cloche * 0.12 : 0)
     tete.scale.set(1 / Math.sqrt(souffle), souffle, 1 / Math.sqrt(souffle))
 
     avantClin -= dt

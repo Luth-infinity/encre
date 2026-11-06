@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { appliquer, type Bloc, type Diff, type Etat, type Humeur, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
+import Accueil from './Accueil'
 import Appel from './Appel'
+import tako from './assets/tako.png'
 import { Agrandir, Micro, Prise, Reduire, Roue } from './icones'
 import type { Veille } from './lib/veille'
 import { useParole } from './lib/parole'
@@ -46,6 +48,66 @@ function LigneOutil({ outil }: { outil: Outil }): JSX.Element {
       {ouvert && outil.diff && <VueDiff diff={outil.diff} />}
       {ouvert && !outil.diff && outil.detail && <div className="detail">{outil.detail}</div>}
     </div>
+  )
+}
+
+/**
+ * Plusieurs actions d'affilée (lire, chercher, écrire…) tiennent en une
+ * carte : la dernière se voit, les autres se déplient.
+ */
+function Etapes({ outils, enCours }: { outils: Outil[]; enCours: boolean }): JSX.Element {
+  const [ouvert, setOuvert] = useState(false)
+  if (outils.length === 1) return <LigneOutil outil={outils[0]} />
+  const visibles = ouvert ? outils : outils.slice(-1)
+  return (
+    <div className={`etapes ${enCours ? 'vivantes' : ''}`}>
+      <button type="button" className="compte" onClick={() => setOuvert(!ouvert)}>
+        {outils.length} étapes <span>{ouvert ? 'Replier' : 'Tout voir'}</span>
+      </button>
+      {visibles.map((o, i) => <LigneOutil key={i} outil={o} />)}
+    </div>
+  )
+}
+
+/** Le fil découpé pour l'affichage : les actions consécutives regroupées, et « Tako » en tête de chaque réponse. */
+type Morceau = { type: 'bloc'; bloc: Bloc; i: number } | { type: 'etapes'; outils: Outil[]; i: number } | { type: 'qui'; i: number }
+function morceaux(fil: Bloc[]): Morceau[] {
+  const out: Morceau[] = []
+  let avant: Bloc['type'] | null = null
+  fil.forEach((b, i) => {
+    const repond = b.type === 'ia' || b.type === 'outil' || b.type === 'demande'
+    if (repond && (avant === null || avant === 'moi' || avant === 'fin')) out.push({ type: 'qui', i: -i - 1 })
+    const dernier = out[out.length - 1]
+    if (b.type === 'outil' && dernier?.type === 'etapes') dernier.outils.push(b.outil)
+    else if (b.type === 'outil') out.push({ type: 'etapes', outils: [b.outil], i })
+    else out.push({ type: 'bloc', bloc: b, i })
+    if (b.type !== 'info') avant = b.type
+  })
+  return out
+}
+
+/** La barre de projets du plein écran : changer de projet sans passer par le hub. */
+function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void; hub: () => void }): JSX.Element {
+  const libre = etat.projets.find((p) => p.libre)
+  const autres = etat.projets.filter((p) => !p.libre).sort((a, b) => b.derniere - a.derniere)
+  return (
+    <aside className="barre">
+      <div className="marque"><img src={tako} alt="" /><strong>Encre</strong></div>
+      {libre && (
+        <button type="button" className={`ligne-projet ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)} disabled={etat.enCours}>
+          <span className="tag libre">✦</span><span>Libre</span>
+        </button>
+      )}
+      <small className="rubrique">Projets</small>
+      <div className="liste">
+        {autres.map((p) => (
+          <button key={p.id} type="button" className={`ligne-projet ${p.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(p.id)} disabled={etat.enCours} title={p.dossier}>
+            <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="ligne-projet ajouter" onClick={hub}>＋ <span>Nouveau ou lier</span></button>
+    </aside>
   )
 }
 
@@ -178,6 +240,7 @@ export default function Panneau(): JSX.Element {
       window.api.surHumeur(setHumeur),
       window.api.surOuvert(() => setTimeout(() => saisie.current?.focus(), 30)),
       window.api.surPlein(setPlein),
+      window.api.surFilChange((id) => void montrerFil(id)),
       // Alt+Maj+E (même panneau fermé) : ouvrir l'écoute, ou envoyer. Le mot « Encre » : pareil, mains libres.
       window.api.surDicter((mainsLibres) => appel.current.basculer(mainsLibres)),
       window.api.surAnnulerDictee(() => appel.current.annuler()),
@@ -242,6 +305,16 @@ export default function Panneau(): JSX.Element {
   const repondre = (id: string, r: Reponse): void => window.api.repondre(id, r)
   const nouvelle = (): void => { if (!enCours) { setFil([]); window.api.nouvelle() } }
   const basculer = (v: Vue): void => setVue(vue === v ? 'chat' : v)
+  const ouvrirProjet = (id: string): void => {
+    // Libre repart à vide à chaque visite : le main l'efface, on recharge.
+    if (id !== filDe.current || etat?.projets.find((p) => p.id === id)?.libre) {
+      filDe.current = id
+      setFil([])
+      setTimeout(() => void montrerFil(id), 120)
+    }
+    window.api.choisirProjet(id)
+    setVue('chat')
+  }
 
   // Glisser des fichiers n'importe où sur le panneau.
   const deposer = async (e: React.DragEvent): Promise<void> => {
@@ -269,11 +342,7 @@ export default function Panneau(): JSX.Element {
     corps = (
       <Hub
         etat={etat}
-        ouvrir={(id) => {
-          if (id !== filDe.current) void montrerFil(id)
-          window.api.choisirProjet(id)
-          setVue('chat')
-        }}
+        ouvrir={ouvrirProjet}
       />
     )
   } else if (!projet) {
@@ -288,19 +357,11 @@ export default function Panneau(): JSX.Element {
   else {
     corps = (
       <div className="fil">
-        {fil.length === 0 && (
-          <div className="accueil">
-            <h3>{projet.libre ? 'Pose ta question.' : 'On bosse sur quoi ?'}</h3>
-            <p>
-              {projet.libre
-                ? 'Pas de projet ici. Pour en lancer un, dis-le : « je bosse sur L’Oréal, projet BIM ». Encre le crée et le range dans tes projets.'
-                : projet.session
-                  ? 'La dernière conversation de ce projet reprend au prochain message.'
-                  : `Claude travaille dans ${projet.dossier}.`}
-            </p>
-          </div>
-        )}
-        {fil.map((x, i) => {
+        {fil.length === 0 && <Accueil projet={projet} humeur={humeur} touche={etat.toucheParler} envoyer={(t) => envoyer(t, [])} />}
+        {morceaux(fil).map((m, n, tous) => {
+          if (m.type === 'qui') return <div key={m.i} className="qui"><img src={tako} alt="" />Tako</div>
+          if (m.type === 'etapes') return <Etapes key={m.i} outils={m.outils} enCours={enCours && n === tous.length - 1} />
+          const { bloc: x, i } = m
           if (x.type === 'moi') {
             return (
               <div key={i} className={`moi ${x.voix ? 'voix' : ''}`}>
@@ -311,9 +372,9 @@ export default function Panneau(): JSX.Element {
             )
           }
           if (x.type === 'ia') return <div key={i} className="ia"><Markdown texte={x.texte} /></div>
-          if (x.type === 'outil') return <LigneOutil key={i} outil={x.outil} />
           if (x.type === 'demande') return <Demande key={i} d={x.demande} repondre={(r) => repondre(x.demande.id, r)} />
           if (x.type === 'info') return <div key={i} className="info">{x.texte}</div>
+          if (x.type === 'outil') return null
           return x.erreur
             ? <div key={i} className="erreur">{x.erreur}</div>
             : <div key={i} className="fait">Fait en {duree(x.duree)}</div>
@@ -339,6 +400,8 @@ export default function Panneau(): JSX.Element {
       onDragLeave={(e) => { if (e.currentTarget === e.target) setGlisse(false) }}
       onDrop={(e) => void deposer(e)}
     >
+      {plein && etat && <Barre etat={etat} ouvrir={ouvrirProjet} hub={() => setVue('hub')} />}
+      <div className="colonne">
       <header>
         <button type="button" className="projet" onClick={() => basculer('hub')} title="Tes projets">
           <span className={`tag ${projet?.libre ? 'libre' : ''}`} style={projet?.libre ? undefined : { background: projet?.couleur }}>
@@ -386,6 +449,7 @@ export default function Panneau(): JSX.Element {
           </div>
         </footer>
       )}
+      </div>
     </div>
   )
 }

@@ -131,24 +131,33 @@ export function basculerPanneau(): void {
   else ouvrirPanneau()
 }
 
+/**
+ * Toujours `setBounds` avec la taille fixe, jamais `setPosition` : sous
+ * Windows avec un affichage mis à l'échelle (125 %, 150 %), chaque
+ * `setPosition` arrondit la taille vers le haut et la bulle gonflait à vue
+ * d'œil pendant qu'on la traînait.
+ */
+function poserBulle(b: BrowserWindow, x: number, y: number): void {
+  b.setBounds({ x: Math.round(x), y: Math.round(y), width: TAILLE_BULLE, height: TAILLE_BULLE })
+}
+
 export function deplacerBulle(dx: number, dy: number): void {
   const b = laBulle()
   if (!b) return
   const [x, y] = b.getPosition()
-  b.setPosition(Math.round(x + dx), Math.round(y + dy))
+  poserBulle(b, x + dx, y + dy)
   if (lePanneau()?.isVisible()) placer()
 }
 
-/** Au lâcher, la bulle se range contre le bord gauche ou droit le plus proche. */
+/** Au lâcher, la bulle reste où on la pose ; on la ramène seulement si elle dépasse de l'écran. */
 export function rangerBulle(): void {
   const b = laBulle()
   if (!b) return
   const [x, y] = b.getPosition()
-  const zone = screen.getDisplayNearestPoint({ x, y }).workArea
-  const gauche = x + TAILLE_BULLE / 2 < zone.x + zone.width / 2
-  const nx = gauche ? zone.x + 12 : zone.x + zone.width - TAILLE_BULLE - 12
-  const ny = Math.min(Math.max(zone.y + 12, y), zone.y + zone.height - TAILLE_BULLE - 12)
-  b.setPosition(nx, ny)
+  const zone = screen.getDisplayNearestPoint({ x: x + TAILLE_BULLE / 2, y: y + TAILLE_BULLE / 2 }).workArea
+  const nx = Math.min(Math.max(zone.x, x), zone.x + zone.width - TAILLE_BULLE)
+  const ny = Math.min(Math.max(zone.y, y), zone.y + zone.height - TAILLE_BULLE)
+  poserBulle(b, nx, ny)
   if (lePanneau()?.isVisible()) placer()
 }
 

@@ -64,7 +64,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
             <button key={v.id} type="button" className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })}>{v.nom}</button>
           ))}
         </div>
-        <Bascule on={r.veille} changer={(v) => poser({ veille: v })} titre="Réveil au mot « Encre »" aide="Ouvre une conversation à la voix. Reconnaissance sur la machine, rien ne sort." />
+        <Bascule on={r.veille} changer={(v) => poser({ veille: v })} titre="Réveil au mot « Tako »" aide="Ouvre une conversation à la voix. Reconnaissance sur la machine, rien ne sort." />
       </section>
 
       <section>

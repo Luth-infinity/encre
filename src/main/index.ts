@@ -94,11 +94,23 @@ function appliquerDemarrage(r: Reglages): void {
   app.setLoginItemSettings({ openAtLogin: r.demarrage, args: ['--demarrage'] })
 }
 
-function envoyer(texte: string, pieces: PieceJointe[], voix: boolean): void {
+/** Libre est un brouillon : il repart à vide (fil et session) chaque fois qu'on y revient. */
+function viderLibre(): void {
+  const l = projets.projets().find((x) => x.libre)
+  if (!l) return
+  fils.vider(l.id)
+  projets.modifier(l.id, { session: null })
+}
+
+/**
+ * `relance` : le tour qui suit une création de projet depuis Libre. La
+ * demande est déjà dans le fil déplacé : on ne la réaffiche pas.
+ */
+function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string): void {
   const p = projets.actif()
   if (!p || agent.enCours() || (!texte.trim() && !pieces.length)) return
   tourDe = p.id
-  diffuser(p.id, { type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined })
+  if (!relance) diffuser(p.id, { type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined })
   const r = reglages.reglages()
   const audio = (mp3: Buffer): void => lePanneau()?.webContents.send('audio', mp3.toString('base64'))
   // En mode Parler, un silence de plusieurs secondes sonne comme une panne :
@@ -113,11 +125,16 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean): void {
   void agent
     .envoyer(
       p,
-      texte,
+      relance ?? texte,
       {
         evenement: (ev) => {
           if (ev.type === 'texte') parle = true
           diffuser(p.id, ev)
+          // Vérification du parcours Libre : personne pour cliquer, on trace et on autorise.
+          if (process.env.ENCRE_VERIF_LIBRE && ev.type !== 'texte') {
+            journal(`verif ${p.nom} ${ev.type} ${JSON.stringify(ev).slice(0, 240)}`)
+            if (ev.type === 'demande') agent.repondre(ev.demande.id, 'oui')
+          }
         },
         humeur: changerHumeur,
         projets: publierEtat,
@@ -129,6 +146,17 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean): void {
       if (attente) clearTimeout(attente)
       tourDe = null
       fils.ecrire()
+      // Depuis Libre, Tako a créé (ou ouvert) un projet : la conversation y
+      // déménage, Libre repart à vide, et le travail commence là-bas tout de suite.
+      const arrivee = projets.actif()
+      if (p.libre && !relance && arrivee && arrivee.id !== p.id) {
+        fils.deplacer(p.id, arrivee.id)
+        projets.modifier(p.id, { session: null })
+        publierEtat()
+        lePanneau()?.webContents.send('fil-change', arrivee.id)
+        const suite = `Ce projet vient d’être ouvert depuis Libre pour cette demande : « ${texte} ». Mets-toi au travail.`
+        return void envoyer(texte, pieces, voix, suite)
+      }
       publierEtat()
       lePanneau()?.webContents.send('tour-fini')
     })
@@ -206,6 +234,7 @@ function brancher(): void {
   // Le hub : ouvrir un projet, ou le retirer (menu natif sur la carte).
   ipcMain.on('choisir-projet', (_e, id: string) => {
     if (agent.enCours()) return
+    if (projets.trouver(id)?.libre) viderLibre()
     projets.choisir(id)
     publierEtat()
   })
@@ -267,7 +296,7 @@ function brancher(): void {
   })
   // La veille a entendu « Encre » : Encre écoute, mains libres (l'écoute se ferme sur un silence).
   ipcMain.on('veille-mot', () => {
-    journal('veille : « encre » entendu')
+    journal('veille : « Tako » entendu')
     dicter(true)
   })
   // Pendant un échange à la voix, Échap l'annule de partout, comme dans VoiceType :
@@ -335,6 +364,7 @@ void app.whenReady().then(() => {
   journal(`démarrage ${app.getVersion()}`)
   Menu.setApplicationMenu(null)
   brancher()
+  viderLibre()
   if (process.env.ENCRE_ICONE) return void icone(process.env.ENCRE_ICONE)
   creerBulle()
   creerPanneau()
@@ -437,7 +467,7 @@ async function verifier(dossier: string): Promise<void> {
   // La chaîne du mode Parler, sans micro : la voix d'Edge dit une phrase, Groq la retranscrit.
   if (process.env.ENCRE_VERIF_ETAPES === 'sans-claude') {
     const { synthetiser } = await import('./voix')
-    const phrase = 'Bonjour, je suis le poulpe Encre et je teste ma voix.'
+    const phrase = 'Bonjour, je suis Tako, le poulpe d’Encre, et je teste ma voix.'
     try {
       const mp3 = await synthetiser(phrase, { voix: reglages.reglages().voix, dossier: '' })
       writeFileSync(join(sortie, 'voix.mp3'), mp3)
@@ -449,6 +479,32 @@ async function verifier(dossier: string): Promise<void> {
   }
   if (process.env.ENCRE_VERIF_ETAPES === 'sans-claude') {
     journal('verif terminée (sans Claude)')
+    return app.quit()
+  }
+  // Le parcours Libre : une demande de travail doit créer un projet, y déménager et continuer.
+  if (process.env.ENCRE_VERIF_LIBRE) {
+    const libre = projets.projets().find((x) => x.libre)!
+    viderLibre()
+    projets.choisir(libre.id)
+    publierEtat()
+    await js(`document.querySelector('[data-vue=reglages]')?.click()`)
+    await attendre(300)
+    await js(`document.querySelector('[data-vue=reglages]')?.click()`)
+    await attendre(800)
+    await capturer('l0-libre')
+    envoyer(process.env.ENCRE_VERIF_LIBRE, [], false)
+    // Deux tours : celui de Libre, puis la relance dans le projet créé.
+    let calme = 0
+    while (calme < 6) {
+      await attendre(1000)
+      calme = agent.enCours() || tourDe ? 0 : calme + 1
+    }
+    journal(`verif libre : actif ${projets.actif()?.nom}, fil libre ${fils.fil(libre.id).length} blocs, fil projet ${fils.fil(projets.actifId() ?? '').length} blocs`)
+    await capturer('l1-projet')
+    await js(`document.querySelector('[data-action=plein]')?.click()`)
+    await attendre(1500)
+    await capturer('l2-plein')
+    journal('verif terminée')
     return app.quit()
   }
   const message = process.env.ENCRE_VERIF_MESSAGE ?? 'Crée un fichier bonjour.txt qui contient « Bonjour Lucas », puis dis-moi en une phrase ce que tu as fait.'

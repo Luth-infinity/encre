@@ -55,6 +55,14 @@ export function vider(id: string): void {
   }
 }
 
+/** Déplace un fil vers un autre projet (Libre → projet créé depuis le chat) : la conversation continue là-bas. */
+export function deplacer(de: string, vers: string): void {
+  cache.set(vers, [...fil(vers), ...fil(de)].slice(-MAX))
+  sales.add(vers)
+  vider(de)
+  ecrire()
+}
+
 /** Écrit les fils modifiés. Appelé en fin de tour et à la fermeture. */
 export function ecrire(): void {
   if (minuterie) clearTimeout(minuterie)

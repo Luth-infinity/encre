@@ -16,6 +16,8 @@ const api = {
   surHumeur: (cb: (h: Humeur) => void) => recevoir('humeur', cb),
   /** Les événements d'un tour, avec le projet dont ils remplissent le fil. */
   surEvenement: (cb: (projet: string, e: Evenement) => void) => recevoir('evenement', cb),
+  /** Le fil d'un projet a changé d'un bloc (conversation déménagée depuis Libre) : à relire en entier. */
+  surFilChange: (cb: (projet: string) => void) => recevoir('fil-change', cb),
   surOuvert: (cb: () => void) => recevoir('ouvert', cb),
   surTourFini: (cb: () => void) => recevoir('tour-fini', cb),
   fil: (id: string): Promise<Bloc[]> => ipcRenderer.invoke('fil', id),
