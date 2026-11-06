@@ -2,7 +2,7 @@ import './avant'
 import { app, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import type { Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse } from '@shared/types'
+import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse } from '@shared/types'
 import * as agent from './agent'
 import { etatClaude } from './claude'
 import {
@@ -14,7 +14,7 @@ import * as outils from './outils'
 import * as projets from './projets'
 import * as reglages from './reglages'
 import * as updates from './updates'
-import { attentePrete, prechaufferAttentes } from './voix'
+import { attentePrete, estGemini, prechaufferAttentes, synthetiser } from './voix'
 
 /**
  * Encre : une bulle toujours au-dessus, un panneau de chat branché sur le
@@ -293,11 +293,35 @@ function brancher(): void {
 
   // Réglages : la clé Groq ne repart jamais vers le panneau, seulement sa présence.
   ipcMain.on('reglages', (_e, champs: Partial<Reglages>) => {
-    const { cleGroq: _ignore, ...reste } = champs
+    const { cleGroq: _ignore, cleGemini: _ignore2, ...reste } = champs
     const r = reglages.modifier(reste)
     if ('demarrage' in reste) appliquerDemarrage(r)
     if ('voix' in reste) void prechaufferAttentes({ voix: r.voix, dossier: '' })
     publierEtat()
+  })
+  // La clé Gemini : enregistrée, Tako passe à une voix Gemini ; retirée, il revient à Edge.
+  ipcMain.handle('cle-gemini', (_e, cle: string | null) => {
+    try {
+      reglages.poserCleGemini(cle)
+      const r = reglages.reglages()
+      if (cle && !estGemini(r.voix)) reglages.modifier({ voix: VOIX_GEMINI[0].id })
+      if (!cle && estGemini(r.voix)) reglages.modifier({ voix: VOIX[0].id })
+      void prechaufferAttentes({ voix: reglages.reglages().voix, dossier: '' })
+      publierEtat()
+      return null
+    } catch (e) {
+      return String((e as Error).message)
+    }
+  })
+  // « Tester » dans les réglages : une phrase de Tako avec la voix choisie, rendue en base64.
+  ipcMain.handle('essai-voix', async (_e, voix: string) => {
+    try {
+      const son = await synthetiser('Salut, moi c’est Tako ! Dis-moi sur quoi on bosse, et je m’y mets tout de suite.', { voix, dossier: '' })
+      return son.toString('base64')
+    } catch (e) {
+      journal(`essai de voix : ${String(e)}`)
+      return null
+    }
   })
   ipcMain.handle('cle-groq', (_e, cle: string | null) => {
     try {

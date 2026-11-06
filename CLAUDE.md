@@ -198,6 +198,21 @@ Toujours `setBounds` avec la taille fixe : `setPosition` la faisait gonfler
 pendant le glisser (Windows mis à l'échelle). Elle reste où on la pose (plus
 d'aimant au bord), ramenée seulement si elle sort de l'écran.
 
+### Voix de Tako (Gemini, Edge en secours)
+
+Edge gratuit jugé « robotique, fait peur » (06/11), et il refuse `<lang>`
+(impossible de tenir les voix multilingues en français). Voix principale :
+**Gemini** `gemini-3.8-flash-tts` (API `v1beta/interactions`, WAV 24 kHz en
+base64, offre gratuite), clé Google AI Studio saisie par Lucas dans
+Réglages (chiffrée, `secrets` « gemini »). Le ton passe par
+`annotations[].speech_metadata.style` (`STYLE_TAKO` dans `voix.ts`), pas
+dans le texte (lu tel quel). Voix `gemini:<Nom>` (`VOIX_GEMINI`). En échec
+(quota, réseau), la phrase part en Edge Vivienne et le journal le dit. Les
+phrases Gemini sont synthétisées en parallèle et rendues dans l'ordre.
+« Tester la voix » dans les réglages. VoiceStudio étudié et écarté (10 Go,
+AMD non pris en charge par défaut, pas d'API de synthèse documentée, pas de
+temps réel prouvé). **Pas encore testé avec une vraie clé.**
+
 ### Plein écran
 
 Bouton ⤢ du panneau : il prend l'écran de travail, n'est plus au-dessus de

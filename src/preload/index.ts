@@ -44,6 +44,9 @@ const api = {
 
   reglages: (champs: Partial<Reglages>) => ipcRenderer.send('reglages', champs),
   cleGroq: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-groq', cle),
+  cleGemini: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-gemini', cle),
+  /** Une phrase de Tako dans la voix donnée, en base64 (MP3 ou WAV). */
+  essaiVoix: (voix: string): Promise<string | null> => ipcRenderer.invoke('essai-voix', voix),
 
   // Mode Parler.
   transcrire: (audio: ArrayBuffer): Promise<{ texte?: string; erreur?: string }> => ipcRenderer.invoke('transcrire', audio),

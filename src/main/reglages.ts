@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
-import { VOIX, type Reglages } from '@shared/types'
+import { VOIX, VOIX_GEMINI, type Reglages } from '@shared/types'
 import { existe, lireSecret, poser } from './secrets'
 
 /**
@@ -9,7 +9,7 @@ import { existe, lireSecret, poser } from './secrets'
  * `secrets.ts`, et le panneau ne sait que si elle existe.
  */
 
-type Stock = Omit<Reglages, 'cleGroq'>
+type Stock = Omit<Reglages, 'cleGroq' | 'cleGemini'>
 
 const DEFAUT: Stock = { voix: VOIX[0].id, veille: true, suite: true, demarrage: true }
 
@@ -26,7 +26,7 @@ function charger(): Stock {
   }
   stock ??= { ...DEFAUT }
   // Une voix retirée de la liste (les multilingues) : on revient à celle par défaut.
-  if (!VOIX.some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
+  if (![...VOIX, ...VOIX_GEMINI].some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
   if (!existe('groq')) heriterCle()
   return stock
 }
@@ -56,7 +56,7 @@ function heriterCle(): void {
 }
 
 export function reglages(): Reglages {
-  return { ...charger(), cleGroq: existe('groq') }
+  return { ...charger(), cleGroq: existe('groq'), cleGemini: existe('gemini') }
 }
 
 export function modifier(champs: Partial<Stock>): Reglages {
@@ -68,3 +68,5 @@ export function modifier(champs: Partial<Stock>): Reglages {
 
 export const cleGroq = (): string | null => lireSecret('groq')
 export const poserCleGroq = (cle: string | null): void => poser('groq', cle)
+export const cleGemini = (): string | null => lireSecret('gemini')
+export const poserCleGemini = (cle: string | null): void => poser('gemini', cle)

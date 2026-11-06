@@ -105,10 +105,25 @@ export const VOIX = [
   { id: 'fr-FR-HenriNeural', nom: 'Henri' }
 ]
 
+/**
+ * Les voix Gemini (clé Google AI Studio, offre gratuite) : bien plus
+ * naturelles, et on leur décrit le ton. Préfixe `gemini:` dans `voix`.
+ */
+export const VOIX_GEMINI = [
+  { id: 'gemini:Sulafat', nom: 'Sulafat', aide: 'Chaleureuse' },
+  { id: 'gemini:Vindemiatrix', nom: 'Vindemiatrix', aide: 'Douce' },
+  { id: 'gemini:Leda', nom: 'Leda', aide: 'Jeune' },
+  { id: 'gemini:Aoede', nom: 'Aoede', aide: 'Légère' },
+  { id: 'gemini:Achird', nom: 'Achird', aide: 'Amical' },
+  { id: 'gemini:Puck', nom: 'Puck', aide: 'Enjoué' }
+]
+
 /** Les réglages tels que le panneau les voit : jamais la clé elle-même. */
 export type Reglages = {
   /** Une clé Groq est enregistrée (pour la transcription du mode Parler). */
   cleGroq: boolean
+  /** Une clé Gemini est enregistrée : Tako parle avec les voix Gemini. */
+  cleGemini: boolean
   voix: string
   /** Dire « Encre » ouvre le mode Parler (reconnaissance locale, rien ne sort). */
   veille: boolean

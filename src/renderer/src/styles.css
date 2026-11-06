@@ -368,3 +368,7 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
   100% { transform: rotate(var(--a)) translateY(-60px) scale(.15); opacity: 0; }
 }
 .bulle .eclat { position: absolute; inset: 0; pointer-events: none; }
+
+/* ─── Réglages : voix ─── */
+.choix-voix button small { display: block; font-size: 10.5px; font-weight: 600; opacity: .65; margin-top: 1px; }
+.btn.essai { align-self: flex-start; background: var(--canvas); }

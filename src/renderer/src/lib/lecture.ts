@@ -78,7 +78,8 @@ export class FileLecture {
   private preparer(morceau: string): { element: HTMLAudioElement; source?: MediaElementAudioSourceNode } {
     // Une URL de données plutôt qu'un Blob : pas d'objet à révoquer, et la
     // lecture démarre sans passer par le réseau interne.
-    const element = new Audio(`data:audio/mpeg;base64,${morceau}`)
+    // Gemini rend du WAV (« RIFF » = « UklGR » en base64), Edge du MP3.
+    const element = new Audio(`data:${morceau.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg'};base64,${morceau}`)
     element.preload = 'auto'
     try {
       const { ctx, analyseur } = this.pile()

@@ -1,5 +1,8 @@
 import { app } from 'electron'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
+import { VOIX } from '@shared/types'
+import { journal } from './journal'
+import { cleGemini } from './reglages'
 
 /** Repris d'Iris : ce qu'il faut à la voix (la voix choisie, le dossier du projet). */
 type Reglages = { voix: string; dossier: string }
@@ -372,10 +375,14 @@ export class Diseur {
     // Le texte prononcé n'est pas celui qui s'affiche : quand elle « parle
     // mal », c'est ici que ça se voit, pas dans la réponse écrite.
     this.noter(`dit : ${texte.slice(0, 120)}`)
+    // Gemini met une à deux secondes par phrase : on lance la synthèse tout
+    // de suite (en parallèle) et on rend dans l'ordre. Edge garde sa file
+    // unique (une seule connexion, rapide).
+    const lancee = estGemini(this.reglages.voix) ? synthetiser(texte, this.reglages).catch(() => Buffer.alloc(0)) : null
     this.file = this.file.then(async () => {
-      if (!this.vivant) return
+      if (!this.vivant) { this.enCours--; return }
       try {
-        const mp3 = await synthetiser(texte, this.reglages)
+        const mp3 = await (lancee ?? synthetiser(texte, this.reglages))
         this.enCours--
         if (this.vivant && mp3.length) this.sur(mp3)
       } catch {
@@ -389,10 +396,72 @@ export class Diseur {
   }
 }
 
-/** Synthétise une phrase et rend le MP3 complet. */
+// ─── Gemini ──────────────────────────────────────────────────────────────────
+
+/**
+ * Le modèle TTS de Gemini (documentation lue le 06/11/2026 : API
+ * « interactions », audio WAV 24 kHz mono en base64). Flash plutôt que
+ * Flash-Lite : Lucas veut d'abord une voix naturelle.
+ */
+const MODELE_GEMINI = 'gemini-3.8-flash-tts'
+/** Le ton de Tako, décrit comme à un comédien (le texte, lui, est lu tel quel). */
+const STYLE_TAKO = 'Voix chaleureuse et douce, souriante, un peu espiègle, comme un ami qui parle naturellement, en français, à un rythme de conversation détendu.'
+
+export const estGemini = (voix: string): boolean => voix.startsWith('gemini:')
+
+/** Cherche le premier bloc audio dans la réponse (la forme exacte des `steps` peut bouger). */
+function audioDans(x: unknown): string | null {
+  if (!x || typeof x !== 'object') return null
+  const o = x as Record<string, unknown>
+  if (o.type === 'audio' && typeof o.data === 'string') return o.data
+  for (const v of Object.values(o)) {
+    const r = Array.isArray(v) ? v.map(audioDans).find(Boolean) ?? null : audioDans(v)
+    if (r) return r
+  }
+  return null
+}
+
+async function gemini(texte: string, voix: string, cle: string): Promise<Buffer> {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    method: 'POST',
+    headers: { 'x-goog-api-key': cle, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: MODELE_GEMINI,
+      input: [{ type: 'user_input', content: [{ type: 'text', text: texte, annotations: [{ type: 'speech_metadata', style: STYLE_TAKO }] }] }],
+      response_format: { type: 'audio' },
+      generation_config: { speech_config: [{ voice: voix.slice('gemini:'.length) }] }
+    }),
+    signal: AbortSignal.timeout(20000)
+  })
+  if (!res.ok) throw new Error(`Gemini ${res.status} : ${(await res.text()).slice(0, 200)}`)
+  const data = audioDans(await res.json())
+  if (!data) throw new Error('Gemini : pas d’audio dans la réponse')
+  return Buffer.from(data, 'base64')
+}
+
+/**
+ * Synthétise une phrase (WAV avec Gemini, MP3 avec Edge). Gemini en panne,
+ * sans clé ou au bout de son quota : la voix d'Edge prend le relais, la
+ * phrase est dite quand même.
+ */
 export async function synthetiser(texte: string, reglages: Reglages): Promise<Buffer> {
-  const client = await connexion(reglages.voix)
-  const { audioStream } = client.rawToStream(ssml(reglages.voix, texte))
+  if (estGemini(reglages.voix)) {
+    const cle = cleGemini()
+    if (cle) {
+      try {
+        return await gemini(texte, reglages.voix, cle)
+      } catch (e) {
+        journal(`voix Gemini en échec, Edge prend le relais : ${String((e as Error).message ?? e).slice(0, 220)}`)
+      }
+    }
+    return edge(texte, VOIX[0].id)
+  }
+  return edge(texte, reglages.voix)
+}
+
+async function edge(texte: string, voix: string): Promise<Buffer> {
+  const client = await connexion(voix)
+  const { audioStream } = client.rawToStream(ssml(voix, texte))
   const morceaux: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
     audioStream.on('data', (c: Buffer) => morceaux.push(c))
