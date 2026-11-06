@@ -6,7 +6,7 @@ import type { Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse } fr
 import * as agent from './agent'
 import { etatClaude } from './claude'
 import {
-  aTous, basculerPanneau, basculerPlein, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
+  aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
 } from './fenetres'
 import * as fils from './fils'
 import { journal } from './journal'
@@ -360,6 +360,7 @@ function brancher(): void {
   ipcMain.handle('relier-figma', (_e, nom: string) => outils.relierFigma(nom))
 
   ipcMain.on('fermer-panneau', () => fermerPanneau())
+  ipcMain.on('fermer-fini', () => cacherPanneau())
   ipcMain.on('plein-ecran', () => basculerPlein())
 
   // Bulle : clic = panneau, glisser = déplacer, clic droit = menu.
@@ -453,6 +454,28 @@ async function verifier(dossier: string): Promise<void> {
   await js(`document.querySelector('.projet')?.click()`)
   await attendre(900)
   await capturer('0-hub')
+  // Les animations, image par image : l'encre qui s'étale, puis le clic sur la bulle.
+  if (process.env.ENCRE_VERIF_ANIM) {
+    await js(`document.querySelector('.projet')?.click()`)
+    await attendre(500)
+    fermerPanneau()
+    await attendre(120)
+    if (lePanneau()) writeFileSync(join(sortie, 'a0-fermeture.png'), (await lePanneau()!.webContents.capturePage()).toPNG())
+    await attendre(800)
+    ouvrirPanneau()
+    for (const t of [140, 260, 420, 900]) {
+      await attendre(t === 140 ? 140 : t - [140, 260, 420, 900][[140, 260, 420, 900].indexOf(t) - 1])
+      writeFileSync(join(sortie, `a1-ouverture-${t}.png`), (await lePanneau()!.webContents.capturePage()).toPNG())
+    }
+    const b = laBulle()!
+    await b.webContents.executeJavaScript(`(() => { const el = document.querySelector('.bulle'); const o = { bubbles: true, button: 0, pointerId: 1, clientX: 60, clientY: 60, screenX: 60, screenY: 60 }; el.dispatchEvent(new PointerEvent('pointerdown', o)); setTimeout(() => el.dispatchEvent(new PointerEvent('pointerup', o)), 80) })()`)
+    for (const t of [60, 200, 380]) {
+      await attendre(t === 60 ? 60 : t === 200 ? 140 : 180)
+      writeFileSync(join(sortie, `a2-clic-${t}.png`), (await b.webContents.capturePage()).toPNG())
+    }
+    journal('verif terminée (animations)')
+    return app.quit()
+  }
   await js(`document.querySelector('[data-action=nouveau]')?.click()`)
   await attendre(700)
   await capturer('0b-nouveau')

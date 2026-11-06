@@ -324,3 +324,47 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .md th, .md td { text-align: left; padding: 7px 10px; vertical-align: top; }
 .md th { font-weight: 700; background: var(--canvas); }
 .md tr + tr td, .md tbody tr:first-child td { border-top: 1px solid var(--line); }
+
+/* ─── L'encre qui s'étale : ouverture et fermeture du panneau ─── */
+.panneau.entre { animation: encre-ouvre .6s cubic-bezier(.22,.9,.28,1) both; }
+.panneau.sort { animation: encre-ferme .26s cubic-bezier(.55,0,.8,.3) both; }
+@keyframes encre-ouvre {
+  from { clip-path: circle(0px at var(--ox) var(--oy)); }
+  to { clip-path: circle(var(--r) at var(--ox) var(--oy)); }
+}
+@keyframes encre-ferme {
+  from { clip-path: circle(var(--r) at var(--ox) var(--oy)); }
+  to { clip-path: circle(0px at var(--ox) var(--oy)); }
+}
+/* Le contenu suit en cascade, avec un léger ressort. */
+.panneau.entre header, .panneau.entre .colonne > :not(header):not(.depot), .panneau.entre .barre {
+  animation: cascade .55s cubic-bezier(.25,1.35,.5,1) both;
+}
+.panneau.entre header { animation-delay: .08s; }
+.panneau.entre .colonne > :nth-child(2) { animation-delay: .16s; }
+.panneau.entre .colonne > :nth-child(3), .panneau.entre footer { animation-delay: .24s; }
+@keyframes cascade { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+.panneau.plein.entre { animation-duration: .7s; }
+
+/* ─── Bulle vivante ─── */
+.bulle { transition: transform .45s cubic-bezier(.3,1.7,.45,1), --mood .9s; }
+.bulle:hover { transform: scale(1.07) rotate(-3deg); }
+.bulle.presse { transform: scale(.86); transition-duration: .12s; }
+.bulle.clic { animation: rebond .6s cubic-bezier(.3,1.8,.4,1); }
+@keyframes rebond { 0% { transform: scale(.86); } 45% { transform: scale(1.12, .94); } 70% { transform: scale(.97, 1.04); } 100% { transform: scale(1); } }
+/* L'onde d'encre au clic, et l'anneau qui pulse quand l'humeur change. */
+.bulle .onde { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--mood); pointer-events: none; animation: onde .7s ease-out both; }
+@keyframes onde { to { inset: -17px; opacity: 0; border-width: 1px; } }
+.bulle.change::after { animation: change .7s cubic-bezier(.3,1.7,.45,1); }
+@keyframes change { 40% { inset: -11px; border-width: 5px; } }
+.gouttes { position: absolute; inset: 0; pointer-events: none; }
+.gouttes i {
+  position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%;
+  background: var(--mood); animation: goutte .65s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes goutte {
+  0% { transform: rotate(var(--a)) translateY(-44px) scale(.4); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateY(-60px) scale(.15); opacity: 0; }
+}
+.bulle .eclat { position: absolute; inset: 0; pointer-events: none; }

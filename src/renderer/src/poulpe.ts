@@ -103,7 +103,8 @@ function motifTentacules(): THREE.CanvasTexture {
  */
 export type Options = { remplir?: number; plongee?: number; fov?: number }
 
-export type Poulpe = { humeur: (h: Humeur) => void; detruire: () => void }
+export type Geste = 'coucou' | 'saut' | 'etire' | 'clins' | 'tour'
+export type Poulpe = { humeur: (h: Humeur) => void; geste: (g: Geste) => void; detruire: () => void }
 
 export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe {
   const rendu = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
@@ -173,7 +174,6 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   // secondes seulement (la suivre tout le temps était « relou »).
   let suivreJusqua = 0
   let regard = { x: 0, y: 0 }, avantRegard = 1.5
-  type Geste = 'coucou' | 'saut' | 'etire' | 'clins' | 'tour'
   let geste: { nom: Geste; p: number; duree: number } | null = null
   let avantGeste = 5 + Math.random() * 5
   const GESTES: [Geste, number][] = [['coucou', 1.8], ['saut', 0.9], ['etire', 1.4], ['clins', 0.7], ['tour', 2.2]]
@@ -323,6 +323,12 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
 
   return {
     humeur: changer,
+    // Un geste demandé de l'extérieur (clic sur la bulle, panneau qui s'ouvre) passe devant tout.
+    geste: (nom) => {
+      const d = GESTES.find(([n]) => n === nom)?.[1] ?? 1
+      geste = { nom, p: 0, duree: d }
+      if (nom === 'clins') clin = 0
+    },
     detruire: () => {
       vivant = false
       cancelAnimationFrame(anim)

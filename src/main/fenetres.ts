@@ -92,12 +92,28 @@ function placer(): void {
   p.setBounds({ x: Math.round(x), y: Math.round(y), width: PANNEAU.largeur, height: PANNEAU.hauteur })
 }
 
+/** D'où part l'encre : le centre de la bulle, en coordonnées du panneau. */
+function origine(): { x: number; y: number } {
+  const p = lePanneau(), b = laBulle()
+  if (!p) return { x: 0, y: 0 }
+  const [pw, ph] = p.getSize()
+  if (!b || plein) return { x: pw / 2, y: ph / 2 }
+  const [px, py] = p.getPosition(), [bx, by] = b.getPosition()
+  return { x: bx + TAILLE_BULLE / 2 - px, y: by + TAILLE_BULLE / 2 - py }
+}
+
+let fermeture: NodeJS.Timeout | null = null
+
 export function ouvrirPanneau(): void {
   const p = lePanneau() ?? creerPanneau()
+  if (fermeture) { clearTimeout(fermeture); fermeture = null }
   placer()
-  p.show()
-  p.focus()
-  p.webContents.send('ouvert')
+  // Le panneau prépare son entrée (encre à zéro) avant de se montrer : pas d'éclair du panneau entier.
+  p.webContents.send('ouvert', origine())
+  setTimeout(() => {
+    p.show()
+    p.focus()
+  }, 50)
 }
 
 function poserPlein(oui: boolean): void {
@@ -129,8 +145,17 @@ export function basculerPlein(): void {
  * faisait tout disparaître.
  */
 export function fermerPanneau(): void {
-  if (plein) poserPlein(false)
+  const p = lePanneau()
+  if (!p?.isVisible() || fermeture) return
+  // L'encre se résorbe vers la bulle, puis on cache. Filet : on cache quand même si le panneau ne répond pas.
+  p.webContents.send('a-fermer', origine())
+  fermeture = setTimeout(cacherPanneau, 700)
+}
+
+export function cacherPanneau(): void {
+  if (fermeture) { clearTimeout(fermeture); fermeture = null }
   lePanneau()?.hide()
+  if (plein) poserPlein(false)
   laBulle()?.showInactive()
 }
 

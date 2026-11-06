@@ -18,7 +18,10 @@ const api = {
   surEvenement: (cb: (projet: string, e: Evenement) => void) => recevoir('evenement', cb),
   /** Le fil d'un projet a changé d'un bloc (conversation déménagée depuis Libre) : à relire en entier. */
   surFilChange: (cb: (projet: string) => void) => recevoir('fil-change', cb),
-  surOuvert: (cb: () => void) => recevoir('ouvert', cb),
+  surOuvert: (cb: (origine: { x: number; y: number }) => void) => recevoir('ouvert', cb),
+  /** Le main veut fermer : le panneau joue sa sortie, puis appelle `fermerFini`. */
+  surAFermer: (cb: (origine: { x: number; y: number }) => void) => recevoir('a-fermer', cb),
+  fermerFini: () => ipcRenderer.send('fermer-fini'),
   surTourFini: (cb: () => void) => recevoir('tour-fini', cb),
   fil: (id: string): Promise<Bloc[]> => ipcRenderer.invoke('fil', id),
 

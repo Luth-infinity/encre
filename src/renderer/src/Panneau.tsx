@@ -205,6 +205,12 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
   )
 }
 
+/** Le rayon qui couvre tout le panneau depuis la bulle : au-delà, l'encre finirait de s'étaler hors champ et l'effet passerait inaperçu. */
+function rayonEncre(x: number, y: number): number {
+  const w = innerWidth - 20, h = innerHeight - 20
+  return Math.ceil(Math.max(Math.hypot(x, y), Math.hypot(w - x, y), Math.hypot(x, h - y), Math.hypot(w - x, h - y)))
+}
+
 type Vue = 'chat' | 'hub' | 'reglages' | 'outils'
 
 export default function Panneau(): JSX.Element {
@@ -218,6 +224,8 @@ export default function Panneau(): JSX.Element {
   const saisie = useRef<SaisieRef>(null)
   const bas = useRef<HTMLDivElement>(null)
   const [plein, setPlein] = useState(false)
+  /** L'entrée en tache d'encre depuis la bulle, et la sortie inverse. */
+  const [anim, setAnim] = useState<{ etat: 'entre' | 'sort' | ''; x: number; y: number; n: number }>({ etat: '', x: 0, y: 0, n: 0 })
   const parole = useParole()
   // Les écouteurs posés au montage lisent l'appel par ici : le leur serait figé.
   const appel = useRef(parole)
@@ -238,7 +246,16 @@ export default function Panneau(): JSX.Element {
     const offs = [
       window.api.surEtat(setEtat),
       window.api.surHumeur(setHumeur),
-      window.api.surOuvert(() => setTimeout(() => saisie.current?.focus(), 30)),
+      window.api.surOuvert((o) => {
+        // Retirer puis remettre la classe relance l'animation sans remonter le panneau (le brouillon reste).
+        setAnim((a) => ({ etat: '', x: o.x, y: o.y, n: a.n + 1 }))
+        requestAnimationFrame(() => requestAnimationFrame(() => setAnim((a) => ({ ...a, etat: 'entre' }))))
+        setTimeout(() => saisie.current?.focus(), 60)
+      }),
+      window.api.surAFermer((o) => {
+        setAnim((a) => ({ etat: 'sort', x: o.x, y: o.y, n: a.n }))
+        setTimeout(() => window.api.fermerFini(), 260)
+      }),
       window.api.surPlein(setPlein),
       window.api.surFilChange((id) => void montrerFil(id)),
       // Alt+Maj+E (même panneau fermé) : ouvrir l'écoute, ou envoyer. Le mot « Encre » : pareil, mains libres.
@@ -394,8 +411,8 @@ export default function Panneau(): JSX.Element {
 
   return (
     <div
-      className={`panneau ${plein ? 'plein' : ''}`}
-      style={{ '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur] } as React.CSSProperties}
+      className={`panneau ${plein ? 'plein' : ''} ${anim.etat}`}
+      style={{ '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setGlisse(true) } }}
       onDragLeave={(e) => { if (e.currentTarget === e.target) setGlisse(false) }}
       onDrop={(e) => void deposer(e)}
