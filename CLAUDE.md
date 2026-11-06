@@ -208,9 +208,12 @@ Vérifié le 06/11 : build et typecheck ; captures de toutes les vues en dev
 et dans l'app empaquetée ; voix Edge → transcription Groq (phrase
 retrouvée) ; fil enregistré sur le disque ; message « connexion expirée ».
 
+Tour complet vérifié le 06/11 au soir (après `/login`) : message → carte
+d'autorisation avec le diff → Autoriser → `bonjour.txt` créé → réponse de
+Claude, « Fait en 6 s ».
+
 **Pas encore vu** :
-- un tour complet avec réponse de Claude : la connexion du Claude Code de la
-  machine est toujours expirée (`claude` puis `/login`, à faire par Lucas) ;
+- un projet créé depuis le chat (outil `creer_projet`) ;
 - le micro et la veille en vrai (pas d'accès au micro depuis une session
   Code) ;
 - un compte Figma branché sur un projet pendant un vrai tour ;
@@ -219,8 +222,7 @@ retrouvée) ; fil enregistré sur le disque ; message « connexion expirée ».
   Lucas : dépôt public façon Hublink, ou mises à jour à la main.
 
 À faire ensuite :
-1. Tour complet (après `/login`) : carte d'autorisation, projet créé depuis
-   le chat, compte Figma branché.
+1. Projet créé depuis le chat, compte Figma branché sur un vrai tour.
 2. Essayer le mode Parler et la veille en vrai, régler les seuils
    (`micro.ts` : `SEUIL`, `FIN_SILENCE`).
 3. Décider de la publication (release, site Luth), puis retirer Iris et
