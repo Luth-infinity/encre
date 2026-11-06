@@ -426,9 +426,15 @@ function audioDans(x: unknown): string | null {
 }
 
 /** Le quota est plein : `apres` = secondes à attendre selon Google. */
+/** `apres` = -1 : c'est le quota du jour, il revient à 9 h (minuit heure du Pacifique). */
 export class QuotaGemini extends Error {
   constructor(public apres: number) {
-    super(`quota Gemini plein, réessayer dans ${apres} s`)
+    super(apres < 0 ? 'quota Gemini du jour épuisé' : `quota Gemini plein, réessayer dans ${apres} s`)
+  }
+  get pourLucas(): string {
+    return this.apres < 0
+      ? 'Quota gratuit du jour épuisé chez Google : la voix revient demain à 9 h.'
+      : `Limite gratuite de Gemini : 3 essais par minute. Réessaie dans ${this.apres} s.`
   }
 }
 
@@ -446,6 +452,9 @@ async function gemini(texte: string, voix: string, cle: string, essai = 0): Prom
   })
   if (res.status === 429) {
     const corps = await res.text()
+    journal(`Gemini 429 : ${corps.slice(0, 600)}`)
+    // Quota du jour (« per day ») : il revient à minuit heure du Pacifique, soit 9 h à Paris.
+    if (/per.?day|daily|PerDay/i.test(corps)) throw new QuotaGemini(-1)
     const apres = Number(/retry in (\d+(?:\.\d+)?)s/i.exec(corps)?.[1] ?? 30)
     // Quelques secondes : mieux vaut attendre la bonne voix que changer de voix en pleine réponse.
     if (apres <= 6 && essai === 0) {

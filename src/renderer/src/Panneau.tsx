@@ -452,7 +452,7 @@ export default function Panneau(): JSX.Element {
       {projet && vue === 'chat' && etat?.claude.installe && (
         <footer>
           {parole.erreur && !parole.actif && <p className="erreur-voix">{parole.erreur}</p>}
-          {muet && <p className="voix-muette">Tako répond par écrit : limite gratuite de la voix atteinte{muet.secondes ? `, elle revient dans ${muet.secondes} s` : ''}.</p>}
+          {muet && <p className="voix-muette">Tako répond par écrit : limite gratuite de la voix atteinte{muet.secondes < 0 ? ' pour aujourd’hui, elle revient demain à 9 h' : muet.secondes ? `, elle revient dans ${muet.secondes} s` : ''}.</p>}
           {parole.actif
             ? <Appel parole={parole} humeur={humeur} grand={plein} touche={etat.toucheParler} />
             : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id} />}

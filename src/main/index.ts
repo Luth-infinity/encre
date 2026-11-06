@@ -336,7 +336,7 @@ function brancher(): void {
       return { son }
     } catch (e) {
       journal(`essai de voix : ${String(e)}`)
-      if (e instanceof QuotaGemini) return { erreur: `Limite gratuite de Gemini : 3 essais par minute. Réessaie dans ${e.apres} s.` }
+      if (e instanceof QuotaGemini) return { erreur: e.pourLucas }
       return { erreur: 'La voix n’a pas répondu. Réessaie dans un instant.' }
     }
   })
@@ -352,7 +352,7 @@ function brancher(): void {
       publierEtat()
       return { son: echantillon ?? undefined }
     } catch (e) {
-      if (e instanceof QuotaGemini) return { erreur: `Limite gratuite de Gemini atteinte. Réessaie dans ${e.apres} s.` }
+      if (e instanceof QuotaGemini) return { erreur: e.pourLucas }
       return { erreur: String((e as Error).message ?? e) }
     }
   })
