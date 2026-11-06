@@ -15,12 +15,13 @@ function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boole
 }
 
 /** Une clé d'API : saisie masquée, puis seulement « enregistrée » (elle ne revient jamais au panneau). */
-function Cle({ nom, presente, prefixe, aide, enregistrer }: { nom: string; presente: boolean; prefixe: string; aide: string; enregistrer: (v: string | null) => Promise<string | null> }): JSX.Element {
+function Cle({ nom, presente, prefixe, aide, enregistrer }: { nom: string; presente: boolean; prefixe?: string; aide: string; enregistrer: (v: string | null) => Promise<string | null> }): JSX.Element {
   const [cle, setCle] = useState('')
   const [remplacer, setRemplacer] = useState(false)
   const [souci, setSouci] = useState<string | null>(null)
   const envoyer = async (valeur: string | null): Promise<void> => {
-    if (valeur !== null && !valeur.trim().startsWith(prefixe)) return setSouci(`Une clé ${nom} commence par « ${prefixe} ».`)
+    if (valeur !== null && prefixe && !valeur.trim().startsWith(prefixe)) return setSouci(`Une clé ${nom} commence par « ${prefixe} ».`)
+    setSouci(null)
     const e = await enregistrer(valeur === null ? null : valeur.trim())
     setSouci(e)
     if (!e) { setCle(''); setRemplacer(false) }
@@ -37,7 +38,7 @@ function Cle({ nom, presente, prefixe, aide, enregistrer }: { nom: string; prese
         )
         : (
           <form className="ligne" onSubmit={(e) => { e.preventDefault(); void envoyer(cle) }}>
-            <input type="password" placeholder={`Clé ${nom} (${prefixe}…)`} value={cle} onChange={(e) => setCle(e.target.value)} autoComplete="off" spellCheck={false} />
+            <input type="password" placeholder={prefixe ? `Clé ${nom} (${prefixe}…)` : `Clé ${nom}`} value={cle} onChange={(e) => setCle(e.target.value)} autoComplete="off" spellCheck={false} />
             <button type="submit" className="btn pri" disabled={!cle.trim()}>Enregistrer</button>
           </form>
         )}
@@ -79,7 +80,6 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
         <Cle
           nom="Gemini"
           presente={r.cleGemini}
-          prefixe="AIza"
           aide="Pour une voix vraiment naturelle (gratuit) : aistudio.google.com → Get API key, puis colle-la ici. Chiffrée par Windows. Sans elle, Tako parle avec une voix Microsoft."
           enregistrer={(v) => window.api.cleGemini(v)}
         />

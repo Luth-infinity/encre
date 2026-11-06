@@ -300,8 +300,19 @@ function brancher(): void {
     publierEtat()
   })
   // La clé Gemini : enregistrée, Tako passe à une voix Gemini ; retirée, il revient à Edge.
-  ipcMain.handle('cle-gemini', (_e, cle: string | null) => {
+  ipcMain.handle('cle-gemini', async (_e, cle: string | null) => {
     try {
+      // Le format des clés Google change (pas toujours « AIza… ») : on demande
+      // directement à Google si la clé marche, plutôt que de deviner.
+      if (cle) {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', {
+          headers: { 'x-goog-api-key': cle },
+          signal: AbortSignal.timeout(10000)
+        }).catch(() => null)
+        if (!res) return 'Impossible de joindre Google : vérifie ta connexion.'
+        if (res.status === 400 || res.status === 401 || res.status === 403) return 'Google refuse cette clé : vérifie que tu l’as copiée en entier.'
+        if (!res.ok) journal(`clé Gemini : vérification ${res.status}, enregistrée quand même`)
+      }
       reglages.poserCleGemini(cle)
       const r = reglages.reglages()
       if (cle && !estGemini(r.voix)) reglages.modifier({ voix: VOIX_GEMINI[0].id })
