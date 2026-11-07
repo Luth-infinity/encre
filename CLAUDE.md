@@ -56,7 +56,11 @@ d'instance unique ferme le test aussitôt).
    (`electron-updater`) ; macOS non (Squirrel.Mac veut une app signée) : on
    reprend le `.dmg` sur le site.
 3. Le site (`site/`, Next.js, Vercel) lit les releases GitHub : rien à écrire
-   à la main. `cd site && vercel --prod` pour rafraîchir tout de suite.
+   à la main. `cd site && vercel --prod`, **puis** `vercel alias set <url> encre-app.vercel.app`
+   (l'adresse publique est un alias posé à la main). Protection Vercel retirée
+   le 07/11 (sinon le site demande une connexion). Le Tako du site est une copie
+   de `poulpe.ts` (`site/app/poulpe.ts`) : la garder identique. Checklist anti
+   « vibe coded UI » de Yuwen Lu : pas de dégradé, de halo ni d'apparition au défilement.
 
 ## macOS
 
