@@ -8,7 +8,8 @@ import type { ReactNode } from 'react'
 
 function enLigne(texte: string, cle: string): ReactNode[] {
   const out: ReactNode[] = []
-  const motif = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|\[[^\]]+\]\(https?:[^)]+\))/g
+  // Une adresse écrite seule devient aussi un lien (sans la ponctuation qui la suit).
+  const motif = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|\[[^\]]+\]\(https?:[^)]+\)|https?:\/\/[^\s<>()[\]]*[^\s<>()[\].,;:!?»"'])/g
   let dernier = 0, i = 0
   for (const m of texte.matchAll(motif)) {
     if (m.index! > dernier) out.push(texte.slice(dernier, m.index))
@@ -18,6 +19,9 @@ function enLigne(texte: string, cle: string): ReactNode[] {
     else if (t.startsWith('[')) {
       const l = /\[([^\]]+)\]\(([^)]+)\)/.exec(t)!
       out.push(<a key={k} href={l[2]} target="_blank" rel="noreferrer">{l[1]}</a>)
+    } else if (t.startsWith('http')) {
+      // Affichée sans « https:// » ni barre finale : plus courte à lire, même lien.
+      out.push(<a key={k} href={t} target="_blank" rel="noreferrer">{t.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a>)
     } else out.push(<em key={k}>{t.slice(1, -1)}</em>)
     dernier = m.index! + t.length
   }

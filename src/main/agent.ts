@@ -125,7 +125,10 @@ function consigne(projet: Projet, voix: boolean): string {
   return [
     ...(voix
       ? [
-          'MODE PARLER : ta réponse est lue à voix haute. Écris pour l’oreille : phrases courtes, aucune liste, aucun tableau, aucun code, aucun chemin de fichier ni adresse web, pas d’emoji. Deux à quatre phrases suffisent, sauf si on te demande plus. Tu peux quand même agir avec tes outils.',
+          'MODE PARLER : ta réponse est lue à voix haute. Écris pour l’oreille : phrases courtes, aucune liste, aucun tableau, aucun code, aucun chemin de fichier, pas d’emoji. Deux à quatre phrases suffisent, sauf si on te demande plus. Tu peux quand même agir avec tes outils.',
+          // Un lien épelé (« encre-app point vercel point app ») était illisible à l'écran :
+          // en lien Markdown, il est cliquable dans le fil et la voix n'en lit que le texte.
+          'Si tu donnes un lien, écris-le en lien Markdown avec un texte court, par exemple [le site d’Encre](https://…) : il sera cliquable à l’écran, et la voix ne lira que le texte. N’épelle jamais une adresse.',
           ''
         ]
       : []),
