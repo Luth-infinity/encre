@@ -2,8 +2,9 @@
 
 /**
  * La DA de l'app : base Hublink (gris froids, cartes blanches, Inter Tight,
- * encre #0B0C0E), rendue vivante par les couleurs d'humeur de Tako. Le site
- * suit le thème du système, comme l'app.
+ * encre #0B0C0E). Neutres d'abord ; la seule couleur vive est celle de
+ * l'humeur de Tako, portée par son anneau. Pas de dégradé, pas de halo
+ * (checklist anti « vibe coded UI »). Le site suit le thème du système.
  */
 @theme {
   --font-sans: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -14,7 +15,6 @@
   --color-card: #ffffff;
   --color-ink: #0b0c0e;
   --color-ink-soft: #5b6167;
-  --color-line: #e3e6e8;
   --color-erreur: #d8323f;
 }
 
@@ -25,15 +25,8 @@
     --color-card: #202227;
     --color-ink: #f2f3f5;
     --color-ink-soft: #9aa0a6;
-    --color-line: #2a2d32;
     color-scheme: dark;
   }
-}
-
-@property --mood {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #b7a6f5;
 }
 
 @layer base {
@@ -46,22 +39,11 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: clip;
-    /* Tako passe par ses humeurs : tout ce qui porte --mood suit. */
-    animation: humeurs 12s linear infinite;
   }
   ::selection {
     background: #b7a6f5;
     color: #0b0c0e;
   }
-}
-
-@keyframes humeurs {
-  0%, 100% { --mood: #b7a6f5; }
-  17% { --mood: #7cc4ff; }
-  34% { --mood: #ff8fc7; }
-  51% { --mood: #ff9a3c; }
-  68% { --mood: #ffc933; }
-  85% { --mood: #3ddc84; }
 }
 
 @utility headline {
@@ -70,48 +52,20 @@
   line-height: 0.95;
 }
 
-/* « dans une bulle. » : souligné d'encre à la couleur de l'humeur. */
-.encre {
-  background: linear-gradient(transparent 62%, color-mix(in srgb, var(--mood) 70%, transparent) 62%, color-mix(in srgb, var(--mood) 70%, transparent) 92%, transparent 92%);
-  padding-inline: 0.04em;
+/* La bulle : anneau plein à la couleur de l'humeur, qui glisse d'une humeur à l'autre. */
+.bulle {
+  outline: 8px solid var(--anneau);
+  outline-offset: 6px;
+  transition: outline-color 0.6s ease;
+  cursor: pointer;
+}
+.bulle:focus-visible {
+  outline-width: 10px;
 }
 
-.humeur-point,
-.puce {
-  background: var(--mood);
-}
-.puce {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  margin-top: 7px;
-  border-radius: 999px;
-}
-
-/* La bulle : un anneau qui change d'humeur, et un écho qui s'en échappe. */
-.bulle .anneau {
-  border: 6px solid var(--mood);
-  box-shadow: 0 30px 80px -20px color-mix(in srgb, var(--mood) 70%, transparent);
-}
-.bulle .ping {
-  border: 4px solid var(--mood);
-  animation: ping 2.4s ease-out infinite;
-}
-@keyframes ping {
-  from { transform: scale(1); opacity: 0.7; }
-  to { transform: scale(1.25); opacity: 0; }
-}
-.flotte {
-  animation: flotte 5s ease-in-out infinite;
-}
-@keyframes flotte {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-10px) rotate(2deg); }
-}
-
-/* Le panneau rejoué : ombre neutre (teintée, elle faisait un halo), bord à l'humeur. */
+/* Le panneau rejoué : une ombre neutre, comme dans l'app. */
 .panneau {
-  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--color-line), 0 0 0 4px color-mix(in srgb, var(--mood) 35%, transparent);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.35);
 }
 .panneau .moi {
   align-self: flex-end;
@@ -124,13 +78,6 @@
 }
 .panneau .moi.pendant {
   border-radius: 18px;
-  box-shadow: inset 0 0 0 2px var(--mood);
-}
-.panneau .moi small {
-  display: block;
-  margin-top: 2px;
-  font-size: 10px;
-  opacity: 0.6;
 }
 .panneau .qui {
   display: flex;
@@ -144,17 +91,6 @@
   width: 18px;
   height: 18px;
 }
-.panneau .etapes {
-  border-radius: 14px;
-  background: var(--color-canvas);
-  padding: 10px 12px;
-}
-.panneau .point {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--mood);
-}
 .panneau .attente {
   display: flex;
   gap: 4px;
@@ -163,14 +99,25 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: var(--mood);
+  background: var(--color-ink-soft);
   animation: saute 1s ease-in-out infinite;
 }
-.panneau .attente i:nth-child(2) { animation-delay: 0.15s; }
-.panneau .attente i:nth-child(3) { animation-delay: 0.3s; }
+.panneau .attente i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.panneau .attente i:nth-child(3) {
+  animation-delay: 0.3s;
+}
 @keyframes saute {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50% { transform: translateY(-4px); opacity: 1; }
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 .panneau .jauge {
   display: block;
@@ -187,35 +134,8 @@
   background: #3ddc84;
 }
 
-.carte {
-  transition: transform 0.35s cubic-bezier(0.25, 1.3, 0.5, 1), box-shadow 0.35s;
-}
-.carte:hover {
-  transform: translateY(-4px) rotate(-0.6deg);
-  box-shadow: 0 20px 40px -24px var(--c);
-}
-
-.fond-encre {
-  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--mood) 28%, var(--color-canvas)), var(--color-canvas) 70%);
-}
-
-/* Révélation au défilement, jamais invisible si le script ne tourne pas. */
-@utility reveal {
-  opacity: 1;
-  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .js .reveal {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  .js .reveal[data-visible='true'] {
-    opacity: 1;
-    transform: none;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  body, .flotte, .bulle .ping, .panneau .attente i {
+  .panneau .attente i {
     animation: none;
   }
 }
