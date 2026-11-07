@@ -25,7 +25,11 @@ const api = {
   surTourFini: (cb: () => void) => recevoir('tour-fini', cb),
   fil: (id: string): Promise<Bloc[]> => ipcRenderer.invoke('fil', id),
 
-  envoyer: (texte: string, pieces: PieceJointe[] = [], voix = false) => ipcRenderer.send('envoyer', texte, pieces, voix),
+  /** Pendant un tour, le message s'y glisse. `citation` : le passage d'une réponse auquel on répond. */
+  envoyer: (texte: string, pieces: PieceJointe[] = [], voix = false, citation?: string) =>
+    ipcRenderer.send('envoyer', texte, pieces, voix, citation),
+  /** Relire les limites du compte Claude (5 h, semaine) si elles datent : la réponse arrive par `etat`. */
+  limites: () => ipcRenderer.send('limites'),
   arreter: () => ipcRenderer.send('arreter'),
   repondre: (id: string, r: Reponse) => ipcRenderer.send('repondre', id, r),
   mode: (m: Mode) => ipcRenderer.send('mode', m),

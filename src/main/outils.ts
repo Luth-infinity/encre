@@ -1,5 +1,5 @@
-import { spawn } from 'child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { execFileSync, spawn } from 'child_process'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import type { CompteFigma, Projet } from '@shared/types'
@@ -24,9 +24,20 @@ const FIGMA = 'https://mcp.figma.com/mcp'
 const dossierConfig = (): string => process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 
 /** Les serveurs Figma qui ont une connexion dans le Claude Code de la machine (noms d'entrées seulement, jamais les jetons). */
+/**
+ * Les identifiants de Claude Code : un fichier sous Windows et Linux, le
+ * trousseau sous macOS (élément « Claude Code-credentials »).
+ */
+function identifiants(): string {
+  if (process.platform === 'darwin') {
+    return execFileSync('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], { encoding: 'utf-8', timeout: 5000 })
+  }
+  return readFileSync(join(dossierConfig(), '.credentials.json'), 'utf-8')
+}
+
 export function comptesFigma(): CompteFigma[] {
   try {
-    const brut = JSON.parse(readFileSync(join(dossierConfig(), '.credentials.json'), 'utf-8')) as {
+    const brut = JSON.parse(identifiants()) as {
       mcpOAuth?: Record<string, { serverUrl?: string; accessToken?: string; refreshToken?: string; expiresAt?: number }>
     }
     const comptes = new Map<string, boolean>()
@@ -91,6 +102,10 @@ export function relierFigma(nom: string): string | null {
   if (!claude) return null
   const cwd = racine()
   mkdirSync(cwd, { recursive: true })
+  // Lancé hors de toute session Claude Code : sinon le `claude` de la console
+  // hériterait des variables de l'hôte et se croirait déjà connecté.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(CLAUDE(?!_CONFIG_DIR)|ANTHROPIC_BASE_URL$)/.test(k)))
+  if (process.platform === 'darwin') return relierFigmaMac(claude, serveur, cwd, env)
   const script = join(cwd, '.relier-figma.ps1')
   // PowerShell 5 lit un script sans BOM en ANSI : les accents casseraient.
   writeFileSync(
@@ -107,9 +122,6 @@ export function relierFigma(nom: string): string | null {
     ].join('\r\n'),
     'utf-8'
   )
-  // Lancé hors de toute session Claude Code : sinon le `claude` de la console
-  // hériterait des variables de l'hôte et se croirait déjà connecté.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(CLAUDE(?!_CONFIG_DIR)|ANTHROPIC_BASE_URL$)/.test(k)))
   spawn('cmd.exe', ['/c', 'start', '"Encre"', 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `"${script}"`], {
     cwd,
     env,
@@ -118,6 +130,30 @@ export function relierFigma(nom: string): string | null {
     windowsHide: true,
     windowsVerbatimArguments: true
   }).unref()
+  journal(`relier figma : ${serveur}`)
+  return serveur
+}
+
+/** macOS : un `.command` s'ouvre dans le Terminal, avec le shell de l'utilisateur. */
+function relierFigmaMac(claude: string, serveur: string, cwd: string, env: NodeJS.ProcessEnv): string {
+  const q = (s: string): string => `'${s.replace(/'/g, `'"'"'`)}'`
+  const script = join(cwd, '.relier-figma.command')
+  writeFileSync(
+    script,
+    [
+      '#!/bin/zsh',
+      `cd ${q(cwd)}`,
+      `echo ${q(`Encre relie le compte Figma « ${serveur} ».`)}`,
+      `echo ${q('Le navigateur va s’ouvrir : vérifie que figma.com y est connecté avec le BON compte.')}`,
+      `${q(claude)} mcp add --transport http --scope local ${q(serveur)} ${q(FIGMA)} 2>/dev/null`,
+      `${q(claude)} mcp login ${q(serveur)}`,
+      'echo',
+      `echo ${q('Tu peux fermer cette fenêtre et revenir dans Encre.')}`
+    ].join('\n'),
+    'utf-8'
+  )
+  chmodSync(script, 0o755)
+  spawn('open', ['-a', 'Terminal', script], { cwd, env, detached: true, stdio: 'ignore' }).unref()
   journal(`relier figma : ${serveur}`)
   return serveur
 }

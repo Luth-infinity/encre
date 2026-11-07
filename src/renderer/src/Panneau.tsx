@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { appliquer, type Bloc, type Diff, type Etat, type Humeur, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
+import { appliquer, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
 import tako from './assets/tako.png'
@@ -211,6 +211,48 @@ function rayonEncre(x: number, y: number): number {
   return Math.ceil(Math.max(Math.hypot(x, y), Math.hypot(w - x, y), Math.hypot(x, h - y), Math.hypot(w - x, h - y)))
 }
 
+/** « à 5:30 » le jour même, « jeudi à 14:00 » ensuite. */
+function quand(ms: number): string {
+  const d = new Date(ms)
+  const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === new Date().toDateString()) return `à ${heure}`
+  return `${d.toLocaleDateString('fr-FR', { weekday: 'long' })} à ${heure}`
+}
+
+/**
+ * Les limites du compte Claude, comme /usage dans le terminal : les 5 heures
+ * glissantes et la semaine. Orange à 80 %, rouge une fois pleine.
+ */
+function Jauges({ limites }: { limites: Limites | null }): JSX.Element | null {
+  if (!limites) return null
+  const jauge = (nom: string, long: string, f?: Fenetre): JSX.Element | null => {
+    if (!f) return null
+    const niveau = f.pourcent >= 100 ? 'pleine' : f.pourcent >= 80 ? 'haute' : ''
+    const reprise = f.reprise ? `, repart à zéro ${quand(f.reprise)}` : ''
+    return (
+      <span className={`jauge ${niveau}`} title={`${long} : ${f.pourcent} % utilisés${reprise}`}>
+        <small>{nom}</small>
+        <i><b style={{ width: `${Math.min(100, f.pourcent)}%` }} /></i>
+        <em>{f.pourcent} %</em>
+      </span>
+    )
+  }
+  return (
+    <div className="jauges">
+      {jauge('5 h', 'Limite des 5 heures', limites.cinqHeures)}
+      {jauge('Sem.', 'Limite de la semaine', limites.semaine)}
+    </div>
+  )
+}
+
+/** La limite pleine qui bloque, et quand elle se libère. */
+function limitePleine(l: Limites | null): string | null {
+  if (!l) return null
+  const pleine = [l.cinqHeures, l.semaine].find((f) => f && f.pourcent >= 100)
+  if (!pleine) return null
+  return `Limite de Claude atteinte${pleine.reprise ? `, elle repart ${quand(pleine.reprise)}` : ''}.`
+}
+
 type Vue = 'chat' | 'hub' | 'reglages' | 'outils'
 
 export default function Panneau(): JSX.Element {
@@ -228,6 +270,8 @@ export default function Panneau(): JSX.Element {
   const [muet, setMuet] = useState<{ jusqua: number; secondes: number } | null>(null)
   /** L'entrée en tache d'encre depuis la bulle, et la sortie inverse. */
   const [anim, setAnim] = useState<{ etat: 'entre' | 'sort' | ''; x: number; y: number; n: number }>({ etat: '', x: 0, y: 0, n: 0 })
+  /** Le bouton « Répondre » posé sur un passage sélectionné d'une réponse. */
+  const [selection, setSelection] = useState<{ texte: string; x: number; y: number } | null>(null)
   const parole = useParole()
   // Les écouteurs posés au montage lisent l'appel par ici : le leur serait figé.
   const appel = useRef(parole)
@@ -245,6 +289,7 @@ export default function Panneau(): JSX.Element {
       if (e.actif) void montrerFil(e.actif)
     })
     void window.api.humeur().then(setHumeur)
+    window.api.limites()
     const offs = [
       window.api.surEtat(setEtat),
       window.api.surHumeur(setHumeur),
@@ -253,6 +298,7 @@ export default function Panneau(): JSX.Element {
         setAnim((a) => ({ etat: '', x: o.x, y: o.y, n: a.n + 1 }))
         requestAnimationFrame(() => requestAnimationFrame(() => setAnim((a) => ({ ...a, etat: 'entre' }))))
         setTimeout(() => saisie.current?.focus(), 60)
+        window.api.limites()
       }),
       window.api.surAFermer((o) => {
         setAnim((a) => ({ etat: 'sort', x: o.x, y: o.y, n: a.n }))
@@ -321,9 +367,27 @@ export default function Panneau(): JSX.Element {
   const projet = etat?.projets.find((p) => p.id === etat.actif) ?? null
   const enCours = !!etat?.enCours
 
-  const envoyer = (texte: string, pieces: PieceJointe[]): void => {
-    if (!projet || enCours) return
-    window.api.envoyer(texte, pieces)
+  // Pendant un tour, le message rejoint le travail en cours (le main le glisse).
+  const envoyer = (texte: string, pieces: PieceJointe[], citation?: string): void => {
+    if (!projet) return
+    window.api.envoyer(texte, pieces, false, citation)
+  }
+
+  /** Une sélection dans une réponse de Tako fait apparaître « Répondre » juste au-dessus. */
+  const regarderSelection = (): void => {
+    const sel = getSelection()
+    const texte = sel?.toString().trim() ?? ''
+    if (!sel || !texte || !sel.rangeCount) return setSelection(null)
+    const dans = (n: Node | null): boolean => !!(n instanceof Element ? n : n?.parentElement)?.closest('.ia')
+    if (!dans(sel.anchorNode) || !dans(sel.focusNode)) return setSelection(null)
+    const r = sel.getRangeAt(0).getBoundingClientRect()
+    setSelection({ texte, x: r.left + r.width / 2, y: r.top })
+  }
+  const citer = (): void => {
+    if (!selection) return
+    saisie.current?.citer(selection.texte)
+    getSelection()?.removeAllRanges()
+    setSelection(null)
   }
   const repondre = (id: string, r: Reponse): void => window.api.repondre(id, r)
   const nouvelle = (): void => { if (!enCours) { setFil([]); window.api.nouvelle() } }
@@ -379,7 +443,7 @@ export default function Panneau(): JSX.Element {
   } else if (vue === 'outils') corps = <OutilsProjet projet={projet} />
   else {
     corps = (
-      <div className="fil">
+      <div className="fil" onMouseUp={() => setTimeout(regarderSelection, 0)} onScroll={() => selection && setSelection(null)}>
         {fil.length === 0 && <Accueil projet={projet} humeur={humeur} touche={etat.toucheParler} envoyer={(t) => envoyer(t, [])} />}
         {morceaux(fil).map((m, n, tous) => {
           if (m.type === 'qui') return <div key={m.i} className="qui"><img src={tako} alt="" />Tako</div>
@@ -387,7 +451,8 @@ export default function Panneau(): JSX.Element {
           const { bloc: x, i } = m
           if (x.type === 'moi') {
             return (
-              <div key={i} className={`moi ${x.voix ? 'voix' : ''}`}>
+              <div key={i} className={`moi ${x.voix ? 'voix' : ''} ${x.pendant ? 'pendant' : ''}`} title={x.pendant ? 'Envoyé pendant que Tako travaillait' : undefined}>
+                {x.citation && <div className="cite">{x.citation}</div>}
                 {x.voix && <span className="dit-voix"><Micro /></span>}
                 {x.texte}
                 {x.pieces?.length ? <div className="jointes">{x.pieces.map((n, j) => <span key={j}>{n}</span>)}</div> : null}
@@ -449,13 +514,27 @@ export default function Panneau(): JSX.Element {
 
       {glisse && <div className="depot">Lâche pour joindre</div>}
 
+      {selection && vue === 'chat' && (
+        <button
+          type="button"
+          className="repondre-a"
+          style={{ left: selection.x, top: selection.y }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={citer}
+        >
+          ↳ Répondre
+        </button>
+      )}
+
       {projet && vue === 'chat' && etat?.claude.installe && (
         <footer>
           {parole.erreur && !parole.actif && <p className="erreur-voix">{parole.erreur}</p>}
+          {limitePleine(etat.limites) && <p className="erreur-voix">{limitePleine(etat.limites)}</p>}
           {muet && <p className="voix-muette">Tako répond par écrit : limite gratuite de la voix atteinte{muet.secondes < 0 ? ' pour aujourd’hui, elle revient demain à 9 h' : muet.secondes ? `, elle revient dans ${muet.secondes} s` : ''}.</p>}
           {parole.actif
             ? <Appel parole={parole} humeur={humeur} grand={plein} touche={etat.toucheParler} />
             : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id} />}
+          <div className="pied">
           <div className="modes" role="radiogroup" aria-label="Autorisations">
             {MODES.map((m) => (
               <button
@@ -470,6 +549,8 @@ export default function Panneau(): JSX.Element {
                 {m.nom}
               </button>
             ))}
+          </div>
+          <Jauges limites={etat.limites} />
           </div>
         </footer>
       )}

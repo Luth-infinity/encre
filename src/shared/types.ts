@@ -43,7 +43,7 @@ export type PieceJointe = { nom: string; chemin?: string; image?: { media: strin
 
 /** Ce que le main envoie au panneau pendant un tour, et ce qu'il garde dans le fil. */
 export type Evenement =
-  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean }
+  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean; citation?: string; pendant?: boolean }
   | { type: 'texte'; texte: string }
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
@@ -54,7 +54,11 @@ export type Evenement =
 
 /** Un élément du fil affiché (et enregistré) : les événements, une fois cumulés. */
 export type Bloc =
-  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean }
+  /**
+   * `citation` : le passage d'une réponse auquel on répond (sélectionné dans le fil).
+   * `pendant` : envoyé pendant que Tako travaillait, glissé dans son tour.
+   */
+  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean; citation?: string; pendant?: boolean }
   | { type: 'ia'; texte: string }
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
@@ -75,7 +79,7 @@ export function appliquer(fil: Bloc[], e: Evenement): Bloc[] {
     case 'demande-close':
       return fil.filter((x) => !(x.type === 'demande' && x.demande.id === e.id))
     case 'moi':
-      return [...fil, { type: 'moi', texte: e.texte, pieces: e.pieces, voix: e.voix }]
+      return [...fil, { type: 'moi', texte: e.texte, pieces: e.pieces, voix: e.voix, citation: e.citation, pendant: e.pendant }]
     case 'outil':
       return [...fil, { type: 'outil', outil: e.outil }]
     case 'demande':
@@ -145,6 +149,15 @@ export type Reglages = {
 /** Les comptes Figma que le Claude Code de la machine a déjà reliés. */
 export type CompteFigma = { serveur: string; relie: boolean }
 
+/** Une fenêtre de limite du compte Claude : la part utilisée (0 à 100) et quand elle repart à zéro (ms). */
+export type Fenetre = { pourcent: number; reprise: number | null }
+
+/**
+ * Les limites de l'abonnement Claude (Pro, Max) : 5 heures glissantes et la
+ * semaine. `null` quand elles ne s'appliquent pas (clé d'API) ou pas encore lues.
+ */
+export type Limites = { cinqHeures?: Fenetre; semaine?: Fenetre; atteinte: boolean; lu: number }
+
 export type Etat = {
   projets: Projet[]
   actif: string | null
@@ -156,4 +169,5 @@ export type Etat = {
   tourDe: string | null
   /** Le raccourci global pour parler (« Alt+Maj+E »), ou « aucun » s'il était pris. */
   toucheParler: string
+  limites: Limites | null
 }

@@ -3,7 +3,7 @@ import {
 } from '@anthropic-ai/claude-agent-sdk'
 import { existsSync, statSync } from 'fs'
 import { z } from 'zod'
-import type { Commande, Diff, Evenement, Humeur, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
+import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
 import { cheminClaude, noterConnexion } from './claude'
 import * as fils from './fils'
 import { journal } from './journal'
@@ -26,6 +26,8 @@ type Sortie = {
   humeur: (h: Humeur) => void
   projets?: () => void
   audio?: (mp3: Buffer) => void
+  /** Claude Code a donné l'état des limites du compte (à chaque appel à l'API). */
+  limites?: (l: Limites) => void
 }
 
 /** Ce qui accompagne le texte : les pièces jointes, et la voix choisie en mode Parler. */
@@ -85,7 +87,7 @@ function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
 
 const MODES: Record<Mode, PermissionMode> = { demander: 'default', modifs: 'acceptEdits', auto: 'auto' }
 
-let courant: { q: Query; abort: AbortController } | null = null
+let courant: { q: Query; abort: AbortController; glisser: (m: SDKUserMessage) => boolean } | null = null
 const enAttente = new Map<string, (r: Reponse) => void>()
 
 export const enCours = (): boolean => courant !== null
@@ -192,17 +194,43 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   // tour** : fermée juste après le message, Claude Code coupait les demandes
   // d'autorisation restées sans réponse quelques secondes (« Operation
   // aborted », « la demande s'est coupée avant que tu puisses répondre »).
-  let finEntree: () => void = () => {}
-  const entreeFermee = new Promise<void>((r) => (finEntree = r))
-  abort.signal.addEventListener('abort', () => finEntree())
+  // Elle sert aussi à glisser les messages écrits pendant que Tako travaille.
+  const file: SDKUserMessage[] = []
+  let reveil: (() => void) | null = null
+  let ferme = false
+  const finEntree = (): void => {
+    ferme = true
+    reveil?.()
+  }
+  abort.signal.addEventListener('abort', finEntree)
   async function* entree(): AsyncGenerator<SDKUserMessage> {
     yield {
       type: 'user',
       message: { role: 'user', content: contenu(texte, options.pieces ?? []) },
       parent_tool_use_id: null
     } as SDKUserMessage
-    await entreeFermee
+    while (!ferme) {
+      while (file.length && !ferme) yield file.shift()!
+      if (!ferme) await new Promise<void>((r) => (reveil = r))
+      reveil = null
+    }
   }
+  /**
+   * Un message glissé en plein tour (`priority: 'next'`) : Claude Code le
+   * donne à Claude au prochain appel, entre deux outils, comme dans le
+   * terminal (essai du 07/11 : pris en compte, un seul `result`). S'il arrive
+   * après le dernier appel, Claude Code en fait un nouveau tour : d'où le
+   * délai de grâce après un `result` qui suit un message glissé.
+   */
+  let glisses = 0
+  const glisser = (m: SDKUserMessage): boolean => {
+    if (ferme) return false
+    glisses++
+    file.push({ ...m, priority: 'next' })
+    reveil?.()
+    return true
+  }
+  let grace: ReturnType<typeof setTimeout> | null = null
 
   const q = query({
     prompt: entree(),
@@ -244,12 +272,20 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       }
     }
   })
-  courant = { q, abort }
+  courant = { q, abort, glisser }
 
   let erreur: string | undefined
   try {
     for await (const m of q) {
-      if (m.type === 'system' && m.subtype === 'init') {
+      // Un tour relancé par un message glissé trop tard : on attend sa fin.
+      if (grace && m.type !== 'result') {
+        clearTimeout(grace)
+        grace = null
+      }
+      if (m.type === 'rate_limit_event') {
+        const l = depuisEvenement(m.rate_limit_info as InfoLimite)
+        if (l) sortie.limites?.(l)
+      } else if (m.type === 'system' && m.subtype === 'init') {
         projets.modifier(projet.id, {
           session: m.session_id,
           serveurs: m.mcp_servers.filter((s) => s.name !== 'encre').map((s) => ({ nom: s.name, etat: s.status }))
@@ -269,7 +305,10 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
           }
         }
       } else if (m.type === 'result') {
-        finEntree()
+        if (glisses) {
+          glisses = 0
+          grace = setTimeout(finEntree, 5000)
+        } else finEntree()
         if (m.subtype !== 'success') erreur = 'Claude s’est arrêté avant la fin.'
         else if (m.is_error) erreur = traduire(String(m.result || 'Erreur de Claude Code.'))
       }
@@ -278,6 +317,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
     erreur = abort.signal.aborted ? undefined : traduire(String((e as Error)?.message ?? e))
     journal(`tour en erreur : ${String(e)}`)
   } finally {
+    if (grace) clearTimeout(grace)
     finEntree()
     courant = null
     enAttente.clear()
@@ -301,6 +341,20 @@ function traduire(brut: string): string {
   if (/usage limit|rate.?limit|limit reached/i.test(brut)) return 'Limite d’usage atteinte sur ce compte Claude.'
   if (/ENOENT|spawn/i.test(brut)) return 'Claude Code est introuvable sur cette machine.'
   return brut
+}
+
+/**
+ * Glisse un message dans le tour en cours. Faux s'il n'y a pas de tour, ou
+ * s'il se termine : le message partira alors au tour suivant.
+ */
+export function glisser(texte: string, pieces: PieceJointe[] = []): boolean {
+  return (
+    courant?.glisser({
+      type: 'user',
+      message: { role: 'user', content: contenu(texte, pieces) },
+      parent_tool_use_id: null
+    } as SDKUserMessage) ?? false
+  )
 }
 
 export function repondre(id: string, r: Reponse): void {
@@ -370,4 +424,83 @@ export async function commandes(projet: Projet): Promise<Commande[]> {
   } finally {
     abort.abort()
   }
+}
+
+/**
+ * Les limites du compte. `rate_limit_event` les donne à chaque appel (part
+ * de 0 à 1 dans `unifiedWindows`, champ absent des types du SDK mais bien
+ * là, vu le 07/11) ; hors tour, on les demande à une session ouverte sans
+ * message (rien n'est envoyé à Claude, comme pour les commandes).
+ */
+type InfoLimite = {
+  status?: string
+  rateLimitType?: string
+  utilization?: number
+  resetsAt?: number
+  unifiedWindows?: Record<string, { utilization?: number; resetsAt?: number } | undefined>
+}
+
+let connues: Limites | null = null
+export const limitesConnues = (): Limites | null => connues
+
+function depuisEvenement(i: InfoLimite): Limites | null {
+  const fenetre = (u?: number, r?: number): Fenetre | undefined =>
+    typeof u === 'number' ? { pourcent: Math.round(u * 100), reprise: r ? r * 1000 : null } : undefined
+  const w = i.unifiedWindows ?? {}
+  const l: Limites = { ...connues, atteinte: i.status === 'rejected', lu: Date.now() }
+  const cinq = fenetre(w.five_hour?.utilization, w.five_hour?.resetsAt)
+  const sept = fenetre(w.seven_day?.utilization, w.seven_day?.resetsAt)
+  if (cinq) l.cinqHeures = cinq
+  if (sept) l.semaine = sept
+  // Une limite atteinte sans pourcentage : la fenêtre en cause est pleine.
+  const pleine = { pourcent: 100, reprise: i.resetsAt ? i.resetsAt * 1000 : null }
+  if (l.atteinte && i.rateLimitType === 'five_hour' && !cinq) l.cinqHeures = pleine
+  if (l.atteinte && i.rateLimitType === 'seven_day' && !sept) l.semaine = pleine
+  if (!l.cinqHeures && !l.semaine) return null
+  connues = l
+  return l
+}
+
+let lecture: Promise<Limites | null> | null = null
+export function lireLimites(projet: Projet): Promise<Limites | null> {
+  if (lecture) return lecture
+  lecture = (async () => {
+    const abort = new AbortController()
+    async function* silence(): AsyncGenerator<SDKUserMessage> {
+      await new Promise((r) => abort.signal.addEventListener('abort', r))
+    }
+    const q = query({
+      prompt: silence(),
+      options: {
+        cwd: projet.dossier,
+        abortController: abort,
+        pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
+        env: envPropre()
+      }
+    })
+    try {
+      const u = await Promise.race([
+        q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }),
+        new Promise<never>((_, non) => setTimeout(() => non(new Error('délai dépassé')), 20000))
+      ])
+      const r = u.rate_limits
+      if (!u.rate_limits_available || !r) return connues
+      const fenetre = (f?: { utilization: number | null; resets_at: string | null } | null): Fenetre | undefined =>
+        f && typeof f.utilization === 'number'
+          ? { pourcent: Math.round(f.utilization), reprise: f.resets_at ? Date.parse(f.resets_at) : null }
+          : undefined
+      const cinq = fenetre(r.five_hour)
+      const sept = fenetre(r.seven_day)
+      if (!cinq && !sept) return connues
+      connues = { cinqHeures: cinq, semaine: sept, atteinte: (cinq?.pourcent ?? 0) >= 100 || (sept?.pourcent ?? 0) >= 100, lu: Date.now() }
+      return connues
+    } catch (e) {
+      journal(`limites : ${String(e)}`)
+      return connues
+    } finally {
+      abort.abort()
+      lecture = null
+    }
+  })()
+  return lecture
 }

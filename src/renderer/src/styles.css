@@ -381,3 +381,33 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .nouvelle-voix small { color: var(--soft); font-size: 12px; }
 .nouvelle-voix .btns { display: flex; gap: 8px; justify-content: flex-end; }
 .voix-muette { margin: 0; font-size: 12px; color: var(--soft); padding: 0 6px; }
+
+/* ─── Répondre à un passage, messages glissés en route ─── */
+.repondre-a {
+  position: fixed; z-index: 30; transform: translate(-50%, calc(-100% - 8px));
+  border: 0; border-radius: 999px; padding: 5px 12px; background: var(--ink); color: var(--card);
+  font-size: 12px; font-weight: 700; box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  animation: monte .25s cubic-bezier(.25,1.3,.5,1) both;
+}
+.citation { display: flex; align-items: flex-start; gap: 8px; background: var(--canvas); border-radius: 12px; padding: 6px 6px 6px 10px; font-size: 12px; color: var(--soft); animation: monte .3s cubic-bezier(.25,1.3,.5,1) both; }
+.citation .trait { width: 3px; align-self: stretch; border-radius: 2px; background: var(--mood); flex: none; }
+.citation .passage { flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.citation button { border: 0; background: transparent; color: var(--soft); width: 22px; height: 22px; border-radius: 50%; font-size: 10px; flex: none; }
+.citation button:hover { background: var(--card); color: var(--ink); }
+.moi .cite {
+  border-left: 3px solid var(--mood); padding: 1px 0 1px 8px; margin-bottom: 6px; font-size: 12px; font-weight: 400; opacity: .75;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.moi.pendant { border-bottom-right-radius: 18px; box-shadow: inset 0 0 0 2px var(--mood); }
+
+/* ─── Pied : modes et limites du compte ─── */
+.pied { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.jauges { display: flex; gap: 10px; align-items: center; }
+.jauge { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--soft); cursor: default; }
+.jauge small { font-size: 11px; font-weight: 600; }
+.jauge i { width: 38px; height: 5px; border-radius: 999px; background: var(--canvas); overflow: hidden; display: block; }
+.jauge i b { display: block; height: 100%; border-radius: 999px; background: var(--fini); transition: width .6s; }
+.jauge em { font-style: normal; font-variant-numeric: tabular-nums; min-width: 30px; }
+.jauge.haute i b { background: var(--bosse); }
+.jauge.pleine i b { background: var(--erreur); }
+.jauge.pleine em { color: var(--erreur); font-weight: 700; }

@@ -1,6 +1,6 @@
 {
   "name": "encre",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "private": true,
   "description": "Un poulpe sur ton écran : ton Claude Code, en chat ou à la voix",
   "author": "Luth",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && electron-vite build",
     "start": "electron-vite preview",
-    "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --x64"
+    "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --x64",
+    "dist:mac": "npm run build && electron-builder --mac"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "*",
@@ -70,6 +71,28 @@
       "perMachine": false,
       "runAfterFinish": true,
       "shortcutName": "Encre"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "Encre écoute ta voix quand tu parles à Tako (Alt+Maj+E ou le mot « Tako »)."
+      },
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null,
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "artifactName": "Encre-${version}-${arch}.${ext}"
     },
     "publish": [
       {

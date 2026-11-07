@@ -15,6 +15,8 @@ const INTERVALLE = 3 * 60 * 60 * 1000
 export function surveiller(surPrete: (version: string) => void): void {
   // En développement il n'y a pas d'installeur à remplacer.
   if (!app.isPackaged) return
+  // Squirrel.Mac exige une app signée et notariée : sur macOS, on reprend le .dmg du site.
+  if (process.platform === 'darwin') return void journal('mise à jour auto : pas sur macOS (app non signée), voir le site')
   void chargeur()
     .then((autoUpdater) => {
       autoUpdater.autoDownload = true

@@ -31,6 +31,15 @@ function charger(f: BrowserWindow, vue: 'bulle' | 'panneau'): void {
 
 const preferences = { preload: join(__dirname, '../preload/index.js'), sandbox: false, contextIsolation: true }
 
+/**
+ * macOS range chaque fenêtre dans un bureau (Spaces) : sans ça, Tako resterait
+ * sur le premier et disparaîtrait dès qu'on change de bureau ou qu'une app
+ * passe en plein écran.
+ */
+function surTousLesBureaux(f: BrowserWindow): void {
+  if (process.platform === 'darwin') f.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+}
+
 export function creerBulle(): BrowserWindow {
   const zone = screen.getPrimaryDisplay().workArea
   bulle = new BrowserWindow({
@@ -48,10 +57,13 @@ export function creerBulle(): BrowserWindow {
     alwaysOnTop: true,
     show: false,
     title: 'Encre',
+    // macOS : le premier clic agit tout de suite, au lieu de seulement activer Encre.
+    acceptFirstMouse: true,
     webPreferences: preferences
   })
   // Au-dessus des fenêtres ordinaires, mais pas d'un jeu en plein écran.
   bulle.setAlwaysOnTop(true, 'floating')
+  surTousLesBureaux(bulle)
   bulle.once('ready-to-show', () => bulle?.showInactive())
   charger(bulle, 'bulle')
   bulle.on('closed', () => (bulle = null))
@@ -70,11 +82,13 @@ export function creerPanneau(): BrowserWindow {
     alwaysOnTop: true,
     show: false,
     title: 'Encre',
+    acceptFirstMouse: true,
     // La veille (« Encre ») vit dans le panneau, qui reste caché la plupart du
     // temps : sans ça, Chromium ralentit une fenêtre cachée et l'oreille s'endort.
     webPreferences: { ...preferences, backgroundThrottling: false }
   })
   panneau.setAlwaysOnTop(true, 'floating')
+  surTousLesBureaux(panneau)
   // En plein écran, le panneau est une fenêtre comme les autres : s'il passe
   // derrière (clic sur Firefox…), la bulle revient, sinon Tako disparaissait.
   panneau.on('blur', () => { if (plein) laBulle()?.showInactive() })

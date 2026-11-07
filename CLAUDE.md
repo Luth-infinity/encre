@@ -9,8 +9,9 @@ Encre **remplacera Iris et Calque** (Lucas, 06/11/2026). On ne retire ces deux
 apps (dépôts, site Luth) qu'une fois Encre à parité, et avec son accord.
 
 Code, commentaires, interface : **en français**. Les commentaires disent
-*pourquoi*, pas *quoi*. Version **perso** tant que ce n'est pas fini : pas de
-site, pas de release, dépôt privé (`Luth-infinity/encre`).
+*pourquoi*, pas *quoi*. Dépôt **public** depuis le 07/11/2026
+(`Luth-infinity/encre`, choix de Lucas) : chacun utilise **son** Claude Code,
+aucune clé dans le code. Ne jamais commiter de clé ni de jeton.
 
 ## Lancer
 
@@ -45,6 +46,27 @@ chaîne vocale sans micro : la voix d'Edge dit une phrase, Groq la retranscrit
 met `userData` et la racine des projets dans le dossier de sortie : le test ne
 touche ni aux projets de Lucas ni à l'Encre qui tourne (sinon le verrou
 d'instance unique ferme le test aussitôt).
+
+## Publier une version
+
+1. Bumper `version` dans `package.json` (rester en `0.x`).
+2. Commiter, pousser, puis pousser le tag `vX.Y.Z` : `.github/workflows/release.yml`
+   construit Windows (`.exe`) et macOS (`.dmg` arm64 et x64, non signés) dans
+   une release brouillon, puis la publie. Windows se met à jour seul
+   (`electron-updater`) ; macOS non (Squirrel.Mac veut une app signée) : on
+   reprend le `.dmg` sur le site.
+3. Le site (`site/`, Next.js, Vercel) lit les releases GitHub : rien à écrire
+   à la main. `cd site && vercel --prod` pour rafraîchir tout de suite.
+
+## macOS
+
+Pas testé sur un vrai Mac. Prévu : PATH repris du shell de connexion
+(`reprendrePathDuShell`, sinon une app du Finder ne trouve ni `claude` ni
+`node`), identifiants Figma lus dans le trousseau (`security
+find-generic-password -s "Claude Code-credentials"`), console Terminal
+(`.command`) pour relier Figma, menu Édition (sans lui, Cmd+C/V ne marchent
+pas), Dock caché (`LSUIElement`), fenêtres sur tous les bureaux. Premier
+lancement : clic droit → Ouvrir (app non signée).
 
 ## Architecture
 
@@ -229,6 +251,24 @@ exige la facturation et une phrase de consentement : pas proposée.
 réponse reste écrite, le panneau affiche « Tako répond par écrit… »
 (`voix-muette`). L'alternance Gemini/Edge était « ultra perturbante ».
 Non vérifié : la création de voix en offre gratuite (à voir au premier essai).
+
+### Écrire pendant que Tako travaille, répondre à un passage, limites
+
+- **Messages glissés** : pendant un tour, la saisie reste ouverte (↑ si du
+  texte, ■ sinon). Le message part dans l'entrée en flux du tour avec
+  `priority: 'next'` : Claude Code le donne à Claude entre deux outils, comme
+  dans le terminal (essai du 07/11 : pris en compte, un seul `result`). Après
+  un `result` qui suit un message glissé, l'entrée reste ouverte 5 s au cas où
+  Claude Code en ferait un nouveau tour. Trop tard (entrée fermée) : il attend
+  dans `suivants` et part à la fin. Bulle `moi` cerclée (`pendant`).
+- **Répondre à un passage** : sélectionner du texte dans une réponse fait
+  apparaître « ↳ Répondre » ; le passage s'affiche au-dessus de la saisie,
+  puis part en citation Markdown (`citer()` dans `main/index.ts`).
+- **Limites** (5 h, semaine) : `rate_limit_event` à chaque appel
+  (`unifiedWindows`, part de 0 à 1, absent des types du SDK) ; hors tour,
+  `usage_EXPERIMENTAL_…` sur une session sans message, relu à l'ouverture du
+  panneau s'il date de plus d'une minute. API expérimentale : à surveiller
+  aux mises à jour du SDK.
 
 ### Plein écran
 

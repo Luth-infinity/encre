@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse } from '@shared/types'
 import * as agent from './agent'
-import { etatClaude } from './claude'
+import { etatClaude, reprendrePathDuShell } from './claude'
 import {
   aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
 } from './fenetres'
@@ -93,7 +93,8 @@ function etat(): Etat {
     reglages: reglages.reglages(),
     version: app.getVersion(),
     tourDe,
-    toucheParler
+    toucheParler,
+    limites: agent.limitesConnues()
   }
 }
 const publierEtat = (): void => lePanneau()?.webContents.send('etat', etat())
@@ -131,11 +132,37 @@ function viderLibre(): void {
  * `relance` : le tour qui suit une création de projet depuis Libre. La
  * demande est déjà dans le fil déplacé : on ne la réaffiche pas.
  */
-function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string): void {
+/** Ce que Claude reçoit quand on répond à un passage : le passage en citation Markdown, puis le message. */
+function citer(citation: string | undefined, texte: string): string {
+  if (!citation?.trim()) return texte
+  const cite = citation.trim().split('\n').map((l) => `> ${l}`).join('\n')
+  return `Je réponds à ce passage de ta réponse :\n${cite}\n\n${texte}`
+}
+
+/**
+ * Les messages écrits pendant un tour qui n'ont pas pu y être glissés (il se
+ * terminait) : ils partent dans l'ordre dès qu'il est fini.
+ */
+const suivants: { texte: string; pieces: PieceJointe[] }[] = []
+
+function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string, citation?: string): void {
   const p = projets.actif()
-  if (!p || agent.enCours() || (!texte.trim() && !pieces.length)) return
+  if (!p || (!texte.trim() && !pieces.length)) return
+  const moi = (pendant?: boolean): Evenement => ({
+    type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined,
+    citation: citation?.trim() || undefined, pendant
+  })
+  // Tako travaille déjà : le message rejoint son tour (comme dans Claude Code),
+  // ou attend la fin s'il est trop tard pour l'y glisser.
+  if (agent.enCours()) {
+    if (relance) return
+    diffuser(tourDe ?? p.id, moi(true))
+    const message = citer(citation, texte)
+    if (!agent.glisser(message, pieces)) suivants.push({ texte: message, pieces })
+    return
+  }
   tourDe = p.id
-  if (!relance) diffuser(p.id, { type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined })
+  if (!relance) diffuser(p.id, moi())
   const r = reglages.reglages()
   const audio = (mp3: Buffer): void => lePanneau()?.webContents.send('audio', mp3.toString('base64'))
   // En mode Parler, un silence de plusieurs secondes sonne comme une panne :
@@ -150,7 +177,7 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
   void agent
     .envoyer(
       p,
-      relance ?? texte,
+      relance ?? citer(citation, texte),
       {
         evenement: (ev) => {
           if (ev.type === 'texte') parle = true
@@ -163,7 +190,8 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
         },
         humeur: changerHumeur,
         projets: publierEtat,
-        audio
+        audio,
+        limites: publierEtat
       },
       { pieces, voix: voix ? r.voix : undefined }
     )
@@ -181,6 +209,15 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
         lePanneau()?.webContents.send('fil-change', arrivee.id)
         const suite = `Ce projet vient d’être ouvert depuis Libre pour cette demande : « ${texte} ». Mets-toi au travail.`
         return void envoyer(texte, pieces, voix, suite)
+      }
+      // Déjà affichés dans le fil : ils partent sans y revenir.
+      const suivant = suivants.shift()
+      if (suivant) {
+        const reste = suivants.splice(0)
+        const tout = [suivant, ...reste]
+        return void envoyer(
+          tout.map((s) => s.texte).join('\n\n'), tout.flatMap((s) => s.pieces), false, tout.map((s) => s.texte).join('\n\n')
+        )
       }
       publierEtat()
       lePanneau()?.webContents.send('tour-fini')
@@ -231,7 +268,16 @@ function brancher(): void {
   ipcMain.handle('humeur', () => humeur)
   ipcMain.handle('fil', (_e, id: string) => fils.fil(id))
 
-  ipcMain.on('envoyer', (_e, texte: string, pieces: PieceJointe[] = [], voix = false) => envoyer(texte, pieces, voix))
+  ipcMain.on('envoyer', (_e, texte: string, pieces: PieceJointe[] = [], voix = false, citation?: string) =>
+    envoyer(texte, pieces, voix, undefined, citation)
+  )
+  // Le panneau s'ouvre : les limites lues il y a plus d'une minute sont relues (hors tour, le tour les donne seul).
+  ipcMain.on('limites', () => {
+    const p = projets.actif()
+    const l = agent.limitesConnues()
+    if (!p || agent.enCours() || (l && Date.now() - l.lu < 60000)) return
+    void agent.lireLimites(p).then(publierEtat)
+  })
   ipcMain.on('arreter', () => agent.arreter())
   ipcMain.on('repondre', (_e, id: string, r: Reponse) => agent.repondre(id, r))
   ipcMain.handle('commandes', () => {
@@ -450,7 +496,16 @@ function brancher(): void {
 
 void app.whenReady().then(() => {
   journal(`démarrage ${app.getVersion()}`)
-  Menu.setApplicationMenu(null)
+  reprendrePathDuShell()
+  // Sur macOS, sans menu, Cmd+C, Cmd+V et Cmd+A ne marchent plus dans la
+  // saisie : le menu (invisible, le Dock est caché) porte ces raccourcis.
+  Menu.setApplicationMenu(
+    process.platform === 'darwin'
+      ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
+      : null
+  )
+  // Tako vit dans la bulle et près de l'horloge : pas d'icône dans le Dock.
+  app.dock?.hide()
   brancher()
   viderLibre()
   if (process.env.ENCRE_ICONE) return void icone(process.env.ENCRE_ICONE)
