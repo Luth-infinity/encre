@@ -106,7 +106,7 @@ export type Compte = {
   id: string
   nom: string
   email: string | null
-  /** L'organisation du compte (« Posidea », « Personnel »…), si Claude Code la donne. */
+  /** L'organisation du compte (le nom de l'entreprise pour un compte d'équipe), si Claude Code la donne. */
   offre: string | null
   connecte: boolean
   actif: boolean

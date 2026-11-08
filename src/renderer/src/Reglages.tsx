@@ -103,6 +103,22 @@ function CreerVoix(): JSX.Element {
 function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
   const [ajout, setAjout] = useState(false)
   const [nom, setNom] = useState('')
+  /** Le compte dont la fenêtre de connexion est ouverte. */
+  const [enCours, setEnCours] = useState<string | null>(null)
+  const [souci, setSouci] = useState<string | null>(null)
+  const connecter = async (id: string): Promise<void> => {
+    setEnCours(id)
+    setSouci(null)
+    const erreur = await window.api.connecterCompte(id)
+    setEnCours(null)
+    setSouci(erreur)
+  }
+  const ajouter = async (): Promise<void> => {
+    const id = await window.api.ajouterCompte(nom)
+    setNom('')
+    setAjout(false)
+    await connecter(id)
+  }
   return (
     <div className="comptes">
       {comptes.map((c) => (
@@ -111,24 +127,25 @@ function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
             <i />
             <span>
               <strong>{c.nom}{c.principal ? <em> · celui du terminal</em> : null}</strong>
-              <small>{c.email ?? 'Pas encore connecté'}{c.offre && c.email ? ` · ${c.offre}` : ''}</small>
+              <small>{enCours === c.id ? 'Connexion dans la fenêtre ouverte…' : c.email ?? 'Pas encore connecté'}{c.offre && c.email && enCours !== c.id ? ` · ${c.offre}` : ''}</small>
             </span>
           </button>
-          {!c.connecte && <button type="button" className="btn pri" onClick={() => window.api.connecterCompte(c.id)}>Se connecter</button>}
-          {c.connecte && <button type="button" className="lien-discret" onClick={() => window.api.connecterCompte(c.id)} title="Rouvrir la connexion (expirée, ou autre adresse)">Reconnecter</button>}
-          {!c.principal && <button type="button" className="lien-discret" onClick={() => window.api.retirerCompte(c.id)} title="Retirer d’Encre (le compte Claude, lui, ne bouge pas)">Retirer</button>}
+          {enCours !== c.id && !c.connecte && <button type="button" className="btn pri" disabled={!!enCours} onClick={() => void connecter(c.id)}>Se connecter</button>}
+          {enCours !== c.id && c.connecte && <button type="button" className="lien-discret" disabled={!!enCours} onClick={() => void connecter(c.id)} title="Rouvrir la connexion (expirée, ou autre adresse)">Reconnecter</button>}
+          {!c.principal && enCours !== c.id && <button type="button" className="lien-discret" onClick={() => window.api.retirerCompte(c.id)} title="Retirer d’Encre (le compte Claude, lui, ne bouge pas)">Retirer</button>}
         </div>
       ))}
+      {souci && <p className="erreur-voix">{souci}</p>}
       {ajout ? (
-        <form className="ajout-compte" onSubmit={(e) => { e.preventDefault(); window.api.ajouterCompte(nom); setNom(''); setAjout(false) }}>
-          <input autoFocus placeholder="Nom (ex. Perso, Posidea)" value={nom} onChange={(e) => setNom(e.target.value)} />
+        <form className="ajout-compte" onSubmit={(e) => { e.preventDefault(); void ajouter() }}>
+          <input autoFocus placeholder="Nom (ex. Perso, Travail)" value={nom} onChange={(e) => setNom(e.target.value)} />
           <button type="button" className="btn" onClick={() => setAjout(false)}>Annuler</button>
           <button type="submit" className="btn pri" disabled={!nom.trim()}>Ajouter</button>
         </form>
       ) : (
-        <button type="button" className="btn ajouter-compte" onClick={() => setAjout(true)}>＋ Ajouter un compte</button>
+        <button type="button" className="btn ajouter-compte" disabled={!!enCours} onClick={() => setAjout(true)}>＋ Ajouter un compte</button>
       )}
-      <p className="aide">Un nouveau compte ouvre une fenêtre de connexion : connecte-toi dans le navigateur avec la bonne adresse. Les conversations, skills et réglages restent les mêmes ; les outils reliés (Figma…) sont à relier à nouveau sur ce compte.</p>
+      <p className="aide">Une fenêtre de connexion vierge s’ouvre : connecte-toi avec le compte voulu, même si ton navigateur est sur un autre. Les conversations, skills et réglages restent les mêmes ; les outils reliés (Figma…) sont à relier à nouveau sur ce compte.</p>
     </div>
   )
 }

@@ -80,7 +80,7 @@ export function ajouter(dossier: string, nom?: string): Projet {
   return p
 }
 
-/** Nom de dossier sûr sous Windows, lisible : « L'Oréal · BIM » → « L'Oréal - BIM ». */
+/** Nom de dossier sûr sous Windows, lisible : « Client · Refonte » → « Client - Refonte ». */
 const nomDeDossier = (nom: string): string =>
   nom.replace(/[·•|/\\:]+/g, '-').replace(/[<>"?*]+/g, '').replace(/\s+/g, ' ').replace(/^[\s.-]+|[\s.-]+$/g, '') || 'Projet'
 

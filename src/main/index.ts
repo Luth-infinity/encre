@@ -1,5 +1,5 @@
 import './avant'
-import { app, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse } from '@shared/types'
@@ -515,16 +515,20 @@ function brancher(): void {
     const p = projets.actif()
     if (p && comptes.comptes().find((c) => c.actif)?.connecte) void agent.lireLimites(p).then(publierEtat)
   })
-  ipcMain.on('compte-ajouter', (_e, nom: string) => {
+  // Ajouter puis connecter : la fenêtre de connexion s'ouvre, la réponse dit si ça a marché.
+  ipcMain.handle('compte-ajouter', (_e, nom: string) => {
     const id = comptes.ajouter(nom)
     publierEtat()
-    comptes.connecter(id, publierEtat)
+    return id
   })
-  ipcMain.on('compte-connecter', (_e, id: string) => {
-    comptes.connecter(id, () => {
-      if (comptes.actif() === id) noterConnexion(true)
-      publierEtat()
-    })
+  ipcMain.handle('compte-connecter', async (_e, id: string) => {
+    const erreur = await comptes.connecter(id)
+    if (!erreur && comptes.actif() === id) {
+      noterConnexion(true)
+      agent.oublierLimites()
+    }
+    publierEtat()
+    return erreur
   })
   ipcMain.on('compte-retirer', (_e, id: string) => {
     const etaitActif = comptes.actif() === id
@@ -634,6 +638,19 @@ async function verifier(dossier: string): Promise<void> {
     }
   }
   const js = (code: string): Promise<unknown> | undefined => lePanneau()?.webContents.executeJavaScript(code)
+  // La connexion d'un autre compte : la fenêtre vierge doit s'ouvrir sur la page de Claude (personne pour s'y connecter).
+  if (process.env.ENCRE_VERIF_CONNEXION) {
+    const id = comptes.ajouter('Essai')
+    void comptes.connecter(id).then((e) => journal(`verif connexion : ${e ?? 'connecté'}`))
+    await attendre(9000)
+    const f = BrowserWindow.getAllWindows().find((w) => w.getTitle() !== 'Encre' && w !== laBulle() && w !== lePanneau())
+    journal(`verif connexion : fenêtre ${f ? f.webContents.getURL().slice(0, 120) : 'absente'}`)
+    if (f) writeFileSync(join(sortie, 'c-connexion.png'), (await f.webContents.capturePage()).toPNG())
+    f?.close()
+    await attendre(5000)
+    comptes.retirer(id)
+    return app.quit()
+  }
   const p = projets.ajouter(dossier)
   projets.modifier(p.id, { mode: (process.env.ENCRE_VERIF_MODE as Mode) || 'demander', session: null })
   await attendre(2500)
@@ -767,7 +784,7 @@ async function verifier(dossier: string): Promise<void> {
     journal('verif terminée')
     return app.quit()
   }
-  const message = process.env.ENCRE_VERIF_MESSAGE ?? 'Crée un fichier bonjour.txt qui contient « Bonjour Lucas », puis dis-moi en une phrase ce que tu as fait.'
+  const message = process.env.ENCRE_VERIF_MESSAGE ?? 'Crée un fichier bonjour.txt qui contient « Bonjour », puis dis-moi en une phrase ce que tu as fait.'
   let demande = false
   const actif = projets.actif()!
   diffuser(actif.id, { type: 'moi', texte: message })

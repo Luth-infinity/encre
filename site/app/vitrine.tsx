@@ -6,7 +6,7 @@ const SUITE = 'https://luth-apps.vercel.app';
 
 const FONCTIONS: [string, string][] = [
   ['Un vrai Claude Code', 'Pas un chat de plus : Tako lit, écrit et lance des commandes dans le dossier de ton projet, avec ton CLAUDE.md, tes outils et tes sessions.'],
-  ['Un projet par client', 'Chaque projet est un dossier, avec son contexte et ses outils. Dis « je bosse sur L’Oréal, projet BIM » : Tako crée le projet ou l’ouvre.'],
+  ['Un projet par client', 'Chaque projet est un dossier, avec son contexte et ses outils. Dis « je bosse sur la refonte du site de mon client » : Tako crée le projet ou l’ouvre.'],
   ['Écris pendant qu’il bosse', 'Une autre idée en cours de route ? Envoie-la : il la prend entre deux étapes, sans tout arrêter.'],
   ['Réponds à un passage', 'Sélectionne un bout de sa réponse, clique « Répondre » : il sait exactement de quoi tu parles.'],
   ['Tes limites sous les yeux', 'Les jauges des 5 heures et de la semaine sont sous la saisie, avec l’heure où elles repartent à zéro.'],

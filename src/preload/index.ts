@@ -81,8 +81,9 @@ const api = {
   choisirCompte: (id: string) => ipcRenderer.send('compte-choisir', id),
   /** Installer la mise à jour prête : Encre se ferme et se rouvre dans la nouvelle version. */
   installerMaj: () => ipcRenderer.send('installer-maj'),
-  ajouterCompte: (nom: string) => ipcRenderer.send('compte-ajouter', nom),
-  connecterCompte: (id: string) => ipcRenderer.send('compte-connecter', id),
+  ajouterCompte: (nom: string): Promise<string> => ipcRenderer.invoke('compte-ajouter', nom),
+  /** Ouvre la fenêtre de connexion ; résout avec une erreur lisible, ou null si le compte est connecté. */
+  connecterCompte: (id: string): Promise<string | null> => ipcRenderer.invoke('compte-connecter', id),
   retirerCompte: (id: string) => ipcRenderer.send('compte-retirer', id),
 
   bulleClic: () => ipcRenderer.send('bulle-clic'),

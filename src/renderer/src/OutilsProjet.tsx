@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { CompteFigma, Projet } from '@shared/types'
 
-/** Le serveur Figma déclaré en premier n'avait pas de nom de client : c'est le compte Avanteam. */
-const LIBELLES: Record<string, string> = { 'figma-remote-mcp': 'avanteam' }
+/** Le serveur Figma officiel n'a pas de nom de compte : on l'appelle simplement « par défaut ». */
+const LIBELLES: Record<string, string> = { 'figma-remote-mcp': 'par défaut' }
 const libelle = (serveur: string): string => LIBELLES[serveur] ?? serveur.replace(/^figma-/, '')
 
 const ETATS: Record<string, string> = {

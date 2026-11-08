@@ -45,7 +45,7 @@ const texte = (t: string): { content: { type: 'text'; text: string }[] } => ({ c
 /**
  * Les outils d'Encre, servis dans le process : Claude peut créer un projet,
  * en lier un existant ou en ouvrir un depuis la conversation (« je bosse sur
- * L'Oréal, projet BIM »). Le tour en cours reste dans son dossier : le projet
+ * mon client, la refonte du site »). Le tour en cours reste dans son dossier : le projet
  * ouvert prend la main au message suivant.
  */
 function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
@@ -66,7 +66,7 @@ function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
         'creer_projet',
         'Crée un projet Encre quand l’utilisateur veut travailler sur un client ou un sujet précis. Sans `dossier`, Encre crée Documents/Encre/Projets/<nom> avec un CLAUDE.md qui porte `contexte`. Avec `dossier` (un dossier existant), Encre le lie tel quel. Le projet s’ouvre au message suivant.',
         {
-          nom: z.string().describe('Nom court et lisible, par exemple « L’Oréal · BIM »'),
+          nom: z.string().describe('Nom court et lisible, par exemple « Client · Refonte du site »'),
           contexte: z.string().describe('Ce que tu sais du projet : client, objectif, outils, règles. Écrit dans le CLAUDE.md.'),
           dossier: z.string().optional().describe('Chemin d’un dossier existant à lier, si l’utilisateur en donne un')
         },

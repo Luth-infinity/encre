@@ -8,7 +8,10 @@ choisi, avec ses outils, ses autorisations et ses sessions. À terme, un mode
 Encre **remplacera Iris et Calque** (Lucas, 06/11/2026). On ne retire ces deux
 apps (dépôts, site Luth) qu'une fois Encre à parité, et avec son accord.
 
-Code, commentaires, interface : **en français**. Les commentaires disent
+Code, commentaires, interface : **en français**. **Rien de personnel dans l'app** : Encre
+sert à tout le monde (dépôt public). Aucun nom de client, d'entreprise ni de
+personne dans l'interface, les exemples, les consignes à Claude ou le site
+(exemple neutre : « Client · Refonte du site »). Les commentaires disent
 *pourquoi*, pas *quoi*. Dépôt **public** depuis le 07/11/2026
 (`Luth-infinity/encre`, choix de Lucas) : chacun utilise **son** Claude Code,
 aucune clé dans le code. Ne jamais commiter de clé ni de jeton.
@@ -132,7 +135,7 @@ en plein tour (`setPermissionMode`).
   reste). Changer de projet vide le fil affiché.
 - **Créer depuis le chat** : Claude a trois outils servis dans le process
   (`mcp__encre__lister_projets`, `creer_projet`, `ouvrir_projet`, toujours
-  autorisés). « Je bosse sur L'Oréal, projet BIM » → il cherche un projet
+  autorisés). « Je bosse sur la refonte du site de mon client » → il cherche un projet
   existant, sinon crée `Documents/Encre/Projets/<nom>` avec un CLAUDE.md qui
   porte le contexte donné. Le tour en cours reste dans son dossier : le projet
   prend la main **au message suivant** (une ligne « Projet créé » le dit).
@@ -292,8 +295,15 @@ Réglages → Comptes Claude (`main/comptes.ts`). Le principal = celui du
 terminal ; chaque autre a son dossier `userData/comptes/<id>` passé en
 `CLAUDE_CONFIG_DIR`. Les dossiers `projects`, `skills`, `plugins`… y sont
 des **jonctions** vers ceux du principal (sessions reprises d'un compte à
-l'autre) ; `settings.json` et CLAUDE.md sont copiés. Connexion : console
-`claude auth login`, guettée jusqu'à l'arrivée de `.credentials.json`.
+l'autre) ; `settings.json` et CLAUDE.md sont copiés. Connexion (09/11) :
+la console ouvrait le navigateur habituel, déjà connecté au compte de
+Lucas (impossible d'en choisir un autre) et demandait de recopier un code.
+Désormais Encre lance `claude auth login` en tuyaux, ouvre l'adresse dans
+une **fenêtre à session neuve** (agent Chrome, sinon Google refuse), lit
+`code` et `state` dans l'adresse de `/oauth/code/callback` et écrit
+`code#state` sur l'entrée de la commande. Vérifié : la fenêtre s'ouvre sur la
+page de connexion vierge (`ENCRE_VERIF_CONNEXION=1`) ; la lecture du code
+n'a pas encore été vue avec une vraie connexion.
 Retirer défait les jonctions avant d'effacer (jamais les dossiers du
 principal). **Pas encore essayé avec un deuxième vrai compte.**
 
@@ -319,7 +329,7 @@ tous les cadres. Ne plus revenir à des réglages de caméra à la main.
   même adresse) et Claude Code reprend la connexion, comme Calque. « Relier »
   ouvre une console PowerShell qui fait `claude mcp add --scope local` dans
   `Documents/Encre` puis `claude mcp login`. `figma-remote-mcp` s'affiche
-  « avanteam ».
+  « par défaut ».
 - **Jetons** : chiffrés, donnés au Claude Code du projet en variables
   d'environnement (un `.mcp.json` peut écrire `${NOM}`).
 - **Serveurs** : l'état donné par le message `init` du dernier tour.

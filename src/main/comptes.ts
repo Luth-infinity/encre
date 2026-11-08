@@ -1,6 +1,6 @@
-import { app } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import { spawn } from 'child_process'
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import type { Compte } from '@shared/types'
@@ -155,73 +155,95 @@ export function retirer(id: string): void {
 }
 
 /**
- * Connecte un compte : `claude auth login` veut un terminal (il ouvre le
- * navigateur puis attend). On le lance dans une console avec le bon
- * `CLAUDE_CONFIG_DIR`, et on surveille l'arrivée de la connexion pour
- * prévenir le panneau sans qu'il ait à demander.
+ * Connecte un compte. `claude auth login` ouvrait le navigateur habituel,
+ * déjà connecté au compte de tous les jours : impossible d'en choisir un
+ * autre, et il fallait recopier un code dans une console (essai du 08/11 :
+ * « ça marche pas »). Ici, Encre lance la commande lui-même, ouvre l'adresse
+ * dans une fenêtre vierge (session neuve, rien de connecté) et, quand
+ * Claude renvoie vers la page du code, lit ce code dans l'adresse et le
+ * donne à la commande. Résout avec une erreur lisible, ou null si connecté.
  */
-export function connecter(id: string, fini: () => void): boolean {
+export function connecter(id: string): Promise<string | null> {
   const claude = cheminClaude()
-  if (!claude) return false
+  if (!claude) return Promise.resolve('Claude Code est introuvable sur cette machine.')
   const d = id === PRINCIPAL ? dossierPrincipal() : dossierDe(id)
-  const nom = comptes().find((c) => c.id === id)?.nom ?? id
-  // Hors de toute session Claude Code : sinon la console se croirait déjà connectée par l'hôte.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(CLAUDE|ANTHROPIC_BASE_URL$)/.test(k)))
+  mkdirSync(d, { recursive: true })
+  // Hors de toute session Claude Code : sinon la commande se croirait déjà connectée par l'hôte.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(CLAUDE|ANTHROPIC_BASE_URL$)/.test(k))) as NodeJS.ProcessEnv
   if (id !== PRINCIPAL) env.CLAUDE_CONFIG_DIR = d
   else if (process.env.CLAUDE_CONFIG_DIR) env.CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR
-  mkdirSync(d, { recursive: true })
-  const creds = join(d, '.credentials.json')
-  const avant = existsSync(creds) ? statSync(creds).mtimeMs : 0
-
-  if (process.platform === 'darwin') {
-    const q = (s: string): string => `'${s.replace(/'/g, `'"'"'`)}'`
-    const script = join(d, '.connecter.command')
-    writeFileSync(
-      script,
-      [
-        '#!/bin/zsh',
-        id !== PRINCIPAL ? `export CLAUDE_CONFIG_DIR=${q(d)}` : '',
-        `echo ${q(`Encre connecte le compte Claude « ${nom} ».`)}`,
-        `echo ${q('Le navigateur va s’ouvrir : connecte-toi avec le compte voulu.')}`,
-        `${q(claude)} auth login`,
-        'echo',
-        `echo ${q('Tu peux fermer cette fenêtre et revenir dans Encre.')}`
-      ].join('\n'),
-      'utf-8'
-    )
-    chmodSync(script, 0o755)
-    spawn('open', ['-a', 'Terminal', script], { env, detached: true, stdio: 'ignore' }).unref()
-  } else {
-    const script = join(d, '.connecter.ps1')
-    const ps = (s: string): string => `'${s.replace(/'/g, "''")}'`
-    // PowerShell 5 lit un script sans BOM en ANSI : les accents casseraient.
-    writeFileSync(
-      script,
-      '﻿' + [
-        `$Host.UI.RawUI.WindowTitle = ${ps(`Encre · compte ${nom}`)}`,
-        id !== PRINCIPAL ? `$env:CLAUDE_CONFIG_DIR = ${ps(d)}` : '',
-        `Write-Host ${ps(`Encre connecte le compte Claude « ${nom} ».`)} -ForegroundColor Magenta`,
-        `Write-Host ${ps('Le navigateur va s’ouvrir : connecte-toi avec le compte voulu.')}`,
-        `& ${ps(claude)} auth login`,
-        `Write-Host ''`,
-        `Write-Host ${ps('Tu peux fermer cette fenêtre et revenir dans Encre.')} -ForegroundColor Green`,
-        `Read-Host 'Entrée pour fermer'`
-      ].join('\r\n'),
-      'utf-8'
-    )
-    spawn('cmd.exe', ['/c', 'start', '"Encre"', 'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `"${script}"`], {
-      env, detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true
-    }).unref()
-  }
+  // Que la commande n'ouvre pas aussi le navigateur habituel : la fenêtre d'Encre suffit.
+  env.BROWSER = 'none'
   journal(`connexion du compte ${id}`)
-  // Dix minutes pour se connecter dans le navigateur ; au-delà, le panneau verra au prochain état.
-  const debut = Date.now()
-  const guet = setInterval(() => {
-    const ok = process.platform === 'darwin' ? !!profil(id).email : existsSync(creds) && statSync(creds).mtimeMs > avant
-    if (ok || Date.now() - debut > 600000) {
-      clearInterval(guet)
-      if (ok) fini()
+
+  return new Promise((resoudre) => {
+    let fini = false
+    let fenetre: BrowserWindow | null = null
+    let sortie = ''
+    const finir = (erreur: string | null): void => {
+      if (fini) return
+      fini = true
+      clearTimeout(delai)
+      if (fenetre && !fenetre.isDestroyed()) fenetre.close()
+      if (!enfant.killed && enfant.exitCode === null) enfant.kill()
+      journal(`connexion du compte ${id} : ${erreur ?? 'ok'}`)
+      resoudre(erreur)
     }
-  }, 2000)
-  return true
+    const enfant = spawn(claude, ['auth', 'login'], { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    const delai = setTimeout(() => finir('Connexion abandonnée au bout de 10 minutes.'), 600000)
+    enfant.on('error', (e) => finir(`Impossible de lancer Claude Code (${e.message}).`))
+    enfant.stderr.on('data', (b: Buffer) => (sortie += b.toString()))
+    enfant.on('exit', (code) => {
+      if (code === 0) return finir(null)
+      const raison = /Login failed:\s*(.+)/.exec(sortie)?.[1]?.trim()
+      finir(raison ? `Connexion refusée : ${raison}` : 'La connexion n’a pas abouti.')
+    })
+    enfant.stdout.on('data', (b: Buffer) => {
+      sortie += b.toString()
+      const adresse = /https:\/\/\S+\/oauth\/authorize\S+/.exec(sortie)?.[0]
+      if (!adresse || fenetre) return
+      fenetre = ouvrirFenetre(adresse, (code) => {
+        enfant.stdin.write(`${code}\n`)
+        fenetre?.hide()
+      })
+      fenetre.on('closed', () => {
+        fenetre = null
+        // Fermée avant la fin : la commande attend un code qui ne viendra pas.
+        setTimeout(() => finir('Fenêtre de connexion fermée.'), 4000)
+      })
+    })
+  })
+}
+
+/**
+ * La fenêtre de connexion : une session neuve à chaque fois (aucun compte
+ * déjà connecté), et l'agent d'un Chrome ordinaire, sans quoi Google refuse
+ * la connexion dans une app (« navigateur non sécurisé »).
+ */
+function ouvrirFenetre(adresse: string, code: (c: string) => void): BrowserWindow {
+  const s = session.fromPartition(`encre-connexion-${Date.now()}`)
+  s.setUserAgent(s.getUserAgent().replace(/\s(Electron|encre|Encre)\/\S+/g, ''))
+  const f = new BrowserWindow({
+    width: 520, height: 760, title: 'Connexion à Claude', autoHideMenuBar: true, alwaysOnTop: true,
+    webPreferences: { session: s, sandbox: true, contextIsolation: true }
+  })
+  const regarder = (url: string): void => {
+    try {
+      const u = new URL(url)
+      if (!u.pathname.includes('/oauth/code/callback')) return
+      const c = u.searchParams.get('code')
+      const etat = u.searchParams.get('state')
+      // La page du code affiche « code#state » : c'est ce que la commande attend.
+      if (c) code(etat ? `${c}#${etat}` : c)
+    } catch {
+      // Adresse illisible : on attend la suivante.
+    }
+  }
+  f.webContents.on('will-redirect', (_e, url) => regarder(url))
+  f.webContents.on('will-navigate', (_e, url) => regarder(url))
+  f.webContents.on('did-navigate', (_e, url) => regarder(url))
+  // Les fenêtres de connexion Google ou Apple s'ouvrent en popup, dans la même session.
+  f.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: { session: s } } }))
+  void f.loadURL(adresse)
+  return f
 }

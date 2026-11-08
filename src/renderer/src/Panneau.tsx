@@ -153,7 +153,7 @@ function NouveauProjet({ fini }: { fini: (id: string | null) => void }): JSX.Ele
   return (
     <form className="nouveau" onSubmit={(e) => { e.preventDefault(); void window.api.creerProjet(nom, contexte).then(fini) }}>
       <strong>Nouveau projet</strong>
-      <input autoFocus placeholder="Nom (ex. L’Oréal · BIM)" value={nom} onChange={(e) => setNom(e.target.value)} />
+      <input autoFocus placeholder="Nom (ex. Client · Refonte du site)" value={nom} onChange={(e) => setNom(e.target.value)} />
       <textarea rows={3} placeholder="De quoi il s’agit, le client, les outils… (facultatif, ça part dans le CLAUDE.md)" value={contexte} onChange={(e) => setContexte(e.target.value)} />
       <small>Rangé dans Documents/Encre/Projets.</small>
       <div className="btns">
@@ -180,7 +180,7 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
     <div className="hub">
       <div className="hub-tete">
         <h3>Tes projets</h3>
-        <p>Crée-en un ici, ou dis-le dans le chat : « je bosse sur L’Oréal, projet BIM ». Tako peut travailler sur plusieurs à la fois.</p>
+        <p>Crée-en un ici, ou dis-le dans le chat : « je bosse sur la refonte du site de mon client ». Tako peut travailler sur plusieurs à la fois.</p>
       </div>
       {cree && <NouveauProjet fini={(id) => { setCree(false); if (id) ouvrir(id) }} />}
       <div className="cartes">
