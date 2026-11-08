@@ -310,6 +310,16 @@ principal). **Pas encore essayé avec un deuxième vrai compte.**
 Fiche des limites au survol des jauges : reste, remise à zéro, part du
 temps écoulé et projection au rythme actuel.
 
+### Réponses proposées (09/11)
+
+La consigne demande à Claude de finir chaque réponse par
+`<suites>a | b | c</suites>` : trois choses que l'utilisateur pourrait
+répondre. `FiltreSuites` (`agent.ts`) retire la ligne du flux (balises
+coupées entre deux morceaux comprises) avant le fil et la voix ; elles
+partent dans l'événement `fin` (`suites`) et s'affichent en boutons sous la
+dernière réponse, une fois le tour fini. Aucun appel en plus. **Pas encore
+vu sur un vrai tour.**
+
 ### Plein écran
 
 Bouton ⤢ du panneau : il prend l'écran de travail, n'est plus au-dessus de

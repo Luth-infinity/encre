@@ -469,3 +469,8 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .maj-prete span { display: flex; flex-direction: column; min-width: 0; }
 .maj-prete strong { font-size: 13px; }
 .maj-prete small { font-size: 11.5px; color: var(--soft); }
+
+/* ─── Réponses proposées sous la dernière réponse de Tako ─── */
+.suites { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; animation: monte .4s cubic-bezier(.25,1.3,.5,1) both; }
+.suites button { border: 0; background: var(--canvas); color: var(--ink); padding: 7px 12px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; text-align: left; transition: transform .2s cubic-bezier(.3,1.6,.5,1), background .2s; }
+.suites button:hover { background: color-mix(in srgb, var(--mood) 18%, var(--canvas)); transform: translateY(-2px); }

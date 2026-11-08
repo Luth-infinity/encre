@@ -152,6 +152,8 @@ function consigne(projet: Projet, voix: boolean): string {
     'Tu es Tako, le poulpe d’Encre : une bulle qui flotte sur le bureau de l’utilisateur et ouvre ce chat. Si on te demande ton nom, c’est Tako. Ton ton est chaleureux et un peu espiègle, sans en faire trop.',
     'Réponds en français, court et concret. Avant chaque étape, une phrase courte qui dit ce que tu fais.',
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
+    // Les suggestions de réponse : Encre retire cette ligne du texte et de la voix et en fait des boutons.
+    'Termine chaque réponse par une dernière ligne <suites>…</suites> contenant trois choses que l’utilisateur pourrait te répondre ensuite, séparées par | : écrites à sa place, à la première personne, courtes (deux à huit mots), utiles pour la suite (par exemple <suites>Publie et installe | Montre-moi le résultat | Explique le souci</suites>). Rien après cette ligne, et ne la mentionne jamais.',
     '',
     projet.libre
       ? 'Mode Libre : un brouillon qui repart à vide à chaque visite. Une question rapide (une info, une explication, une formulation) se traite ici, sans projet. Mais dès que l’utilisateur veut FAIRE quelque chose qui demande du travail ou un suivi (« j’aimerais faire tel truc », un client, un sujet, une app, un document à produire), ne commence pas le travail ici : regarde lister_projets, ouvre le projet s’il existe (ouvrir_projet), sinon crée-le tout de suite sans lui demander (creer_projet) avec un nom court et tout le contexte qu’il t’a donné. Dis-lui en une phrase que tu t’y mets dans ce projet, et arrête-toi : Encre y déplace la conversation et t’y relance aussitôt.'
@@ -255,6 +257,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   }
   let grace: ReturnType<typeof setTimeout> | null = null
   const demandes = new Set<string>()
+  const filtre = new FiltreSuites()
 
   const q = query({
     prompt: entree(),
@@ -319,8 +322,11 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       } else if (m.type === 'stream_event' && !m.parent_tool_use_id) {
         const ev = m.event
         if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
-          sortie.evenement({ type: 'texte', texte: ev.delta.text })
-          diseur?.pousser(ev.delta.text)
+          const propre = filtre.pousser(ev.delta.text)
+          if (propre) {
+            sortie.evenement({ type: 'texte', texte: propre })
+            diseur?.pousser(propre)
+          }
         }
       } else if (m.type === 'assistant' && !m.parent_tool_use_id) {
         for (const bloc of m.message.content) {
@@ -352,12 +358,83 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   }
   if (erreur?.startsWith('La connexion de Claude Code a expiré')) noterConnexion(false)
   else if (!erreur) noterConnexion(true)
-  sortie.evenement({ type: 'fin', erreur, duree: Date.now() - debut })
+  const reste = filtre.finir()
+  if (reste) sortie.evenement({ type: 'texte', texte: reste })
+  sortie.evenement({ type: 'fin', erreur, duree: Date.now() - debut, suites: filtre.suites.length ? filtre.suites : undefined })
   sortie.humeur(erreur ? 'repos' : 'fini')
   // La voix n'a pas forcément fini : avec Gemini, la réponse part d'un bloc
   // après le texte. Le tour n'est fini (« tour-fini », micro rendu) qu'une
   // fois le dernier son envoyé au panneau, sinon il se perdait.
   if (diseur && !abort.signal.aborted) await diseur.attendre()
+}
+
+/**
+ * Retire la ligne `<suites>…</suites>` du texte en flux, morceau par morceau :
+ * la balise peut arriver coupée en deux (« <sui » puis « tes> »), donc la fin
+ * d'un morceau qui pourrait en être le début est gardée jusqu'au suivant.
+ */
+class FiltreSuites {
+  suites: string[] = []
+  private retenu = ''
+  private dedans = false
+  private contenu = ''
+
+  pousser(morceau: string): string {
+    let t = this.retenu + morceau
+    this.retenu = ''
+    let sortie = ''
+    while (t) {
+      if (this.dedans) {
+        const fin = t.indexOf('</suites>')
+        if (fin < 0) {
+          // La balise de fin peut, elle aussi, arriver coupée.
+          const lt = t.lastIndexOf('<')
+          if (lt >= 0 && '</suites>'.startsWith(t.slice(lt))) {
+            this.retenu = t.slice(lt)
+            t = t.slice(0, lt)
+          }
+          this.contenu += t
+          return sortie
+        }
+        this.contenu += t.slice(0, fin)
+        this.lire()
+        this.dedans = false
+        t = t.slice(fin + '</suites>'.length)
+        continue
+      }
+      const debut = t.indexOf('<suites>')
+      if (debut >= 0) {
+        sortie += t.slice(0, debut)
+        this.dedans = true
+        t = t.slice(debut + '<suites>'.length)
+        continue
+      }
+      // Un « < » en fin de morceau qui pourrait ouvrir la balise : on attend la suite.
+      const lt = t.lastIndexOf('<')
+      if (lt >= 0 && '<suites>'.startsWith(t.slice(lt))) {
+        this.retenu = t.slice(lt)
+        t = t.slice(0, lt)
+      }
+      sortie += t
+      t = ''
+    }
+    return sortie
+  }
+
+  /** Fin du tour : une balise jamais fermée compte quand même, un « < » retenu repart dans le texte. */
+  finir(): string {
+    if (this.dedans) this.lire()
+    this.dedans = false
+    const r = this.retenu
+    this.retenu = ''
+    return r
+  }
+
+  private lire(): void {
+    const s = this.contenu.split('|').map((x) => x.trim()).filter((x) => x && x.length <= 80)
+    if (s.length) this.suites = s.slice(0, 3)
+    this.contenu = ''
+  }
 }
 
 function traduire(brut: string): string {

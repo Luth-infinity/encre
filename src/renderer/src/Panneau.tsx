@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Fragment } from 'react'
 import { appliquer, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
@@ -537,9 +537,19 @@ export default function Panneau(): JSX.Element {
           if (x.type === 'demande') return <Demande key={i} d={x.demande} repondre={(r) => repondre(x.demande.id, r)} />
           if (x.type === 'info') return <div key={i} className="info">{x.texte}</div>
           if (x.type === 'outil') return null
-          return x.erreur
-            ? <div key={i} className="erreur">{x.erreur}</div>
-            : <div key={i} className="fait">Fait en {duree(x.duree)}</div>
+          if (x.erreur) return <div key={i} className="erreur">{x.erreur}</div>
+          // Les réponses proposées par Tako : seulement sous la dernière réponse, une fois le tour fini.
+          const proposer = !!x.suites?.length && !enCours && n === tous.length - 1
+          return (
+            <Fragment key={i}>
+              <div className="fait">Fait en {duree(x.duree)}</div>
+              {proposer && (
+                <div className="suites" aria-label="Réponses proposées">
+                  {x.suites!.map((t) => <button key={t} type="button" onClick={() => envoyer(t, [])}>{t}</button>)}
+                </div>
+              )}
+            </Fragment>
+          )
         })}
         {enCours && humeur !== 'accord' && <div className="attente"><i /><i /><i /></div>}
         <div ref={bas} />
