@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import type { EtatClaude } from '@shared/types'
+import { dossierConfig } from './comptes'
 
 /**
  * Le Claude Code installé sur la machine. Encre ne demande aucun identifiant :
@@ -56,7 +57,7 @@ export const noterConnexion = (ok: boolean): void => {
 /** Connecté = des identifiants dans le dossier de Claude Code (sous macOS, ils sont dans le trousseau). */
 export function etatClaude(): EtatClaude {
   const chemin = cheminClaude()
-  const dossier = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+  const dossier = dossierConfig()
   const connecte = process.platform === 'darwin' ? existsSync(dossier) : existsSync(join(dossier, '.credentials.json'))
   return { installe: !!chemin, connecte: connecte && !expiree, chemin }
 }

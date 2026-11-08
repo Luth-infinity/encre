@@ -411,3 +411,55 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .jauge.haute i b { background: var(--bosse); }
 .jauge.pleine i b { background: var(--erreur); }
 .jauge.pleine em { color: var(--erreur); font-weight: 700; }
+
+/* ─── Fiche des limites au survol ─── */
+.pied { position: relative; }
+.jauges { outline: none; }
+.fiche-limites {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 20;
+  background: var(--card); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 0 0 1px var(--line), 0 14px 30px -16px rgba(11,12,14,.4);
+  opacity: 0; visibility: hidden; transform: translateY(4px); transition: opacity .15s, transform .2s cubic-bezier(.3,1.5,.5,1), visibility .15s;
+  pointer-events: none; cursor: default;
+}
+.jauges:hover .fiche-limites, .jauges:focus-visible .fiche-limites, .jauges.montre .fiche-limites { opacity: 1; visibility: visible; transform: none; }
+.fiche-limites > strong { font-size: 12.5px; font-weight: 700; }
+.ligne-limite { display: flex; flex-direction: column; gap: 4px; }
+.ligne-limite .haut { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; }
+.ligne-limite .haut b { font-variant-numeric: tabular-nums; }
+.ligne-limite i { position: relative; display: block; height: 6px; border-radius: 999px; background: var(--canvas); overflow: hidden; }
+.ligne-limite i b { display: block; height: 100%; border-radius: 999px; background: var(--fini); }
+.ligne-limite i u { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); opacity: .55; }
+.ligne-limite.haute i b { background: var(--bosse); }
+.ligne-limite.pleine i b { background: var(--erreur); }
+.ligne-limite.pleine .haut b { color: var(--erreur); }
+.ligne-limite small, .fiche-limites .lu { font-size: 11.5px; color: var(--soft); line-height: 1.4; }
+.ligne-limite .alerte { font-style: normal; color: var(--erreur); font-weight: 600; }
+.fiche-limites .lu { font-size: 11px; }
+
+/* ─── Plusieurs projets à la fois ─── */
+.activite { width: 8px; height: 8px; border-radius: 50%; background: var(--bosse); flex: none; display: inline-block; animation: pouls 1.4s ease-in-out infinite; }
+.activite.attend { background: var(--accord); }
+.ligne-projet .activite { margin-left: auto; }
+.etiquette { display: flex; align-items: center; gap: 6px; color: var(--ink) !important; font-weight: 600; }
+.ailleurs { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bosse); color: #0B0C0E; font-size: 10.5px; font-weight: 800; display: grid; place-items: center; flex: none; }
+.ailleurs.attend { background: var(--accord); }
+@keyframes pouls { 50% { opacity: .45; } }
+
+/* ─── Comptes Claude ─── */
+.comptes { display: flex; flex-direction: column; gap: 6px; }
+.compte { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px; border-radius: 14px; background: var(--canvas); }
+.compte.on { background: var(--card); box-shadow: inset 0 0 0 2px var(--ink); }
+.compte .choisir { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 4px; text-align: left; font: inherit; color: var(--ink); }
+.compte .choisir i { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--soft); flex: none; }
+.compte.on .choisir i { box-shadow: inset 0 0 0 4px var(--ink); }
+.compte .choisir span { display: flex; flex-direction: column; min-width: 0; }
+.compte strong { font-size: 13px; font-weight: 700; }
+.compte strong em { font-style: normal; font-weight: 500; color: var(--soft); }
+.compte small { font-size: 11.5px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compte .btn { padding: 5px 11px; font-size: 12px; }
+.lien-discret { border: 0; background: transparent; color: var(--soft); font: inherit; font-size: 12px; padding: 4px; text-decoration: underline; text-underline-offset: 2px; }
+.lien-discret:hover { color: var(--ink); }
+.ajout-compte { display: flex; gap: 6px; align-items: center; }
+.ajout-compte input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 7px 11px; border-radius: 999px; border: 0; background: var(--canvas); color: var(--ink); outline: none; }
+.ajouter-compte { align-self: flex-start; background: var(--canvas); }

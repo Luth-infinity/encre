@@ -274,6 +274,32 @@ Non vérifié : la création de voix en offre gratuite (à voir au premier essai
   panneau s'il date de plus d'une minute. API expérimentale : à surveiller
   aux mises à jour du SDK.
 
+### Plusieurs projets à la fois (08/11)
+
+Un tour **par projet** (`tours` dans `agent.ts`) : changer de projet ne coupe
+rien, les autres continuent derrière. Un message dans un projet qui
+travaille y est glissé ; dans un autre, il part en parallèle. `Etat.enCours`
+et `Etat.attend` listent les projets ; hub et barre montrent un point
+(orange = travaille, jaune = attend ton accord), l'en-tête un compteur des
+autres. La bulle prend l'humeur la plus pressante (`humeurDe`). Un projet
+ouvert par Tako ne prend l'écran que si on regardait celui du tour.
+`tour-fini` ne part que pour un tour lancé à la voix. **Pas encore vu sur
+deux vrais tours en même temps.**
+
+### Comptes Claude (08/11)
+
+Réglages → Comptes Claude (`main/comptes.ts`). Le principal = celui du
+terminal ; chaque autre a son dossier `userData/comptes/<id>` passé en
+`CLAUDE_CONFIG_DIR`. Les dossiers `projects`, `skills`, `plugins`… y sont
+des **jonctions** vers ceux du principal (sessions reprises d'un compte à
+l'autre) ; `settings.json` et CLAUDE.md sont copiés. Connexion : console
+`claude auth login`, guettée jusqu'à l'arrivée de `.credentials.json`.
+Retirer défait les jonctions avant d'effacer (jamais les dossiers du
+principal). **Pas encore essayé avec un deuxième vrai compte.**
+
+Fiche des limites au survol des jauges : reste, remise à zéro, part du
+temps écoulé et projection au rythme actuel.
+
 ### Plein écran
 
 Bouton ⤢ du panneau : il prend l'écran de travail, n'est plus au-dessus de

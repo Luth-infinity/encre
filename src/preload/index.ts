@@ -77,6 +77,11 @@ const api = {
   projetFigma: (id: string, serveurs: string[]) => ipcRenderer.send('projet-figma', id, serveurs),
   jeton: (id: string, nom: string, valeur: string | null): Promise<string | null> => ipcRenderer.invoke('jeton', id, nom, valeur),
   relierFigma: (nom: string): Promise<string | null> => ipcRenderer.invoke('relier-figma', nom),
+  /** Comptes Claude : choisir, en ajouter un (une console s'ouvre pour s'y connecter), reconnecter, retirer. */
+  choisirCompte: (id: string) => ipcRenderer.send('compte-choisir', id),
+  ajouterCompte: (nom: string) => ipcRenderer.send('compte-ajouter', nom),
+  connecterCompte: (id: string) => ipcRenderer.send('compte-connecter', id),
+  retirerCompte: (id: string) => ipcRenderer.send('compte-retirer', id),
 
   bulleClic: () => ipcRenderer.send('bulle-clic'),
   bulleDeplacer: (dx: number, dy: number) => ipcRenderer.send('bulle-deplacer', dx, dy),

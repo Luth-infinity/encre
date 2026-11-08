@@ -86,6 +86,16 @@ function morceaux(fil: Bloc[]): Morceau[] {
   return out
 }
 
+/** Ce que fait Tako dans un projet : rien, il travaille, ou il attend ton accord. */
+function activite(etat: Etat, id: string): 'attend' | 'travaille' | null {
+  if (etat.attend.includes(id)) return 'attend'
+  return etat.enCours.includes(id) ? 'travaille' : null
+}
+function Activite({ etat, id }: { etat: Etat; id: string }): JSX.Element | null {
+  const a = activite(etat, id)
+  return a ? <i className={`activite ${a}`} title={a === 'attend' ? 'Attend ton accord' : 'Tako travaille'} /> : null
+}
+
 /** La barre de projets du plein écran : changer de projet sans passer par le hub. */
 function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void; hub: () => void }): JSX.Element {
   const libre = etat.projets.find((p) => p.libre)
@@ -94,15 +104,15 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
     <aside className="barre">
       <div className="marque"><img src={tako} alt="" /><strong>Encre</strong></div>
       {libre && (
-        <button type="button" className={`ligne-projet ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)} disabled={etat.enCours}>
-          <span className="tag libre">✦</span><span>Libre</span>
+        <button type="button" className={`ligne-projet ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)}>
+          <span className="tag libre">✦</span><span>Libre</span><Activite etat={etat} id={libre.id} />
         </button>
       )}
       <small className="rubrique">Projets</small>
       <div className="liste">
         {autres.map((p) => (
-          <button key={p.id} type="button" className={`ligne-projet ${p.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(p.id)} disabled={etat.enCours} title={p.dossier}>
-            <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span>
+          <button key={p.id} type="button" className={`ligne-projet ${p.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(p.id)} title={p.dossier}>
+            <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span><Activite etat={etat} id={p.id} />
           </button>
         ))}
       </div>
@@ -154,6 +164,13 @@ function NouveauProjet({ fini }: { fini: (id: string | null) => void }): JSX.Ele
   )
 }
 
+/** Sous le nom d'une carte : ce que Tako y fait en ce moment, sinon la date. */
+function Etiquette({ etat, id, sinon }: { etat: Etat; id: string; sinon: string }): JSX.Element {
+  const a = activite(etat, id)
+  if (!a) return <small>{sinon}</small>
+  return <small className={`etiquette ${a}`}><i className={`activite ${a}`} />{a === 'attend' ? 'Attend ton accord' : 'Tako travaille…'}</small>
+}
+
 /** Le hub : tous les projets en cartes, Libre en premier, les plus récents ensuite. */
 function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JSX.Element {
   const [cree, setCree] = useState(false)
@@ -163,15 +180,15 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
     <div className="hub">
       <div className="hub-tete">
         <h3>Tes projets</h3>
-        <p>Crée-en un ici, ou dis-le dans le chat : « je bosse sur L’Oréal, projet BIM ».</p>
+        <p>Crée-en un ici, ou dis-le dans le chat : « je bosse sur L’Oréal, projet BIM ». Tako peut travailler sur plusieurs à la fois.</p>
       </div>
       {cree && <NouveauProjet fini={(id) => { setCree(false); if (id) ouvrir(id) }} />}
       <div className="cartes">
         {libre && (
-          <button type="button" className={`carte libre ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)} disabled={etat.enCours}>
+          <button type="button" className={`carte libre ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)}>
             <span className="tag">✦</span>
             <strong>Libre</strong>
-            <small>Questions sans projet</small>
+            <Etiquette etat={etat} id={libre.id} sinon="Questions sans projet" />
           </button>
         )}
         {autres.map((p, i) => (
@@ -182,20 +199,19 @@ function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JS
             style={{ '--penche': `${[-6, 5, -3, 4][i % 4]}deg` } as React.CSSProperties}
             onClick={() => ouvrir(p.id)}
             onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}
-            disabled={etat.enCours}
             title={p.dossier}
           >
             <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span>
             <strong>{p.nom}</strong>
-            <small>{ilYa(p.derniere)}</small>
+            <Etiquette etat={etat} id={p.id} sinon={ilYa(p.derniere)} />
           </button>
         ))}
-        <button type="button" className="carte lier" data-action="nouveau" onClick={() => setCree(true)} disabled={etat.enCours}>
+        <button type="button" className="carte lier" data-action="nouveau" onClick={() => setCree(true)}>
           <span className="tag">✦</span>
           <strong>Nouveau projet</strong>
           <small>Un dossier tout neuf</small>
         </button>
-        <button type="button" className="carte lier" onClick={() => window.api.ajouterProjet()} disabled={etat.enCours}>
+        <button type="button" className="carte lier" onClick={() => window.api.ajouterProjet()}>
           <span className="tag">＋</span>
           <strong>Lier un dossier</strong>
           <small>Un projet qui existe déjà</small>
@@ -216,31 +232,82 @@ function quand(ms: number): string {
   const d = new Date(ms)
   const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   if (d.toDateString() === new Date().toDateString()) return `à ${heure}`
+  if (d.toDateString() === new Date(Date.now() + 86400000).toDateString()) return `demain à ${heure}`
   return `${d.toLocaleDateString('fr-FR', { weekday: 'long' })} à ${heure}`
 }
 
+/** « dans 2 h 14 », « dans 3 j 5 h » : le temps avant que la fenêtre reparte à zéro. */
+function dans(ms: number): string {
+  const min = Math.max(0, Math.round((ms - Date.now()) / 60000))
+  if (min < 60) return `dans ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `dans ${h} h ${String(min % 60).padStart(2, '0')}`
+  return `dans ${Math.floor(h / 24)} j ${h % 24} h`
+}
+
+/**
+ * Le rythme : la part de la fenêtre déjà écoulée, comparée à la part utilisée.
+ * À 40 % utilisés au quart de la semaine, la limite tombera avant la fin.
+ */
+function rythme(f: Fenetre, duree: number): { ecoule: number; projection: number } | null {
+  if (!f.reprise) return null
+  const ecoule = 1 - (f.reprise - Date.now()) / duree
+  if (ecoule <= 0.05 || ecoule > 1) return null
+  return { ecoule: Math.round(ecoule * 100), projection: Math.round(f.pourcent / ecoule) }
+}
+
+const H = 3600000
+const FENETRES = [
+  { cle: 'cinqHeures', court: '5 h', long: '5 heures glissantes', duree: 5 * H },
+  { cle: 'semaine', court: 'Sem.', long: 'Semaine', duree: 7 * 24 * H }
+] as const
+
 /**
  * Les limites du compte Claude, comme /usage dans le terminal : les 5 heures
- * glissantes et la semaine. Orange à 80 %, rouge une fois pleine.
+ * glissantes et la semaine, en pourcentage. Au survol, une fiche donne le
+ * détail : ce qui reste, quand ça repart, et si le rythme tiendra.
+ * Orange à 80 %, rouge une fois pleine.
  */
-function Jauges({ limites }: { limites: Limites | null }): JSX.Element | null {
+function Jauges({ limites, compte }: { limites: Limites | null; compte?: string | null }): JSX.Element | null {
   if (!limites) return null
-  const jauge = (nom: string, long: string, f?: Fenetre): JSX.Element | null => {
-    if (!f) return null
-    const niveau = f.pourcent >= 100 ? 'pleine' : f.pourcent >= 80 ? 'haute' : ''
-    const reprise = f.reprise ? `, repart à zéro ${quand(f.reprise)}` : ''
-    return (
-      <span className={`jauge ${niveau}`} title={`${long} : ${f.pourcent} % utilisés${reprise}`}>
-        <small>{nom}</small>
-        <i><b style={{ width: `${Math.min(100, f.pourcent)}%` }} /></i>
-        <em>{f.pourcent} %</em>
-      </span>
-    )
-  }
+  const niveau = (p: number): string => (p >= 100 ? 'pleine' : p >= 80 ? 'haute' : '')
+  const presentes = FENETRES.filter((x) => limites[x.cle])
+  if (!presentes.length) return null
+  const lu = Math.round((Date.now() - limites.lu) / 60000)
   return (
-    <div className="jauges">
-      {jauge('5 h', 'Limite des 5 heures', limites.cinqHeures)}
-      {jauge('Sem.', 'Limite de la semaine', limites.semaine)}
+    <div className="jauges" tabIndex={0} aria-label="Limites du compte Claude">
+      {presentes.map((x) => {
+        const f = limites[x.cle]!
+        return (
+          <span key={x.cle} className={`jauge ${niveau(f.pourcent)}`}>
+            <small>{x.court}</small>
+            <i><b style={{ width: `${Math.min(100, f.pourcent)}%` }} /></i>
+            <em>{f.pourcent} %</em>
+          </span>
+        )
+      })}
+      <div className="fiche-limites" role="tooltip">
+        <strong>Limites de ton compte Claude</strong>
+        {compte && <small className="lu">{compte}</small>}
+        {presentes.map((x) => {
+          const f = limites[x.cle]!
+          const r = rythme(f, x.duree)
+          return (
+            <div key={x.cle} className={`ligne-limite ${niveau(f.pourcent)}`}>
+              <div className="haut"><span>{x.long}</span><b>{f.pourcent} %</b></div>
+              <i><b style={{ width: `${Math.min(100, f.pourcent)}%` }} />{r && <u style={{ left: `${r.ecoule}%` }} />}</i>
+              <small>{f.pourcent >= 100 ? 'Pleine' : `Reste ${100 - f.pourcent} %`}{f.reprise ? ` · repart à zéro ${quand(f.reprise)} (${dans(f.reprise)})` : ''}</small>
+              {r && f.pourcent < 100 && (
+                <small>
+                  {r.ecoule} % du temps écoulé ·{' '}
+                  {r.projection >= 100 ? <em className="alerte">au rythme actuel, pleine avant la fin</em> : `au rythme actuel, ~${r.projection} % à la fin`}
+                </small>
+              )}
+            </div>
+          )
+        })}
+        <small className="lu">{lu < 1 ? 'Lu à l’instant' : `Lu il y a ${lu} min`} · le trait marque le temps écoulé</small>
+      </div>
     </div>
   )
 }
@@ -261,6 +328,8 @@ export default function Panneau(): JSX.Element {
   const [fil, setFil] = useState<Bloc[]>([])
   /** Le projet dont le fil est affiché : un événement d'un autre projet recharge le bon fil. */
   const filDe = useRef<string | null>(null)
+  /** Le projet actif côté main, lu par les écouteurs posés au montage. */
+  const actif = useRef<string | null>(null)
   const [vue, setVue] = useState<Vue>('chat')
   const [glisse, setGlisse] = useState(false)
   const saisie = useRef<SaisieRef>(null)
@@ -314,10 +383,12 @@ export default function Panneau(): JSX.Element {
       window.api.surDicter((mainsLibres) => appel.current.basculer(mainsLibres)),
       window.api.surAnnulerDictee(() => appel.current.annuler()),
       window.api.surEvenement((projet, e) => {
-        // Le fil enregistré par le main fait foi : on le recharge en entier
-        // (le premier message dans un projet créé depuis le chat y bascule).
-        if (projet !== filDe.current) void montrerFil(projet)
-        else setFil((f) => appliquer(f, e))
+        // Plusieurs projets travaillent à la fois : un événement d'un projet
+        // qu'on ne regarde pas est déjà noté par le main, on n'y touche pas.
+        // Celui du projet actif mais pas affiché (créé depuis le chat) fait
+        // recharger son fil entier, qui fait foi.
+        if (projet === filDe.current) setFil((f) => appliquer(f, e))
+        else if (projet === actif.current) void montrerFil(projet)
       })
     ]
     const echap = (e: KeyboardEvent): void => {
@@ -365,7 +436,10 @@ export default function Panneau(): JSX.Element {
   useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil, vue])
 
   const projet = etat?.projets.find((p) => p.id === etat.actif) ?? null
-  const enCours = !!etat?.enCours
+  actif.current = etat?.actif ?? null
+  const enCours = !!projet && !!etat?.enCours.includes(projet.id)
+  /** Les autres projets où Tako travaille pendant qu'on regarde celui-ci. */
+  const ailleurs = etat ? etat.projets.filter((p) => p.id !== projet?.id && etat.enCours.includes(p.id)) : []
 
   // Pendant un tour, le message rejoint le travail en cours (le main le glisse).
   const envoyer = (texte: string, pieces: PieceJointe[], citation?: string): void => {
@@ -499,6 +573,14 @@ export default function Panneau(): JSX.Element {
             <strong>{titre?.[0] ?? projet?.nom ?? 'Aucun projet'}</strong>
             <small>{titre?.[1] ?? (projet?.libre ? 'Questions sans projet' : projet?.dossier)}</small>
           </span>
+          {ailleurs.length > 0 && (
+            <span
+              className={`ailleurs ${ailleurs.some((p) => etat?.attend.includes(p.id)) ? 'attend' : ''}`}
+              title={`Tako travaille aussi sur ${ailleurs.map((p) => (p.libre ? 'Libre' : p.nom)).join(', ')}`}
+            >
+              {ailleurs.length}
+            </span>
+          )}
           <span className="chevron">{vue === 'hub' ? '▴' : '▾'}</span>
         </button>
         <div className="actions">
@@ -550,7 +632,7 @@ export default function Panneau(): JSX.Element {
               </button>
             ))}
           </div>
-          <Jauges limites={etat.limites} />
+          <Jauges limites={etat.limites} compte={etat.comptes.length > 1 ? etat.comptes.find((c) => c.actif)?.email ?? etat.comptes.find((c) => c.actif)?.nom : null} />
           </div>
         </footer>
       )}

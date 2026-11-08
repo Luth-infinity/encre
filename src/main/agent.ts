@@ -5,6 +5,7 @@ import { existsSync, statSync } from 'fs'
 import { z } from 'zod'
 import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
 import { cheminClaude, noterConnexion } from './claude'
+import { dossierActif } from './comptes'
 import * as fils from './fils'
 import { journal } from './journal'
 import { envDuProjet, serveursDuProjet } from './outils'
@@ -28,6 +29,12 @@ type Sortie = {
   audio?: (mp3: Buffer) => void
   /** Claude Code a donné l'état des limites du compte (à chaque appel à l'API). */
   limites?: (l: Limites) => void
+  /**
+   * Tako a créé ou ouvert un projet. C'est l'appelant qui décide s'il prend
+   * l'écran : avec plusieurs tours en parallèle, un projet qui travaille en
+   * arrière-plan ne doit pas arracher la vue à celui qu'on regarde.
+   */
+  ouvert?: (id: string) => void
 }
 
 /** Ce qui accompagne le texte : les pièces jointes, et la voix choisie en mode Parler. */
@@ -43,7 +50,8 @@ const texte = (t: string): { content: { type: 'text'; text: string }[] } => ({ c
  */
 function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
   const ouvrir = (id: string, ligne: string): void => {
-    projets.choisir(id)
+    if (sortie.ouvert) sortie.ouvert(id)
+    else projets.choisir(id)
     sortie.evenement({ type: 'info', texte: ligne })
     sortie.projets?.()
   }
@@ -87,10 +95,19 @@ function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
 
 const MODES: Record<Mode, PermissionMode> = { demander: 'default', modifs: 'acceptEdits', auto: 'auto' }
 
-let courant: { q: Query; abort: AbortController; glisser: (m: SDKUserMessage) => boolean } | null = null
+/**
+ * Un tour par projet : Tako peut travailler sur plusieurs projets à la fois
+ * (un Claude Code chacun, dans son dossier). Deux tours dans le même projet
+ * se marcheraient dessus (même session) : le second message y est glissé.
+ */
+type Tour = { q: Query; abort: AbortController; glisser: (m: SDKUserMessage) => boolean; demandes: Set<string> }
+const tours = new Map<string, Tour>()
 const enAttente = new Map<string, (r: Reponse) => void>()
 
-export const enCours = (): boolean => courant !== null
+/** Sans projet : un tour tourne-t-il quelque part ? */
+export const enCours = (projet?: string): boolean => (projet ? tours.has(projet) : tours.size > 0)
+/** Les projets qui travaillent en ce moment. */
+export const projetsEnCours = (): string[] => [...tours.keys()]
 
 const court = (s: string, n = 140): string => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
@@ -156,6 +173,9 @@ function envPropre(): Record<string, string> {
     if (herite && /^(CLAUDE|ANTHROPIC_BASE_URL$)/.test(k) && k !== 'CLAUDE_CONFIG_DIR') continue
     env[k] = v
   }
+  // Le compte choisi dans Encre : son dossier de config porte sa connexion.
+  const compte = dossierActif()
+  if (compte) env.CLAUDE_CONFIG_DIR = compte
   return env
 }
 
@@ -182,7 +202,7 @@ function contenu(texte: string, pieces: PieceJointe[]): SDKUserMessage['message'
 }
 
 export async function envoyer(projet: Projet, texte: string, sortie: Sortie, options: Options = {}): Promise<void> {
-  if (courant) return
+  if (tours.has(projet.id)) return
   const abort = new AbortController()
   const debut = Date.now()
   sortie.humeur('reflechit')
@@ -234,6 +254,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
     return true
   }
   let grace: ReturnType<typeof setTimeout> | null = null
+  const demandes = new Set<string>()
 
   const q = query({
     prompt: entree(),
@@ -261,12 +282,14 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
         return new Promise((resoudre) => {
           const clore = (r: Reponse): void => {
             enAttente.delete(id)
+            demandes.delete(id)
             sortie.evenement({ type: 'demande-close', id })
             sortie.humeur('bosse')
             if (r === 'non') resoudre({ behavior: 'deny', message: 'L’utilisateur a refusé.' })
             else resoudre({ behavior: 'allow', updatedInput: entree, updatedPermissions: r === 'toujours' ? suggestions : undefined })
           }
           enAttente.set(id, clore)
+          demandes.add(id)
           signal.addEventListener('abort', () => {
             journal(`demande ${nom} coupée par Claude Code au bout de ${Math.round((Date.now() - posee) / 1000)} s`)
             clore('non')
@@ -275,7 +298,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       }
     }
   })
-  courant = { q, abort, glisser }
+  tours.set(projet.id, { q, abort, glisser, demandes })
 
   let erreur: string | undefined
   try {
@@ -322,8 +345,8 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   } finally {
     if (grace) clearTimeout(grace)
     finEntree()
-    courant = null
-    enAttente.clear()
+    tours.delete(projet.id)
+    for (const id of demandes) enAttente.delete(id)
     if (abort.signal.aborted) diseur?.taire()
     else diseur?.terminer()
   }
@@ -350,9 +373,9 @@ function traduire(brut: string): string {
  * Glisse un message dans le tour en cours. Faux s'il n'y a pas de tour, ou
  * s'il se termine : le message partira alors au tour suivant.
  */
-export function glisser(texte: string, pieces: PieceJointe[] = []): boolean {
+export function glisser(projet: string, texte: string, pieces: PieceJointe[] = []): boolean {
   return (
-    courant?.glisser({
+    tours.get(projet)?.glisser({
       type: 'user',
       message: { role: 'user', content: contenu(texte, pieces) },
       parent_tool_use_id: null
@@ -364,14 +387,16 @@ export function repondre(id: string, r: Reponse): void {
   enAttente.get(id)?.(r)
 }
 
-export function arreter(): void {
-  courant?.abort.abort()
+/** Arrête le tour d'un projet, ou tous (à la fermeture d'Encre). */
+export function arreter(projet?: string): void {
+  if (projet) tours.get(projet)?.abort.abort()
+  else for (const t of tours.values()) t.abort.abort()
 }
 
 /** Change le mode en plein tour, sans attendre le message suivant. */
-export async function changerMode(mode: Mode): Promise<void> {
+export async function changerMode(projet: string, mode: Mode): Promise<void> {
   try {
-    await courant?.q.setPermissionMode(MODES[mode])
+    await tours.get(projet)?.q.setPermissionMode(MODES[mode])
   } catch {
     // Pas de tour en cours : le mode s'appliquera au prochain.
   }
@@ -445,6 +470,10 @@ type InfoLimite = {
 
 let connues: Limites | null = null
 export const limitesConnues = (): Limites | null => connues
+/** Un autre compte : ses limites ne sont pas celles du précédent. */
+export const oublierLimites = (): void => {
+  connues = null
+}
 
 function depuisEvenement(i: InfoLimite): Limites | null {
   const fenetre = (u?: number, r?: number): Fenetre | undefined =>

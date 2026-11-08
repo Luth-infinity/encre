@@ -4,7 +4,8 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse } from '@shared/types'
 import * as agent from './agent'
-import { etatClaude, reprendrePathDuShell } from './claude'
+import * as comptes from './comptes'
+import { etatClaude, noterConnexion, reprendrePathDuShell } from './claude'
 import {
   aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
 } from './fenetres'
@@ -81,18 +82,30 @@ function changerHumeur(h: Humeur): void {
   aTous('humeur', h)
 }
 
-/** Le projet du tour en cours : il peut changer d'actif en plein tour (projet créé depuis le chat). */
-let tourDe: string | null = null
+/**
+ * Plusieurs projets peuvent travailler à la fois : chacun a son humeur, la
+ * bulle montre la plus pressante (une autorisation attendue d'abord).
+ */
+const humeurs = new Map<string, Humeur>()
+const RANG: Partial<Record<Humeur, number>> = { accord: 3, bosse: 2, reflechit: 1 }
+function humeurDe(projet: string, h: Humeur): void {
+  if (RANG[h]) humeurs.set(projet, h)
+  else humeurs.delete(projet)
+  const vives = [...humeurs.values()].sort((a, b) => (RANG[b] ?? 0) - (RANG[a] ?? 0))
+  changerHumeur(vives[0] ?? h)
+  publierEtat()
+}
 
 function etat(): Etat {
   return {
     projets: projets.projets(),
     actif: projets.actifId(),
     claude: etatClaude(),
-    enCours: agent.enCours(),
+    comptes: comptes.comptes(),
+    enCours: agent.projetsEnCours(),
+    attend: [...humeurs].filter(([, h]) => h === 'accord').map(([id]) => id),
     reglages: reglages.reglages(),
     version: app.getVersion(),
-    tourDe,
     toucheParler,
     limites: agent.limitesConnues()
   }
@@ -143,26 +156,36 @@ function citer(citation: string | undefined, texte: string): string {
  * Les messages écrits pendant un tour qui n'ont pas pu y être glissés (il se
  * terminait) : ils partent dans l'ordre dès qu'il est fini.
  */
-const suivants: { texte: string; pieces: PieceJointe[] }[] = []
+const suivants = new Map<string, { texte: string; pieces: PieceJointe[] }[]>()
+/**
+ * Les projets dont le tour a commencé à la voix : seul leur fin rend le micro
+ * (« tour-fini »), pas celle d'un autre projet qui travaillait derrière.
+ */
+const vocaux = new Set<string>()
 
-function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string, citation?: string): void {
-  const p = projets.actif()
+/**
+ * `cible` : le projet où envoyer (par défaut celui qu'on regarde). Les
+ * relances (Libre qui déménage, messages en attente) visent leur projet même
+ * si l'utilisateur est parti ailleurs entre-temps.
+ */
+function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string, citation?: string, cible?: string): void {
+  const p = cible ? projets.trouver(cible) : projets.actif()
   if (!p || (!texte.trim() && !pieces.length)) return
   const moi = (pendant?: boolean): Evenement => ({
     type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined,
     citation: citation?.trim() || undefined, pendant
   })
-  // Tako travaille déjà : le message rejoint son tour (comme dans Claude Code),
-  // ou attend la fin s'il est trop tard pour l'y glisser.
-  if (agent.enCours()) {
-    if (relance) return
-    diffuser(tourDe ?? p.id, moi(true))
-    const message = citer(citation, texte)
-    if (!agent.glisser(message, pieces)) suivants.push({ texte: message, pieces })
+  // Tako travaille déjà sur ce projet : le message rejoint son tour (comme
+  // dans Claude Code), ou attend la fin s'il est trop tard pour l'y glisser.
+  // Les autres projets, eux, travaillent en parallèle.
+  if (agent.enCours(p.id)) {
+    if (!relance) diffuser(p.id, moi(true))
+    const message = relance ?? citer(citation, texte)
+    if (!agent.glisser(p.id, message, pieces)) suivants.set(p.id, [...(suivants.get(p.id) ?? []), { texte: message, pieces }])
     return
   }
-  tourDe = p.id
   if (!relance) diffuser(p.id, moi())
+  if (voix) vocaux.add(p.id)
   const r = reglages.reglages()
   const audio = (mp3: Buffer): void => lePanneau()?.webContents.send('audio', mp3.toString('base64'))
   // En mode Parler, un silence de plusieurs secondes sonne comme une panne :
@@ -174,6 +197,8 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
         if (mp3) audio(mp3)
       }, 1800)
     : null
+  /** Le projet que Tako a créé ou ouvert pendant ce tour. */
+  let ouvert: string | null = null
   void agent
     .envoyer(
       p,
@@ -188,8 +213,13 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
             if (ev.type === 'demande') agent.repondre(ev.demande.id, 'oui')
           }
         },
-        humeur: changerHumeur,
+        humeur: (h) => humeurDe(p.id, h),
         projets: publierEtat,
+        // Le projet ouvert par Tako ne prend l'écran que si on regardait celui-ci.
+        ouvert: (id) => {
+          ouvert = id
+          if (projets.actifId() === p.id) projets.choisir(id)
+        },
         audio,
         limites: publierEtat
       },
@@ -197,30 +227,28 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
     )
     .then(() => {
       if (attente) clearTimeout(attente)
-      tourDe = null
       fils.ecrire()
       // Depuis Libre, Tako a créé (ou ouvert) un projet : la conversation y
       // déménage, Libre repart à vide, et le travail commence là-bas tout de suite.
-      const arrivee = projets.actif()
-      if (p.libre && !relance && arrivee && arrivee.id !== p.id) {
-        fils.deplacer(p.id, arrivee.id)
+      if (p.libre && !relance && ouvert && ouvert !== p.id) {
+        const arrivee = ouvert
+        vocaux.delete(p.id)
+        fils.deplacer(p.id, arrivee)
         projets.modifier(p.id, { session: null })
         publierEtat()
-        lePanneau()?.webContents.send('fil-change', arrivee.id)
+        lePanneau()?.webContents.send('fil-change', arrivee)
         const suite = `Ce projet vient d’être ouvert depuis Libre pour cette demande : « ${texte} ». Mets-toi au travail.`
-        return void envoyer(texte, pieces, voix, suite)
+        return void envoyer(texte, pieces, voix, suite, undefined, arrivee)
       }
       // Déjà affichés dans le fil : ils partent sans y revenir.
-      const suivant = suivants.shift()
-      if (suivant) {
-        const reste = suivants.splice(0)
-        const tout = [suivant, ...reste]
-        return void envoyer(
-          tout.map((s) => s.texte).join('\n\n'), tout.flatMap((s) => s.pieces), false, tout.map((s) => s.texte).join('\n\n')
-        )
+      const tout = suivants.get(p.id) ?? []
+      suivants.delete(p.id)
+      if (tout.length) {
+        const message = tout.map((s) => s.texte).join('\n\n')
+        return void envoyer(message, tout.flatMap((s) => s.pieces), false, message, undefined, p.id)
       }
       publierEtat()
-      lePanneau()?.webContents.send('tour-fini')
+      if (vocaux.delete(p.id)) lePanneau()?.webContents.send('tour-fini')
     })
   publierEtat()
 }
@@ -278,7 +306,10 @@ function brancher(): void {
     if (!p || agent.enCours() || (l && Date.now() - l.lu < 60000)) return
     void agent.lireLimites(p).then(publierEtat)
   })
-  ipcMain.on('arreter', () => agent.arreter())
+  ipcMain.on('arreter', () => {
+    const p = projets.actifId()
+    if (p) agent.arreter(p)
+  })
   ipcMain.on('repondre', (_e, id: string, r: Reponse) => agent.repondre(id, r))
   ipcMain.handle('commandes', () => {
     const p = projets.actif()
@@ -289,12 +320,12 @@ function brancher(): void {
     const p = projets.actif()
     if (!p) return
     projets.modifier(p.id, { mode })
-    void agent.changerMode(mode)
+    void agent.changerMode(p.id, mode)
     publierEtat()
   })
   ipcMain.on('nouvelle', () => {
     const p = projets.actif()
-    if (p && !agent.enCours()) {
+    if (p && !agent.enCours(p.id)) {
       projets.modifier(p.id, { session: null })
       fils.vider(p.id)
     }
@@ -303,16 +334,16 @@ function brancher(): void {
   ipcMain.on('ajouter-projet', () => void ajouterProjet())
 
   // Le hub : ouvrir un projet, ou le retirer (menu natif sur la carte).
+  // Changer de projet ne coupe rien : les tours en cours continuent derrière.
   ipcMain.on('choisir-projet', (_e, id: string) => {
-    if (agent.enCours()) return
-    if (projets.trouver(id)?.libre) viderLibre()
+    if (projets.trouver(id)?.libre && !agent.enCours(id)) viderLibre()
     projets.choisir(id)
     publierEtat()
   })
   // « Nouveau projet » du hub : même chemin que l'outil creer_projet du chat
   // (Documents/Encre/Projets/<nom> + un CLAUDE.md qui porte le contexte).
   ipcMain.handle('creer-projet', (_e, nom: string, contexte: string) => {
-    if (agent.enCours() || !nom.trim()) return null
+    if (!nom.trim()) return null
     const p = projets.creer(nom.trim(), contexte.trim() || `Projet ${nom.trim()}.`)
     projets.choisir(p.id)
     publierEtat()
@@ -326,7 +357,7 @@ function brancher(): void {
       { type: 'separator' },
       {
         label: 'Retirer d’Encre (le dossier reste)',
-        enabled: !agent.enCours(),
+        enabled: !agent.enCours(id),
         click: () => {
           projets.retirer(id)
           outils.oublierJetons(id)
@@ -466,6 +497,34 @@ function brancher(): void {
     }
   })
   ipcMain.handle('relier-figma', (_e, nom: string) => outils.relierFigma(nom))
+
+  // Comptes Claude. Changer de compte ne coupe pas les tours en cours : ils
+  // finissent sur l'ancien, les suivants partent sur le nouveau.
+  ipcMain.on('compte-choisir', (_e, id: string) => {
+    if (!comptes.choisir(id)) return
+    noterConnexion(true)
+    agent.oublierLimites()
+    publierEtat()
+    const p = projets.actif()
+    if (p && comptes.comptes().find((c) => c.actif)?.connecte) void agent.lireLimites(p).then(publierEtat)
+  })
+  ipcMain.on('compte-ajouter', (_e, nom: string) => {
+    const id = comptes.ajouter(nom)
+    publierEtat()
+    comptes.connecter(id, publierEtat)
+  })
+  ipcMain.on('compte-connecter', (_e, id: string) => {
+    comptes.connecter(id, () => {
+      if (comptes.actif() === id) noterConnexion(true)
+      publierEtat()
+    })
+  })
+  ipcMain.on('compte-retirer', (_e, id: string) => {
+    const etaitActif = comptes.actif() === id
+    comptes.retirer(id)
+    if (etaitActif) agent.oublierLimites()
+    publierEtat()
+  })
 
   ipcMain.on('fermer-panneau', () => fermerPanneau())
   ipcMain.on('fermer-fini', () => cacherPanneau())
@@ -620,6 +679,11 @@ async function verifier(dossier: string): Promise<void> {
   await js(`document.querySelector('.projet')?.click()`)
   await attendre(500)
   await capturer('1-vide')
+  // La fiche des limites, comme au survol (pas de souris ici).
+  await js(`document.querySelector('.jauges')?.classList.add('montre')`)
+  await attendre(400)
+  await capturer('1b-limites')
+  await js(`document.querySelector('.jauges')?.classList.remove('montre')`)
   // Les vues ajoutées : réglages, outils, commandes.
   for (const [nom, sel] of [['4-reglages', '[data-vue=reglages]'], ['5-outils', '[data-vue=outils]']]) {
     await js(`document.querySelector('${sel}')?.click()`)
@@ -682,7 +746,7 @@ async function verifier(dossier: string): Promise<void> {
     let calme = 0
     while (calme < 6) {
       await attendre(1000)
-      calme = agent.enCours() || tourDe ? 0 : calme + 1
+      calme = agent.enCours() ? 0 : calme + 1
     }
     journal(`verif libre : actif ${projets.actif()?.nom}, fil libre ${fils.fil(libre.id).length} blocs, fil projet ${fils.fil(projets.actifId() ?? '').length} blocs`)
     await capturer('l1-projet')
@@ -695,7 +759,6 @@ async function verifier(dossier: string): Promise<void> {
   const message = process.env.ENCRE_VERIF_MESSAGE ?? 'Crée un fichier bonjour.txt qui contient « Bonjour Lucas », puis dis-moi en une phrase ce que tu as fait.'
   let demande = false
   const actif = projets.actif()!
-  tourDe = actif.id
   diffuser(actif.id, { type: 'moi', texte: message })
   const fin = agent.envoyer(actif, message, {
     evenement: (ev) => {
@@ -711,12 +774,11 @@ async function verifier(dossier: string): Promise<void> {
         })
       }
     },
-    humeur: changerHumeur,
+    humeur: (h) => humeurDe(actif.id, h),
     projets: publierEtat
   })
   publierEtat()
   await fin
-  tourDe = null
   fils.ecrire()
   publierEtat()
   await attendre(1500)

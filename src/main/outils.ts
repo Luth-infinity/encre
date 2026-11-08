@@ -1,9 +1,9 @@
 import { execFileSync, spawn } from 'child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { homedir } from 'os'
 import { join } from 'path'
 import type { CompteFigma, Projet } from '@shared/types'
 import { cheminClaude } from './claude'
+import { dossierActif, dossierConfig } from './comptes'
 import { journal } from './journal'
 import { racine } from './projets'
 import { cles, lireSecret, poser } from './secrets'
@@ -21,7 +21,7 @@ import { cles, lireSecret, poser } from './secrets'
  */
 
 const FIGMA = 'https://mcp.figma.com/mcp'
-const dossierConfig = (): string => process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+// Le compte choisi dans Encre : ses connexions Figma sont les siennes (dossierConfig).
 
 /** Les serveurs Figma qui ont une connexion dans le Claude Code de la machine (noms d'entrées seulement, jamais les jetons). */
 /**
@@ -105,6 +105,8 @@ export function relierFigma(nom: string): string | null {
   // Lancé hors de toute session Claude Code : sinon le `claude` de la console
   // hériterait des variables de l'hôte et se croirait déjà connecté.
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(CLAUDE(?!_CONFIG_DIR)|ANTHROPIC_BASE_URL$)/.test(k)))
+  const compte = dossierActif()
+  if (compte) env.CLAUDE_CONFIG_DIR = compte
   if (process.platform === 'darwin') return relierFigmaMac(claude, serveur, cwd, env)
   const script = join(cwd, '.relier-figma.ps1')
   // PowerShell 5 lit un script sans BOM en ANSI : les accents casseraient.

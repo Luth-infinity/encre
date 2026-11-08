@@ -98,6 +98,21 @@ export type Commande = { nom: string; description: string; argument: string }
 
 export type EtatClaude = { installe: boolean; connecte: boolean; chemin: string | null }
 
+/**
+ * Un compte Claude connu d'Encre. Le principal est celui du terminal ; les
+ * autres ont leur propre connexion, et le même historique.
+ */
+export type Compte = {
+  id: string
+  nom: string
+  email: string | null
+  /** L'organisation du compte (« Posidea », « Personnel »…), si Claude Code la donne. */
+  offre: string | null
+  connecte: boolean
+  actif: boolean
+  principal: boolean
+}
+
 /** Les voix françaises de l'endpoint d'Edge, gratuites et sans clé (reprises d'Iris). */
 export const VOIX = [
   // Les multilingues sont les plus naturelles, mais peuvent glisser vers une
@@ -162,11 +177,13 @@ export type Etat = {
   projets: Projet[]
   actif: string | null
   claude: EtatClaude
-  enCours: boolean
+  comptes: Compte[]
+  /** Les projets où Tako travaille en ce moment (plusieurs à la fois). */
+  enCours: string[]
+  /** Ceux qui attendent une autorisation. */
+  attend: string[]
   reglages: Reglages
   version: string
-  /** Le projet dont le tour en cours dépend : ses événements vont dans son fil. */
-  tourDe: string | null
   /** Le raccourci global pour parler (« Alt+Maj+E »), ou « aucun » s'il était pris. */
   toucheParler: string
   limites: Limites | null

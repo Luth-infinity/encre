@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DESCRIPTION_TAKO, VOIX, VOIX_GEMINI, type Etat, type Reglages as R } from '@shared/types'
+import { DESCRIPTION_TAKO, VOIX, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -96,6 +96,43 @@ function CreerVoix(): JSX.Element {
   )
 }
 
+/**
+ * Les comptes Claude : on passe de l'un à l'autre d'un clic (le perso, celui
+ * du boulot). Les conversations suivent, seule la connexion change.
+ */
+function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
+  const [ajout, setAjout] = useState(false)
+  const [nom, setNom] = useState('')
+  return (
+    <div className="comptes">
+      {comptes.map((c) => (
+        <div key={c.id} className={`compte ${c.actif ? 'on' : ''}`}>
+          <button type="button" className="choisir" role="radio" aria-checked={c.actif} onClick={() => !c.actif && window.api.choisirCompte(c.id)} title={c.actif ? 'Compte utilisé par Tako' : 'Passer sur ce compte'}>
+            <i />
+            <span>
+              <strong>{c.nom}{c.principal ? <em> · celui du terminal</em> : null}</strong>
+              <small>{c.email ?? 'Pas encore connecté'}{c.offre && c.email ? ` · ${c.offre}` : ''}</small>
+            </span>
+          </button>
+          {!c.connecte && <button type="button" className="btn pri" onClick={() => window.api.connecterCompte(c.id)}>Se connecter</button>}
+          {c.connecte && <button type="button" className="lien-discret" onClick={() => window.api.connecterCompte(c.id)} title="Rouvrir la connexion (expirée, ou autre adresse)">Reconnecter</button>}
+          {!c.principal && <button type="button" className="lien-discret" onClick={() => window.api.retirerCompte(c.id)} title="Retirer d’Encre (le compte Claude, lui, ne bouge pas)">Retirer</button>}
+        </div>
+      ))}
+      {ajout ? (
+        <form className="ajout-compte" onSubmit={(e) => { e.preventDefault(); window.api.ajouterCompte(nom); setNom(''); setAjout(false) }}>
+          <input autoFocus placeholder="Nom (ex. Perso, Posidea)" value={nom} onChange={(e) => setNom(e.target.value)} />
+          <button type="button" className="btn" onClick={() => setAjout(false)}>Annuler</button>
+          <button type="submit" className="btn pri" disabled={!nom.trim()}>Ajouter</button>
+        </form>
+      ) : (
+        <button type="button" className="btn ajouter-compte" onClick={() => setAjout(true)}>＋ Ajouter un compte</button>
+      )}
+      <p className="aide">Un nouveau compte ouvre une fenêtre de connexion : connecte-toi dans le navigateur avec la bonne adresse. Les conversations, skills et réglages restent les mêmes ; les outils reliés (Figma…) sont à relier à nouveau sur ce compte.</p>
+    </div>
+  )
+}
+
 /** Les réglages d'Encre : la voix, le démarrage, et l'état du Claude Code de la machine. */
 export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
   const r = etat.reglages
@@ -121,10 +158,17 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
         <p className={`statut ${etat.claude.connecte ? 'ok' : 'ko'}`}>
           {etat.claude.installe ? (etat.claude.connecte ? 'Installé et connecté' : 'Connexion expirée') : 'Pas installé'}
         </p>
-        {etat.claude.installe && (
-          <p className="aide">Si un message répond « connexion expirée » : ouvre un terminal, lance <code>claude</code>, puis tape <code>/login</code>.</p>
+        {etat.claude.installe && !etat.claude.connecte && (
+          <p className="aide">Connexion expirée : clique « Se connecter » ou « Reconnecter » sur le compte ci-dessous.</p>
         )}
       </section>
+
+      {etat.claude.installe && (
+        <section>
+          <h4>Comptes Claude</h4>
+          <Comptes comptes={etat.comptes} />
+        </section>
+      )}
 
       <section>
         <h4>Voix de Tako</h4>
