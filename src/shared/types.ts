@@ -184,6 +184,8 @@ export type Etat = {
   attend: string[]
   reglages: Reglages
   version: string
+  /** Une nouvelle version téléchargée, prête à s'installer (redémarrage d'Encre). */
+  majPrete: string | null
   /** Le raccourci global pour parler (« Alt+Maj+E »), ou « aucun » s'il était pris. */
   toucheParler: string
   limites: Limites | null

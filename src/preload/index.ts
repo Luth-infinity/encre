@@ -79,6 +79,8 @@ const api = {
   relierFigma: (nom: string): Promise<string | null> => ipcRenderer.invoke('relier-figma', nom),
   /** Comptes Claude : choisir, en ajouter un (une console s'ouvre pour s'y connecter), reconnecter, retirer. */
   choisirCompte: (id: string) => ipcRenderer.send('compte-choisir', id),
+  /** Installer la mise à jour prête : Encre se ferme et se rouvre dans la nouvelle version. */
+  installerMaj: () => ipcRenderer.send('installer-maj'),
   ajouterCompte: (nom: string) => ipcRenderer.send('compte-ajouter', nom),
   connecterCompte: (id: string) => ipcRenderer.send('compte-connecter', id),
   retirerCompte: (id: string) => ipcRenderer.send('compte-retirer', id),

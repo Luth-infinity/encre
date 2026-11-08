@@ -463,3 +463,9 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .ajout-compte { display: flex; gap: 6px; align-items: center; }
 .ajout-compte input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 7px 11px; border-radius: 999px; border: 0; background: var(--canvas); color: var(--ink); outline: none; }
 .ajouter-compte { align-self: flex-start; background: var(--canvas); }
+
+/* ─── Mise à jour prête ─── */
+.maj-prete { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 10px 10px 14px; border-radius: 16px; background: color-mix(in srgb, var(--fini) 18%, var(--card)); }
+.maj-prete span { display: flex; flex-direction: column; min-width: 0; }
+.maj-prete strong { font-size: 13px; }
+.maj-prete small { font-size: 11.5px; color: var(--soft); }

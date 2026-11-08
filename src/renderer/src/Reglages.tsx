@@ -216,6 +216,12 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
         <Bascule on={r.demarrage} changer={(v) => poser({ demarrage: v })} titre="Lancer Encre avec Windows" />
       </section>
 
+      {etat.majPrete && (
+        <div className="maj-prete">
+          <span><strong>Version {etat.majPrete} prête</strong><small>Encre se ferme et se rouvre, quelques secondes.</small></span>
+          <button type="button" className="btn pri" onClick={() => window.api.installerMaj()}>Mettre à jour</button>
+        </div>
+      )}
       <p className="version">Encre {etat.version}</p>
     </div>
   )

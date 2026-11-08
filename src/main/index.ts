@@ -56,10 +56,15 @@ function poserIcone(): void {
     laBulle()?.showInactive()
     ouvrirPanneau()
   })
-  zoneNotif.setContextMenu(
+  menuNotif()
+}
+/** Refait à chaque mise à jour prête : elle s'y propose. */
+function menuNotif(): void {
+  zoneNotif?.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Ouvrir Tako', click: () => { laBulle()?.showInactive(); ouvrirPanneau() } },
       { label: 'Parler', click: () => dicter(false) },
+      ...(majPrete ? [{ label: `Mettre à jour (version ${majPrete})`, click: () => void updates.installer() }] : []),
       { type: 'separator' },
       { label: 'Quitter Encre', click: () => app.quit() }
     ])
@@ -106,6 +111,7 @@ function etat(): Etat {
     attend: [...humeurs].filter(([, h]) => h === 'accord').map(([id]) => id),
     reglages: reglages.reglages(),
     version: app.getVersion(),
+    majPrete,
     toucheParler,
     limites: agent.limitesConnues()
   }
@@ -500,6 +506,7 @@ function brancher(): void {
 
   // Comptes Claude. Changer de compte ne coupe pas les tours en cours : ils
   // finissent sur l'ancien, les suivants partent sur le nouveau.
+  ipcMain.on('installer-maj', () => void updates.installer())
   ipcMain.on('compte-choisir', (_e, id: string) => {
     if (!comptes.choisir(id)) return
     noterConnexion(true)
@@ -582,7 +589,11 @@ void app.whenReady().then(() => {
   appliquerDemarrage(r)
   // Les phrases d'attente du mode Parler, prêtes avant qu'on en ait besoin.
   void prechaufferAttentes({ voix: r.voix, dossier: '' })
-  updates.surveiller((v) => (majPrete = v))
+  updates.surveiller((v) => {
+    majPrete = v
+    menuNotif()
+    publierEtat()
+  })
   if (process.env.ENCRE_VERIF) void verifier(process.env.ENCRE_VERIF)
 })
 

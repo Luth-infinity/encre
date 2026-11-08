@@ -39,6 +39,7 @@ async function chargeur(): Promise<import('electron-updater').AppUpdater> {
   return m.autoUpdater ?? m.default!.autoUpdater
 }
 
+/** Installe tout de suite, en silence, et rouvre Encre : sinon il fallait penser à le quitter. */
 export async function installer(): Promise<void> {
-  ;(await chargeur()).quitAndInstall()
+  ;(await chargeur()).quitAndInstall(true, true)
 }
