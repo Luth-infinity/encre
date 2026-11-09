@@ -96,12 +96,16 @@ function CreerVoix(): JSX.Element {
   )
 }
 
+/** Un nom court par choix (sur une ligne), et une phrase pour le choix en cours. */
 const MODELES: [ChoixModele, string, string][] = [
-  ['auto', 'Auto', 'Selon la demande'],
-  ['sonnet', 'Sonnet', 'Rapide'],
-  ['opus', 'Opus', 'Le plus fort'],
-  ['claude', 'Claude Code', 'Son réglage']
+  ['auto', 'Auto', 'Sonnet pour le simple, Opus pour ce qui demande de réfléchir (trié par Haiku). Dans une longue conversation, Tako garde le même modèle : en changer ferait tout relire et vider tes limites plus vite.'],
+  ['sonnet', 'Sonnet', 'Toujours Sonnet : rapide, et plus léger pour tes limites.'],
+  ['opus', 'Opus', 'Toujours Opus : le plus fort, et le plus gourmand.'],
+  ['claude', 'Claude Code', 'Le modèle réglé dans Claude Code (commande /model).']
 ]
+
+type Onglet = 'general' | 'voix' | 'comptes'
+const ONGLETS: [Onglet, string][] = [['general', 'Général'], ['voix', 'Voix'], ['comptes', 'Comptes']]
 
 /**
  * Les comptes Claude : on passe de l'un à l'autre d'un clic (le perso, celui
@@ -178,90 +182,106 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
     jouer(son, () => setEssai(false))
   }
 
+  const [onglet, setOnglet] = useState<Onglet>('general')
+  const voix = [...(r.cleGemini ? VOIX_GEMINI : []), ...VOIX]
+
   return (
     <div className="page">
-      <section>
-        <h4>Claude Code</h4>
-        <p className={`statut ${etat.claude.connecte ? 'ok' : 'ko'}`}>
-          {etat.claude.installe ? (etat.claude.connecte ? 'Installé et connecté' : 'Connexion expirée') : 'Pas installé'}
-        </p>
-        {etat.claude.installe && !etat.claude.connecte && (
-          <p className="aide">Connexion expirée : clique « Se connecter » ou « Reconnecter » sur le compte ci-dessous.</p>
-        )}
-      </section>
+      <div className="onglets" role="tablist">
+        {ONGLETS.map(([id, nom]) => (
+          <button key={id} type="button" role="tab" aria-selected={onglet === id} className={onglet === id ? 'on' : ''} onClick={() => setOnglet(id)}>{nom}</button>
+        ))}
+      </div>
 
-      {etat.claude.installe && (
+      {onglet === 'general' && (
+        <>
+          <section>
+            <div className="statut-ligne">
+              <h4>Claude Code</h4>
+              <p className={`statut ${etat.claude.connecte ? 'ok' : 'ko'}`}>
+                {etat.claude.installe ? (etat.claude.connecte ? 'Installé et connecté' : 'Connexion expirée') : 'Pas installé'}
+              </p>
+            </div>
+            {etat.claude.installe && !etat.claude.connecte && (
+              <p className="aide">Connexion expirée : « Se connecter » dans l’onglet Comptes.</p>
+            )}
+          </section>
+          <section>
+            <h4>Modèle</h4>
+            <div className="segments" role="radiogroup">
+              {MODELES.map(([id, nom]) => (
+                <button key={id} type="button" role="radio" aria-checked={r.modele === id} className={r.modele === id ? 'on' : ''} onClick={() => poser({ modele: id })}>{nom}</button>
+              ))}
+            </div>
+            <p className="aide">{MODELES.find(([id]) => id === r.modele)?.[2]}</p>
+          </section>
+          <section>
+            <h4>Démarrage</h4>
+            <Bascule on={r.demarrage} changer={(v) => poser({ demarrage: v })} titre="Lancer Encre avec Windows" />
+          </section>
+          {etat.majPrete && (
+            <div className="maj-prete">
+              <span><strong>Version {etat.majPrete} prête</strong><small>Encre se ferme et se rouvre, quelques secondes.</small></span>
+              <button type="button" className="btn pri" onClick={() => window.api.installerMaj()}>Mettre à jour</button>
+            </div>
+          )}
+          <p className="version">Encre {etat.version}</p>
+        </>
+      )}
+
+      {onglet === 'voix' && (
+        <>
+          <section>
+            <h4>Voix de Tako</h4>
+            <div className="liste-voix" role="radiogroup">
+              {r.cleGemini && r.voixPerso.map((v) => (
+                <button key={v.id} type="button" role="radio" aria-checked={r.voix === `gemini:${v.id}`} className={`perso ${r.voix === `gemini:${v.id}` ? 'on' : ''}`} onClick={() => poser({ voix: `gemini:${v.id}` })} title={v.description}>
+                  ✦ {v.nom}<small>Sur mesure</small>
+                </button>
+              ))}
+              {voix.map((v) => (
+                <button key={v.id} type="button" role="radio" aria-checked={r.voix === v.id} className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })}>
+                  {v.nom}<small>{'aide' in v ? String(v.aide) : 'Illimitée'}</small>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? 'Tako parle…' : '▶ Tester la voix'}</button>
+            {souciEssai && <p className="erreur">{souciEssai}</p>}
+            {r.cleGemini && r.voixPerso.some((v) => r.voix === `gemini:${v.id}`) && (
+              <button type="button" className="lien" onClick={() => window.api.oublierVoix(r.voix.slice('gemini:'.length))}>Oublier cette voix</button>
+            )}
+            {r.cleGemini && <p className="aide">Voix Gemini : quota gratuit limité, Tako répond par écrit quand il est atteint. « Illimitée » : voix Microsoft, gratuites et sans limite.</p>}
+          </section>
+          <section>
+            <h4>Parler</h4>
+            <Bascule on={r.veille} changer={(v) => poser({ veille: v })} titre="Réveil au mot « Tako »" aide="Reconnaissance sur la machine, rien ne sort." />
+          </section>
+          <section>
+            <h4>Clés</h4>
+            <Cle
+              nom="Groq"
+              presente={r.cleGroq}
+              prefixe="gsk_"
+              aide="Pour transcrire ta voix (gratuit) : console.groq.com → API Keys. Chiffrée par Windows."
+              enregistrer={(v) => window.api.cleGroq(v)}
+            />
+            <Cle
+              nom="Gemini"
+              presente={r.cleGemini}
+              aide="Facultative, pour des voix plus naturelles (quota gratuit limité) : aistudio.google.com → Get API key. Chiffrée par Windows."
+              enregistrer={(v) => window.api.cleGemini(v)}
+            />
+            {r.cleGemini && <CreerVoix />}
+          </section>
+        </>
+      )}
+
+      {onglet === 'comptes' && (
         <section>
           <h4>Comptes Claude</h4>
-          <Comptes comptes={etat.comptes} />
+          {etat.claude.installe ? <Comptes comptes={etat.comptes} /> : <p className="aide">Installe d’abord Claude Code.</p>}
         </section>
       )}
-
-      <section>
-        <h4>Modèle</h4>
-        <div className="choix-voix" role="radiogroup">
-          {MODELES.map(([id, nom, aide]) => (
-            <button key={id} type="button" role="radio" aria-checked={r.modele === id} className={r.modele === id ? 'on' : ''} onClick={() => poser({ modele: id })}>
-              {nom}<small>{aide}</small>
-            </button>
-          ))}
-        </div>
-        {r.modele === 'auto' && <p className="aide">Haiku lit chaque demande et l’envoie à Sonnet si elle est simple, à Opus si elle demande de réfléchir (Opus dans le doute). Les suites (« vas-y », « continue ») gardent le même modèle. Le modèle qui a répondu s’affiche sous la réponse.</p>}
-      </section>
-
-      <section>
-        <h4>Voix de Tako</h4>
-        <Cle
-          nom="Gemini"
-          presente={r.cleGemini}
-          aide="Pour une voix vraiment naturelle (gratuit) : aistudio.google.com → Get API key, puis colle-la ici. Chiffrée par Windows. Sans elle, Tako parle avec une voix Microsoft."
-          enregistrer={(v) => window.api.cleGemini(v)}
-        />
-        <div className="choix-voix">
-          {r.cleGemini && r.voixPerso.map((v) => (
-            <button key={v.id} type="button" className={`perso ${r.voix === `gemini:${v.id}` ? 'on' : ''}`} onClick={() => poser({ voix: `gemini:${v.id}` })} title={v.description}>
-              ✦ {v.nom}<small>Sur mesure</small>
-            </button>
-          ))}
-          {[...(r.cleGemini ? VOIX_GEMINI : []), ...VOIX].map((v) => (
-            <button key={v.id} type="button" className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })} title={'aide' in v ? String(v.aide) : undefined}>
-              {v.nom}<small>{'aide' in v ? String(v.aide) : 'Illimitée'}</small>
-            </button>
-          ))}
-        </div>
-        <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? 'Tako parle…' : '▶ Tester la voix'}</button>
-        {souciEssai && <p className="erreur">{souciEssai}</p>}
-        {r.cleGemini && <CreerVoix />}
-        {r.cleGemini && r.voixPerso.some((v) => r.voix === `gemini:${v.id}`) && (
-          <button type="button" className="lien" onClick={() => window.api.oublierVoix(r.voix.slice('gemini:'.length))}>Oublier cette voix</button>
-        )}
-        {r.cleGemini && <p className="aide">Voix Gemini (sur mesure et autres) : quota gratuit limité, Tako répond par écrit quand il est atteint. Voix « Illimitée » : Microsoft, gratuite et sans limite.</p>}
-      </section>
-
-      <section>
-        <h4>Parler</h4>
-        <Cle
-          nom="Groq"
-          presente={r.cleGroq}
-          prefixe="gsk_"
-          aide="Pour transcrire ta voix (gratuit) : console.groq.com → API Keys. Chiffrée par Windows."
-          enregistrer={(v) => window.api.cleGroq(v)}
-        />
-        <Bascule on={r.veille} changer={(v) => poser({ veille: v })} titre="Réveil au mot « Tako »" aide="Reconnaissance sur la machine, rien ne sort." />
-      </section>
-
-      <section>
-        <h4>Démarrage</h4>
-        <Bascule on={r.demarrage} changer={(v) => poser({ demarrage: v })} titre="Lancer Encre avec Windows" />
-      </section>
-
-      {etat.majPrete && (
-        <div className="maj-prete">
-          <span><strong>Version {etat.majPrete} prête</strong><small>Encre se ferme et se rouvre, quelques secondes.</small></span>
-          <button type="button" className="btn pri" onClick={() => window.api.installerMaj()}>Mettre à jour</button>
-        </div>
-      )}
-      <p className="version">Encre {etat.version}</p>
     </div>
   )
 }

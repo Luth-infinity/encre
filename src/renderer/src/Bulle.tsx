@@ -3,7 +3,7 @@ import { avatarDe, type Humeur } from '@shared/types'
 import { COULEURS, creerPoulpe, type Poulpe } from './poulpe'
 
 const NOMS: Record<Humeur, string> = {
-  repos: 'Au repos', ecoute: 'Écoute', reflechit: 'Réfléchit', bosse: 'Bosse', accord: 'Attend ton accord', fini: 'Fini'
+  repos: 'Au repos', ecoute: 'Écoute', reflechit: 'Réfléchit', bosse: 'Bosse', accord: 'Attend ton accord', fini: 'Fini', note: 'Écrit ses notes'
 }
 
 /**

@@ -92,7 +92,7 @@ function changerHumeur(h: Humeur): void {
  * bulle montre la plus pressante (une autorisation attendue d'abord).
  */
 const humeurs = new Map<string, Humeur>()
-const RANG: Partial<Record<Humeur, number>> = { accord: 3, bosse: 2, reflechit: 1 }
+const RANG: Partial<Record<Humeur, number>> = { accord: 3, bosse: 2, reflechit: 1, note: 0.5 }
 function humeurDe(projet: string, h: Humeur): void {
   if (RANG[h]) humeurs.set(projet, h)
   else humeurs.delete(projet)
@@ -591,6 +591,8 @@ void app.whenReady().then(() => {
   poserIcone()
   // Gemini muet (quota) : le panneau le dit, la réponse reste écrite.
   quandMuet((s) => lePanneau()?.webContents.send('voix-muette', s))
+  // Encre range une session : Tako écrit ses notes dans la bulle.
+  agent.quandRange((id, oui) => humeurDe(id, oui ? 'note' : 'repos'))
   const libre = RACCOURCIS.find(([acc]) => globalShortcut.register(acc, () => basculerPanneau()))
   raccourci = libre?.[1] ?? 'aucun'
   const parler = RACCOURCIS_PARLER.find(([acc]) => globalShortcut.register(acc, () => dicter(false)))
@@ -621,10 +623,16 @@ async function icone(sortie: string): Promise<void> {
   })
   const url = process.env.ELECTRON_RENDERER_URL
   const avatar = process.env.ENCRE_ICONE_AVATAR ?? 'tako'
-  if (url) await f.loadURL(`${url}?vue=icone&avatar=${avatar}`)
-  else await f.loadFile(join(__dirname, '../renderer/index.html'), { query: { vue: 'icone', avatar } })
+  // ENCRE_ICONE_HUMEUR + ENCRE_ICONE_IMAGES=n : n images d'une humeur, pour voir une animation sans écran.
+  const humeur = process.env.ENCRE_ICONE_HUMEUR ?? ''
+  if (url) await f.loadURL(`${url}?vue=icone&avatar=${avatar}&humeur=${humeur}`)
+  else await f.loadFile(join(__dirname, '../renderer/index.html'), { query: { vue: 'icone', avatar, humeur } })
   await new Promise((r) => setTimeout(r, 2500))
-  writeFileSync(sortie, (await f.webContents.capturePage()).toPNG())
+  const images = Number(process.env.ENCRE_ICONE_IMAGES) || 1
+  for (let n = 0; n < images; n++) {
+    if (n) await new Promise((r) => setTimeout(r, 450))
+    writeFileSync(images > 1 ? sortie.replace(/\.png$/, `-${n}.png`) : sortie, (await f.webContents.capturePage()).toPNG())
+  }
   journal(`icône enregistrée : ${sortie}`)
   app.quit()
 }
@@ -721,10 +729,21 @@ async function verifier(dossier: string): Promise<void> {
   await capturer('1b-limites')
   await js(`document.querySelector('.jauges')?.classList.remove('montre')`)
   // Les vues ajoutées : réglages, outils, commandes.
+  // Le menu ⋯ de l'en-tête.
+  await js(`document.querySelector('.plus')?.click()`)
+  await attendre(500)
+  await capturer('3b-menu')
+  await js(`document.querySelector('.plus')?.click()`)
   for (const [nom, sel] of [['4-reglages', '[data-vue=reglages]'], ['5-outils', '[data-vue=outils]']]) {
     await js(`document.querySelector('${sel}')?.click()`)
     await attendre(1200)
     await capturer(nom)
+    // Les onglets des réglages.
+    for (const n of nom === '4-reglages' ? [2, 3] : []) {
+      await js(`document.querySelector('.onglets button:nth-child(${n})')?.click()`)
+      await attendre(700)
+      await capturer(`${nom}-${n}`)
+    }
     await js(`document.querySelector('${sel}')?.click()`)
     await attendre(400)
   }

@@ -476,3 +476,25 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .suites { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; animation: monte .4s cubic-bezier(.25,1.3,.5,1) both; }
 .suites button { border: 0; background: var(--canvas); color: var(--ink); padding: 7px 12px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; text-align: left; transition: transform .2s cubic-bezier(.3,1.6,.5,1), background .2s; }
 .suites button:hover { background: color-mix(in srgb, var(--mood) 18%, var(--canvas)); transform: translateY(-2px); }
+
+/* ─── En-tête : ＋ · ⋯ · ✕, le reste dans le menu ─── */
+.actions { position: relative; }
+header { position: relative; z-index: 10; }
+.menu-entete { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 190px; padding: 5px; border-radius: 14px; background: color-mix(in srgb, var(--card) 90%, var(--ink)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent), 0 14px 30px -12px rgba(0,0,0,.5); flex-direction: column; gap: 2px; -webkit-app-region: no-drag; }
+.menu-entete.ouvert { display: flex; animation: monte .25s cubic-bezier(.25,1.3,.5,1) both; }
+.menu-entete button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--ink); text-align: left; }
+.menu-entete button svg { width: 16px; height: 16px; color: var(--soft); flex: none; }
+.menu-entete button:hover:not(:disabled), .menu-entete button.on { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.menu-entete button:disabled { opacity: .4; }
+
+/* ─── Réglages : onglets et choix sur une ligne ─── */
+.onglets, .segments { display: flex; gap: 3px; background: var(--canvas); border-radius: 999px; padding: 3px; }
+.onglets { position: sticky; top: 0; z-index: 2; }
+.onglets button, .segments button { flex: 1; border: 0; background: transparent; padding: 6px 8px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--soft); white-space: nowrap; transition: background .25s, color .25s; }
+.onglets button.on, .segments button.on { background: var(--ink); color: var(--card); }
+.liste-voix { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.liste-voix button { border: 0; background: var(--canvas); padding: 7px 8px; border-radius: 12px; font-size: 13px; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .2s; }
+.liste-voix button small { display: block; font-size: 10.5px; opacity: .65; overflow: hidden; text-overflow: ellipsis; }
+.liste-voix button.on { background: var(--ink); color: var(--card); }
+.liste-voix button.perso { box-shadow: inset 0 0 0 1.5px var(--mood); }
+.statut-ligne { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

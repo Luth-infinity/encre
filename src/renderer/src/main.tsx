@@ -8,7 +8,7 @@ import '@fontsource/jetbrains-mono/400.css'
 import './styles.css'
 import Bulle from './Bulle'
 import Panneau from './Panneau'
-import { avatarDe } from '@shared/types'
+import { avatarDe, type Humeur } from '@shared/types'
 import { creerPoulpe } from './poulpe'
 
 /** L'icône de l'app (`ENCRE_ICONE`) : le poulpe de la bulle, en 512 px. `?avatar=` dessine un autre avatar. */
@@ -17,6 +17,8 @@ function Icone(): JSX.Element {
   useEffect(() => {
     const a = avatarDe(new URLSearchParams(location.search).get('avatar') ?? undefined)
     const p = creerPoulpe(canvas.current!, { remplir: 0.82, espece: a.espece, peau: a.peau, motif: a.motif })
+    const h = new URLSearchParams(location.search).get('humeur')
+    if (h) p.humeur(h as Humeur)
     return () => p.detruire()
   }, [])
   return <div className="icone-app"><canvas ref={canvas} /></div>

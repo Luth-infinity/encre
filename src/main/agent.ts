@@ -494,6 +494,11 @@ const RANGER_APRES = 45 * 60_000
 const RANGER_DES = 15_000
 const minuteurs = new Map<string, ReturnType<typeof setTimeout>>()
 const rangements = new Map<string, Promise<void>>()
+/** Le main montre Tako qui écrit pendant un rangement (humeur `note`). */
+let surRangement: (projet: string, enCours: boolean) => void = () => {}
+export function quandRange(cb: (projet: string, enCours: boolean) => void): void {
+  surRangement = cb
+}
 
 function programmerRangement(id: string): void {
   clearTimeout(minuteurs.get(id))
@@ -506,7 +511,16 @@ function programmerRangement(id: string): void {
       minuteurs.delete(id)
       const q = projets.trouver(id)
       if (!q || q.session !== session || tours.has(id)) return
-      rangements.set(id, ranger(q).catch((e) => journal(`rangement de ${q.nom} impossible : ${String(e)}`)).finally(() => rangements.delete(id)))
+      surRangement(id, true)
+      rangements.set(
+        id,
+        ranger(q)
+          .catch((e) => journal(`rangement de ${q.nom} impossible : ${String(e)}`))
+          .finally(() => {
+            rangements.delete(id)
+            surRangement(id, false)
+          })
+      )
     }, Number(process.env.ENCRE_RANGER_APRES) || RANGER_APRES)
   )
 }

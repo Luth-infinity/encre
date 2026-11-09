@@ -269,6 +269,22 @@ système changée n'est **pas appliquée** à la reprise d'une session.
   ≈ 5 k, la session neuve retrouve le travail. **Pas encore vu** : le
   passage en effort moyen sur un vrai long fil, la consigne vocale au micro.
 
+Pendant un rangement, la bulle passe en humeur **`note`** (indigo, « Écrit
+ses notes ») : Tako sort un carnet, un membre tient le crayon et des lignes
+d'encre s'écrivent une à une (`poulpe.ts`, marche pour les trois avatars).
+Aperçu sans écran : `ENCRE_ICONE=<png> ENCRE_ICONE_HUMEUR=note ENCRE_ICONE_IMAGES=4`.
+
+### En-tête et réglages rangés (09/11)
+
+En-tête : **＋ · ⋯ · ✕** seulement (cinq icônes, c'était « le bordel »). Le
+menu ⋯ porte Plein écran, Outils du projet, Réglages ; il reste dans la page
+caché (la vérification sans écran clique `[data-vue=…]` / `[data-action=plein]`).
+Sur Outils ou Réglages, ＋ devient ← (retour au fil). Réglages en trois
+onglets (Général : Claude Code, modèle, démarrage · Voix : voix, réveil,
+clés · Comptes). Les choix de modèle tiennent sur **une ligne** (segments,
+la phrase d'aide suit le choix) : les puces qui passaient à la ligne
+n'étaient « pas clean ».
+
 ### Libre = brouillon
 
 Libre repart **à vide** (fil + session) chaque fois qu'on y va et au

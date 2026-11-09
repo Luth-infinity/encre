@@ -469,6 +469,17 @@ export default function Panneau(): JSX.Element {
   const repondre = (id: string, r: Reponse): void => window.api.repondre(id, r)
   const nouvelle = (): void => { if (!enCours) { setFil([]); window.api.nouvelle() } }
   const basculer = (v: Vue): void => setVue(vue === v ? 'chat' : v)
+  /** Le menu ⋯ de l'en-tête : plein écran, outils du projet, réglages (cinq icônes en haut, c'était trop). */
+  const [menu, setMenu] = useState(false)
+  useEffect(() => {
+    if (!menu) return
+    const fermer = (e: PointerEvent): void => { if (!(e.target as Element).closest('.menu-entete, .plus')) setMenu(false) }
+    const echap = (e: KeyboardEvent): void => { if (e.key === 'Escape') setMenu(false) }
+    addEventListener('pointerdown', fermer)
+    addEventListener('keydown', echap, true)
+    return () => { removeEventListener('pointerdown', fermer); removeEventListener('keydown', echap, true) }
+  }, [menu])
+  const choisir = (f: () => void): void => { setMenu(false); f() }
   const ouvrirProjet = (id: string): void => {
     // Libre repart à vide à chaque visite : le main l'efface, on recharge.
     if (id !== filDe.current || etat?.projets.find((p) => p.id === id)?.libre) {
@@ -564,7 +575,7 @@ export default function Panneau(): JSX.Element {
 
   const titres: Partial<Record<Vue, [string, string]>> = {
     hub: ['Projets', 'Choisis où travailler'],
-    reglages: ['Réglages', 'Voix, démarrage, Claude Code'],
+    reglages: ['Réglages', 'Général, voix, comptes'],
     outils: ['Outils', projet?.nom ?? '']
   }
   const titre = titres[vue]
@@ -599,11 +610,23 @@ export default function Panneau(): JSX.Element {
           <span className="chevron">{vue === 'hub' ? '▴' : '▾'}</span>
         </button>
         <div className="actions">
-          <button type="button" data-vue="outils" className={`icone ${vue === 'outils' ? 'on' : ''}`} title="Outils du projet" onClick={() => basculer('outils')} disabled={!projet}><Prise /></button>
-          <button type="button" data-vue="reglages" className={`icone ${vue === 'reglages' ? 'on' : ''}`} title="Réglages" onClick={() => basculer('reglages')}><Roue /></button>
-          <button type="button" className="icone" title="Nouvelle conversation" onClick={nouvelle} disabled={enCours || !projet}>＋</button>
-          <button type="button" data-action="plein" className="icone" title={plein ? 'Revenir à la bulle' : 'Plein écran'} onClick={() => window.api.pleinEcran()}>{plein ? <Reduire /> : <Agrandir />}</button>
+          {vue === 'outils' || vue === 'reglages'
+            ? <button type="button" className="icone" title="Revenir à la conversation" onClick={() => setVue('chat')}>←</button>
+            : <button type="button" className="icone" title="Nouvelle conversation" onClick={nouvelle} disabled={enCours || !projet}>＋</button>}
+          <button type="button" className={`icone plus ${menu || vue === 'outils' || vue === 'reglages' ? 'on' : ''}`} title="Plus" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>⋯</button>
           <button type="button" className="icone" title="Fermer (Échap)" onClick={() => window.api.fermer()}>✕</button>
+          {/* Toujours dans la page (caché fermé) : la vérification sans écran clique ces boutons. */}
+          <div className={`menu-entete ${menu ? 'ouvert' : ''}`} role="menu">
+            <button type="button" role="menuitem" data-action="plein" onClick={() => choisir(() => window.api.pleinEcran())}>
+              {plein ? <Reduire /> : <Agrandir />}{plein ? 'Revenir à la bulle' : 'Plein écran'}
+            </button>
+            <button type="button" role="menuitem" data-vue="outils" className={vue === 'outils' ? 'on' : ''} disabled={!projet} onClick={() => choisir(() => basculer('outils'))}>
+              <Prise />Outils du projet
+            </button>
+            <button type="button" role="menuitem" data-vue="reglages" className={vue === 'reglages' ? 'on' : ''} onClick={() => choisir(() => basculer('reglages'))}>
+              <Roue />Réglages
+            </button>
+          </div>
         </div>
       </header>
 

@@ -1,5 +1,6 @@
 /** Ce que fait le poulpe. Chaque humeur a sa couleur (voir `renderer/src/styles.css`). */
-export type Humeur = 'repos' | 'ecoute' | 'reflechit' | 'bosse' | 'accord' | 'fini'
+/** `note` : il écrit ses notes de reprise (Encre range la session d'un projet). */
+export type Humeur = 'repos' | 'ecoute' | 'reflechit' | 'bosse' | 'accord' | 'fini' | 'note'
 
 /**
  * Qui décide des actions de Claude.

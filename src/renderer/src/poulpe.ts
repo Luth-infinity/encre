@@ -10,7 +10,7 @@ import type { Espece, Humeur } from '@shared/types'
  */
 
 export const COULEURS: Record<Humeur, string> = {
-  repos: '#B7A6F5', ecoute: '#3CC8F2', reflechit: '#FF6FB5', bosse: '#FF9A3C', accord: '#FFC933', fini: '#3DDC84'
+  repos: '#B7A6F5', ecoute: '#3CC8F2', reflechit: '#FF6FB5', bosse: '#FF9A3C', accord: '#FFC933', fini: '#3DDC84', note: '#7E8BFF'
 }
 const LAVANDE = '#B7A6F5'
 const ENCRE = '#1B1530'
@@ -205,6 +205,34 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     for (let k = 0; k < 8; k++) membre(corps, peauMotif, 'tentacule', 0.27, 0.05, angle(k, 8))
   }
 
+  // Le carnet : Tako y écrit ses notes quand Encre range la session d'un
+  // projet (humeur `note`). Un membre tient le crayon, des lignes d'encre
+  // s'écrivent une à une, puis la page se vide et il recommence.
+  const papier = new THREE.MeshToonMaterial({ color: 0xfffcf2, gradientMap: rampe })
+  const carnet = new THREE.Group(); carnet.position.set(0.05, espece === 'poulpe' ? -0.12 : -0.32, 1.32); carnet.rotation.x = -1.0; carnet.visible = false; corps.add(carnet)
+  const feuille = new THREE.BoxGeometry(0.8, 0.58, 0.04)
+  carnet.add(new THREE.Mesh(feuille, papier))
+  const bordFeuille = new THREE.Mesh(feuille, trait); bordFeuille.scale.set(1.07, 1.09, 1.6); carnet.add(bordFeuille)
+  const reliure = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.08, 0.08), accent); reliure.position.set(0, 0.3, 0.02); carnet.add(reliure)
+  const LIGNES = [0.58, 0.46, 0.6, 0.34]
+  const lignes = LIGNES.map((_, j) => {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(1, 0.028, 0.012), accent)
+    l.position.set(-0.31, 0.17 - j * 0.12, 0.026); l.scale.x = 0.001; carnet.add(l)
+    return l
+  })
+  // Le crayon a son pivot à la pointe ; sa tige part en arrière, vers le membre qui le tient.
+  const crayon = new THREE.Group(); carnet.add(crayon)
+  const tige = new THREE.Group(); tige.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0.45, 0.2, 0.87).normalize()); crayon.add(tige)
+  const mine = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 16), papier); mine.rotation.x = Math.PI; mine.position.y = 0.05; tige.add(mine)
+  const pointe = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.035, 12), noir); pointe.rotation.x = Math.PI; pointe.position.y = 0.017; tige.add(pointe)
+  const bois = new THREE.CylinderGeometry(0.04, 0.04, 0.4, 16)
+  const fut = new THREE.Mesh(bois, accent); fut.position.y = 0.3; tige.add(fut)
+  const futBord = new THREE.Mesh(bois, trait); futBord.position.y = 0.3; futBord.scale.set(1.35, 1.04, 1.35); tige.add(futBord)
+  const bout = new THREE.Object3D(); bout.position.y = 0.46; tige.add(bout)
+  /** Où le membre tient le crayon, dans le repère du corps (recalculé à chaque image). */
+  const prise = new THREE.Vector3(), chemin = new THREE.Vector3(), base = new THREE.Vector3()
+  let ecriture = 0
+
   /** La position du point `u` (0 à 1, de la base au bout) d'un membre. */
   function forme(p: THREE.Vector3, m: Membre, i: number, u: number, t: number, tt: number): void {
     const l = m.leve
@@ -255,7 +283,7 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   }
 
   let humeur: Humeur = 'repos'
-  const cible = { penche: 0, vitesse: 1, pupY: 0, oeil: 1, bouche: 1, incline: 0 }
+  const cible = { penche: 0, vitesse: 1, pupY: 0, oeil: 1, bouche: 1, incline: 0, note: 0 }
   const cur = { ...cible }
   let t = 0, mx = 0, my = 0, tx = 0, ty = 0, clin = 1, avantClin = 2
 
@@ -271,12 +299,14 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   function changer(h: Humeur): void {
     humeur = h
     joue.color.set(COULEURS[h])
-    Object.assign(cible, { penche: 0, vitesse: 1, pupY: 0, oeil: 1, bouche: 1, incline: 0 })
+    Object.assign(cible, { penche: 0, vitesse: 1, pupY: 0, oeil: 1, bouche: 1, incline: 0, note: 0 })
     if (h === 'ecoute') Object.assign(cible, { penche: 0.18, vitesse: 0.6, oeil: 1.12, bouche: 0.6 })
     if (h === 'reflechit') Object.assign(cible, { pupY: 0.09, incline: 0.16, vitesse: 0.7, bouche: 0.5 })
     if (h === 'bosse') Object.assign(cible, { vitesse: 2.6, pupY: -0.06, penche: 0.06 })
     if (h === 'accord') Object.assign(cible, { incline: -0.08, oeil: 1.08 })
     if (h === 'fini') Object.assign(cible, { oeil: 0.32, bouche: 1.6, vitesse: 1.4 })
+    // Penché sur son carnet, les yeux sur la page, appliqué.
+    if (h === 'note') Object.assign(cible, { note: 1, penche: 0.16, pupY: -0.07, vitesse: 0.55, bouche: 0.65, incline: -0.06 })
   }
 
   function poserMembres(t: number, tt: number, k: number): void {
@@ -284,6 +314,16 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
       const leve = (humeur === 'accord' && i === iAccord) || (geste?.nom === 'coucou' && i === iCoucou && geste.p > 0.05 && geste.p < 0.85)
       m.leve += ((leve ? 1 : 0) - m.leve) * k
       m.pts.forEach((p, n) => forme(p, m, i, n / (m.pts.length - 1), t, tt))
+      // Le membre qui écrit va chercher le crayon : la base reste en place, le bout rejoint la prise.
+      if (i === iAccord && cur.note > 0.02) {
+        base.copy(m.pts[0])
+        m.pts.forEach((p, n) => {
+          const u = n / (m.pts.length - 1)
+          chemin.lerpVectors(base, prise, u)
+          chemin.y += Math.sin(u * Math.PI) * 0.28
+          p.lerp(chemin, cur.note * Math.pow(u, 0.7))
+        })
+      }
       m.courbe.updateArcLengths()
       majTube(m.g, m.courbe, SEGS, RAD, m.r0, m.r1)
       majTube(m.gl, m.courbe, SEGS, RAD, m.r0 + Math.min(0.04, m.r0 * 0.5), m.r1 + Math.min(0.03, m.r1 * 0.8))
@@ -349,8 +389,9 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
       avantRegard = 1.8 + Math.random() * 3.5
       regard = Math.random() < 0.3 ? { x: 0, y: 0 } : { x: (Math.random() * 2 - 1) * 0.8, y: (Math.random() * 2 - 1) * 0.5 }
     }
-    const suit = maintenant < suivreJusqua
-    const vx = suit ? mx : regard.x, vy = suit ? my : regard.y
+    const suit = maintenant < suivreJusqua && humeur !== 'note'
+    // En écrivant, il regarde sa page et rien d'autre.
+    const vx = humeur === 'note' ? 0.05 : suit ? mx : regard.x, vy = humeur === 'note' ? 0.7 : suit ? my : regard.y
     const kr = suit ? k : 1 - Math.pow(0.25, dt)
     tx += (vx - tx) * kr; ty += (vy - ty) * kr
 
@@ -394,6 +435,25 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     bouche.scale.set(cur.bouche, cur.bouche, 1)
     joue.opacity = 0.55 + Math.sin(tt * 3) * 0.25
     void joues
+
+    carnet.visible = cur.note > 0.02
+    if (carnet.visible) {
+      carnet.scale.setScalar(Math.max(0.001, cur.note))
+      if (humeur === 'note') ecriture += dt * lent
+      // 4 lignes de 1,4 s, une pause d'une seconde (page pleine), puis une page neuve.
+      const cycle = ecriture % 6.6, plein = cycle >= 5.6
+      const j = Math.min(3, Math.floor(cycle / 1.4)), q = plein ? 1 : Math.min(1, (cycle - j * 1.4) / 1.4)
+      lignes.forEach((l, n) => {
+        const v = plein || n < j ? 1 : n === j ? q : 0
+        l.scale.x = Math.max(0.001, v * LIGNES[n])
+        l.position.x = -0.31 + l.scale.x / 2
+      })
+      const gribouille = plein ? 0 : Math.sin(tt * 34) * 0.014
+      crayon.position.set(-0.31 + (plein ? 0.25 : q * LIGNES[j]), 0.17 - (plein ? 1.5 : j) * 0.12 + gribouille, plein ? 0.14 : 0.03 + Math.abs(Math.sin(tt * 17)) * 0.018)
+      racine.updateMatrixWorld(true)
+      bout.getWorldPosition(prise)
+      corps.worldToLocal(prise)
+    }
 
     poserMembres(t, tt, k)
     rendu.render(scene, camera)
