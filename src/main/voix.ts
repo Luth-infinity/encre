@@ -383,7 +383,9 @@ export class Diseur {
     // Gemini met une à deux secondes par phrase : on lance la synthèse tout
     // de suite (en parallèle) et on rend dans l'ordre. Edge garde sa file
     // unique (une seule connexion, rapide).
-    const lancee = estGemini(this.reglages.voix) ? synthetiser(texte, this.reglages).catch(() => Buffer.alloc(0)) : null
+    // ElevenLabs aussi (09/11) : en file unique, chaque phrase attendait la
+    // précédente, et Lucas entendait un trou entre le texte écrit et la voix.
+    const lancee = estGemini(this.reglages.voix) || estEleven(this.reglages.voix) ? synthetiser(texte, this.reglages).catch(() => Buffer.alloc(0)) : null
     this.file = this.file.then(async () => {
       if (!this.vivant) { this.enCours--; return }
       try {
@@ -441,6 +443,7 @@ export class QuotaEleven extends Error {}
 
 async function eleven(texte: string, voix: string, cle: string): Promise<Buffer> {
   const id = voix.slice('eleven:'.length)
+  const debut = Date.now()
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'xi-api-key': cle, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
@@ -452,7 +455,10 @@ async function eleven(texte: string, voix: string, cle: string): Promise<Buffer>
     if (/quota_exceeded|credits/i.test(corps)) throw new QuotaEleven(`ElevenLabs : crédits épuisés (${res.status})`)
     throw new Error(`ElevenLabs ${res.status} : ${corps.slice(0, 200)}`)
   }
-  return Buffer.from(await res.arrayBuffer())
+  const mp3 = Buffer.from(await res.arrayBuffer())
+  // Pour régler la latence : combien de temps ElevenLabs met par phrase.
+  journal(`ElevenLabs : ${Date.now() - debut} ms pour ${texte.length} car.`)
+  return mp3
 }
 
 /** Les voix du compte (« My Voices » : celles ajoutées depuis la bibliothèque, créées ou clonées). */

@@ -349,7 +349,7 @@ voix). Les voix du **compte** (`GET /v1/voices` : celles ajoutées depuis la
 Voice Library, créées ou clonées) s'affichent en tête, relues à chaque
 ouverture de l'onglet ; id `eleven:<voice_id>`. Synthèse
 `POST /v1/text-to-speech/<id>` en `eleven_flash_v2_5` (latence basse, moitié
-moins de crédits), `language_code: fr`, MP3, phrase par phrase comme Edge.
+moins de crédits), `language_code: fr`, MP3, phrase par phrase, synthèses lancées en parallèle et rendues dans l’ordre (en file unique, chaque phrase attendait la précédente : délai entendu par Lucas). Durée de chaque synthèse dans le journal (`ElevenLabs : … ms`).
 Pas de phrases d'attente (des crédits à chaque lancement). Crédits épuisés →
 `voix-muette` (-2), réponse écrite, **jamais de relais**. **Pas encore testé
 avec une vraie clé.** Réveil au mot « Tako » **coupé par défaut** : il se
