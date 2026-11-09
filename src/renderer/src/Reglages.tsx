@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AVATARS, DESCRIPTION_TAKO, VOIX, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
+import { AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -96,6 +96,13 @@ function CreerVoix(): JSX.Element {
   )
 }
 
+const MODELES: [ChoixModele, string, string][] = [
+  ['auto', 'Auto', 'Selon la demande'],
+  ['sonnet', 'Sonnet', 'Rapide'],
+  ['opus', 'Opus', 'Le plus fort'],
+  ['claude', 'Claude Code', 'Son réglage']
+]
+
 /**
  * Les comptes Claude : on passe de l'un à l'autre d'un clic (le perso, celui
  * du boulot). Les conversations suivent, seule la connexion change.
@@ -189,6 +196,18 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
           <Comptes comptes={etat.comptes} />
         </section>
       )}
+
+      <section>
+        <h4>Modèle</h4>
+        <div className="choix-voix" role="radiogroup">
+          {MODELES.map(([id, nom, aide]) => (
+            <button key={id} type="button" role="radio" aria-checked={r.modele === id} className={r.modele === id ? 'on' : ''} onClick={() => poser({ modele: id })}>
+              {nom}<small>{aide}</small>
+            </button>
+          ))}
+        </div>
+        {r.modele === 'auto' && <p className="aide">Haiku lit chaque demande et l’envoie à Sonnet si elle est simple, à Opus si elle demande de réfléchir (Opus dans le doute). Les suites (« vas-y », « continue ») gardent le même modèle. Le modèle qui a répondu s’affiche sous la réponse.</p>}
+      </section>
 
       <section>
         <h4>Voix de Tako</h4>

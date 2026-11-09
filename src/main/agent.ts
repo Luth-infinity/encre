@@ -3,13 +3,15 @@ import {
 } from '@anthropic-ai/claude-agent-sdk'
 import { existsSync, statSync } from 'fs'
 import { z } from 'zod'
-import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
+import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Niveau, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
 import { cheminClaude, noterConnexion } from './claude'
 import { avatarActif, dossierActif } from './comptes'
 import * as fils from './fils'
 import { journal } from './journal'
 import { envDuProjet, serveursDuProjet } from './outils'
 import * as projets from './projets'
+import { reglages } from './reglages'
+import { eteindre, MODELES, trier } from './tri'
 import { Diseur } from './voix'
 
 /**
@@ -103,11 +105,33 @@ const MODES: Record<Mode, PermissionMode> = { demander: 'default', modifs: 'acce
 type Tour = { q: Query; abort: AbortController; glisser: (m: SDKUserMessage) => boolean; demandes: Set<string> }
 const tours = new Map<string, Tour>()
 const enAttente = new Map<string, (r: Reponse) => void>()
+/** Le dernier niveau choisi par projet : une suite (« vas-y ») garde le même modèle. */
+const niveaux = new Map<string, Niveau>()
 
 /** Sans projet : un tour tourne-t-il quelque part ? */
 export const enCours = (projet?: string): boolean => (projet ? tours.has(projet) : tours.size > 0)
 /** Les projets qui travaillent en ce moment. */
 export const projetsEnCours = (): string[] => [...tours.keys()]
+
+/** « claude-opus-5-5 » → « Opus 5.5 », pour dire sous la réponse qui a répondu. */
+export function nomModele(id: string): string {
+  const m = /(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?/i.exec(id)
+  if (!m) return id
+  return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] && m[3].length < 3 ? `.${m[3]}` : ''}`
+}
+
+/** Le modèle du tour : celui choisi dans les réglages, ou trié selon la demande. */
+async function choisirModele(projet: Projet, texte: string, pieces: number): Promise<string | undefined> {
+  const choix = reglages().modele
+  if (choix === 'claude') return undefined
+  if (choix !== 'auto') return choix
+  // La réponse précédente aide Haiku à voir si la demande poursuit un travail en cours.
+  const derniere = [...fils.fil(projet.id)].reverse().find((b) => b.type === 'ia')
+  const n = await trier(texte, pieces, niveaux.get(projet.id) ?? null, derniere?.type === 'ia' ? derniere.texte : null, envPropre())
+  niveaux.set(projet.id, n)
+  journal(`modèle de ${projet.nom} : ${MODELES[n]}`)
+  return MODELES[n]
+}
 
 const court = (s: string, n = 140): string => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
@@ -212,6 +236,9 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   const debut = Date.now()
   sortie.humeur('reflechit')
   projets.modifier(projet.id, { derniere: debut })
+  // Le tri tourne pendant que Claude Code démarre (2 à 3 s) : il ne retarde presque rien.
+  const modele = choisirModele(projet, texte, options.pieces?.length ?? 0).catch(() => undefined)
+  let modeleVu: string | undefined
   const diseur =
     options.voix && sortie.audio
       ? new Diseur({ voix: options.voix, dossier: projet.dossier }, sortie.audio, (l) => journal(l))
@@ -232,6 +259,9 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   }
   abort.signal.addEventListener('abort', finEntree)
   async function* entree(): AsyncGenerator<SDKUserMessage> {
+    // Le modèle se pose juste avant le premier message, une fois le tri rendu.
+    const m = await modele
+    if (m) await q.setModel(m).catch((e) => journal(`modèle ${m} refusé : ${String(e)}`))
     yield {
       type: 'user',
       message: { role: 'user', content: contenu(texte, options.pieces ?? []) },
@@ -318,6 +348,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
         const l = depuisEvenement(m.rate_limit_info as InfoLimite)
         if (l) sortie.limites?.(l)
       } else if (m.type === 'system' && m.subtype === 'init') {
+        modeleVu = m.model
         projets.modifier(projet.id, {
           session: m.session_id,
           serveurs: m.mcp_servers.filter((s) => s.name !== 'encre').map((s) => ({ nom: s.name, etat: s.status }))
@@ -363,7 +394,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   else if (!erreur) noterConnexion(true)
   const reste = filtre.finir()
   if (reste) sortie.evenement({ type: 'texte', texte: reste })
-  sortie.evenement({ type: 'fin', erreur, duree: Date.now() - debut, suites: filtre.suites.length ? filtre.suites : undefined })
+  sortie.evenement({ type: 'fin', erreur, duree: Date.now() - debut, suites: filtre.suites.length ? filtre.suites : undefined, modele: modeleVu && nomModele(modeleVu) })
   sortie.humeur(erreur ? 'repos' : 'fini')
   // La voix n'a pas forcément fini : avec Gemini, la réponse part d'un bloc
   // après le texte. Le tour n'est fini (« tour-fini », micro rendu) qu'une
@@ -469,8 +500,9 @@ export function repondre(id: string, r: Reponse): void {
 
 /** Arrête le tour d'un projet, ou tous (à la fermeture d'Encre). */
 export function arreter(projet?: string): void {
-  if (projet) tours.get(projet)?.abort.abort()
-  else for (const t of tours.values()) t.abort.abort()
+  if (projet) return void tours.get(projet)?.abort.abort()
+  for (const t of tours.values()) t.abort.abort()
+  eteindre()
 }
 
 /** Change le mode en plein tour, sans attendre le message suivant. */

@@ -219,6 +219,25 @@ quand Encre tourne). Restent « Tako » : voix (`STYLE_TAKO`), mot de réveil,
 icône, menu de la zone de notification. **Animations pas encore vues en
 mouvement.**
 
+### Modèle selon la demande (09/11)
+
+Réglages → Modèle : **Auto** (défaut), Sonnet, Opus, ou « Claude Code » (son
+propre réglage). En Auto, `main/tri.ts` choisit Sonnet (simple) ou Opus
+(réfléchir) : les suites (« vas-y », « continue ») gardent le modèle d'avant,
+une pièce jointe ou un long message vont à Opus, le reste est tranché par
+Haiku en un mot (consigne avec exemples, réponse de l'assistant précédente en
+contexte). Dans le doute, Haiku lent (6 s) ou réponse bizarre : Opus. Le tri
+tourne pendant que le Claude Code du tour démarre, et `agent.ts` pose le
+modèle (`setModel`) juste avant le premier message ; un Haiku attend
+préchauffé pour le tri suivant. Le modèle qui a répondu s'affiche sous la
+réponse (« Fait en 6 s · Opus 5.5 », lu dans le message `init`).
+Mesuré le 09/11 : 22 bons tris sur 24 (les deux erreurs vers Opus, aucune
+demande complexe envoyée à Sonnet) ; **1,5 à 3 s de plus** avant le premier
+mot quand Haiku tranche (Claude Code fait l'essentiel de son démarrage à
+l'arrivée du message, le parallèle en cache peu). Ne pas mettre de balises
+autour de la demande dans le tri : essayé, Haiku se trompait deux fois plus.
+**Pas encore vu dans l'app.**
+
 ### Libre = brouillon
 
 Libre repart **à vide** (fil + session) chaque fois qu'on y va et au

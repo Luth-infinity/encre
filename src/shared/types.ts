@@ -49,7 +49,7 @@ export type Evenement =
   | { type: 'demande'; demande: Outil }
   | { type: 'demande-close'; id: string }
   /** `suites` : ce que l'utilisateur pourrait répondre, proposé par Tako en fin de réponse. */
-  | { type: 'fin'; erreur?: string; duree: number; suites?: string[] }
+  | { type: 'fin'; erreur?: string; duree: number; suites?: string[]; modele?: string }
   /** Une ligne d'Encre dans le fil, par exemple « Projet créé ». */
   | { type: 'info'; texte: string }
 
@@ -63,7 +63,7 @@ export type Bloc =
   | { type: 'ia'; texte: string }
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
-  | { type: 'fin'; erreur?: string; duree: number; suites?: string[] }
+  | { type: 'fin'; erreur?: string; duree: number; suites?: string[]; modele?: string }
   | { type: 'info'; texte: string }
 
 /**
@@ -88,7 +88,7 @@ export function appliquer(fil: Bloc[], e: Evenement): Bloc[] {
     case 'info':
       return [...fil, { type: 'info', texte: e.texte }]
     case 'fin':
-      return [...fil, { type: 'fin', erreur: e.erreur, duree: e.duree, suites: e.suites }]
+      return [...fil, { type: 'fin', erreur: e.erreur, duree: e.duree, suites: e.suites, modele: e.modele }]
   }
 }
 
@@ -175,7 +175,13 @@ export type Reglages = {
   suite: boolean
   /** Lancer Encre à l'ouverture de session Windows. */
   demarrage: boolean
+  /** Le modèle : trié selon la demande, imposé, ou celui de Claude Code. */
+  modele: ChoixModele
 }
+
+/** `rapide` = Sonnet, `costaud` = Opus (`main/tri.ts`). */
+export type Niveau = 'rapide' | 'costaud'
+export type ChoixModele = 'auto' | 'sonnet' | 'opus' | 'claude'
 
 /** Les comptes Figma que le Claude Code de la machine a déjà reliés. */
 export type CompteFigma = { serveur: string; relie: boolean }

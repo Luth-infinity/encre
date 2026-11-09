@@ -11,7 +11,7 @@ import { existe, lireSecret, poser } from './secrets'
 
 type Stock = Omit<Reglages, 'cleGroq' | 'cleGemini'>
 
-const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: true, suite: true, demarrage: true }
+const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: true, suite: true, demarrage: true, modele: 'auto' }
 
 const fichier = (): string => join(app.getPath('userData'), 'reglages.json')
 
@@ -29,6 +29,7 @@ function charger(): Stock {
   stock.voixPerso ??= []
   const connues = [...VOIX, ...VOIX_GEMINI, ...stock.voixPerso.map((v) => ({ id: `gemini:${v.id}` }))]
   if (!connues.some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
+  if (!['auto', 'sonnet', 'opus', 'claude'].includes(stock.modele)) stock.modele = DEFAUT.modele
   if (!existe('groq')) heriterCle()
   return stock
 }

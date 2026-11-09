@@ -543,7 +543,7 @@ export default function Panneau(): JSX.Element {
           const proposer = !!x.suites?.length && !enCours && n === tous.length - 1
           return (
             <Fragment key={i}>
-              <div className="fait">Fait en {duree(x.duree)}</div>
+              <div className="fait">Fait en {duree(x.duree)}{x.modele ? ` · ${x.modele}` : ''}</div>
               {proposer && (
                 <div className="suites" aria-label="Réponses proposées">
                   {x.suites!.map((t) => <button key={t} type="button" onClick={() => envoyer(t, [])}>{t}</button>)}
