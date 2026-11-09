@@ -2,7 +2,8 @@ import { app } from 'electron'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { VOIX } from '@shared/types'
 import { journal } from './journal'
-import { cleGemini } from './reglages'
+import type { VoixEleven } from '@shared/types'
+import { cleEleven, cleGemini } from './reglages'
 
 /** Repris d'Iris : ce qu'il faut à la voix (la voix choisie, le dossier du projet). */
 type Reglages = { voix: string; dossier: string }
@@ -425,6 +426,49 @@ function audioDans(x: unknown): string | null {
   return null
 }
 
+// ─── ElevenLabs ──────────────────────────────────────────────────────────────
+
+/**
+ * Flash v2.5 : la latence la plus basse (fait pour le temps réel), et deux
+ * fois moins de crédits par caractère que Multilingual v2 (doc et grilles
+ * lues le 09/11/2026). `language_code: fr` le tient en français.
+ */
+const MODELE_ELEVEN = 'eleven_flash_v2_5'
+export const estEleven = (voix: string): boolean => voix.startsWith('eleven:')
+
+/** Plus de crédits ce mois-ci (offre gratuite ou abonnement épuisé). */
+export class QuotaEleven extends Error {}
+
+async function eleven(texte: string, voix: string, cle: string): Promise<Buffer> {
+  const id = voix.slice('eleven:'.length)
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_128`, {
+    method: 'POST',
+    headers: { 'xi-api-key': cle, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+    body: JSON.stringify({ text: texte, model_id: MODELE_ELEVEN, language_code: 'fr' }),
+    signal: AbortSignal.timeout(20000)
+  })
+  if (!res.ok) {
+    const corps = await res.text()
+    if (/quota_exceeded|credits/i.test(corps)) throw new QuotaEleven(`ElevenLabs : crédits épuisés (${res.status})`)
+    throw new Error(`ElevenLabs ${res.status} : ${corps.slice(0, 200)}`)
+  }
+  return Buffer.from(await res.arrayBuffer())
+}
+
+/** Les voix du compte (« My Voices » : celles ajoutées depuis la bibliothèque, créées ou clonées). */
+export async function voixEleven(cle = cleEleven()): Promise<VoixEleven[]> {
+  if (!cle) return []
+  const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': cle }, signal: AbortSignal.timeout(10000) })
+  if (!res.ok) throw new Error(res.status === 401 ? 'ElevenLabs refuse cette clé : vérifie qu’elle a le droit de lire les voix (Voices : Read).' : `ElevenLabs ${res.status}`)
+  const j = (await res.json()) as { voices?: { voice_id: string; name: string; category?: string; labels?: Record<string, string> }[] }
+  return (j.voices ?? []).map((v) => ({
+    id: `eleven:${v.voice_id}`,
+    // « Rachel - Calm and warm » : le prénom suffit à l'écran, le reste passe en aide.
+    nom: v.name.split(/\s[-–]\s/)[0].trim(),
+    aide: v.category === 'premade' ? 'Par défaut' : v.category === 'cloned' ? 'Clonée' : v.category === 'generated' ? 'Créée' : 'Ma voix'
+  }))
+}
+
 /** Le quota est plein : `apres` = secondes à attendre selon Google. */
 /** `apres` = -1 : c'est le quota du jour, il revient à 9 h (minuit heure du Pacifique). */
 export class QuotaGemini extends Error {
@@ -485,6 +529,19 @@ export function quandMuet(cb: (secondes: number) => void): void {
 }
 
 export async function synthetiser(texte: string, reglages: Reglages, { secours = true } = {}): Promise<Buffer> {
+  if (estEleven(reglages.voix)) {
+    const cle = cleEleven()
+    if (!cle) return edge(texte, VOIX[0].id)
+    try {
+      return await eleven(texte, reglages.voix, cle)
+    } catch (e) {
+      // Même règle que Gemini : jamais une autre voix en relais, la réponse reste écrite.
+      if (!secours) throw e
+      journal(`voix ElevenLabs muette : ${String((e as Error).message ?? e).slice(0, 220)}`)
+      surMuet(e instanceof QuotaEleven ? -2 : 0)
+      return Buffer.alloc(0)
+    }
+  }
   if (estGemini(reglages.voix)) {
     const cle = cleGemini()
     // Sans clé (retirée), la voix Microsoft revient : c'est un choix, pas un relais.
@@ -571,7 +628,7 @@ export async function prechaufferAttentes(reglages: Reglages): Promise<void> {
   const cle = reglages.voix
   // Avec Gemini, pas de phrases d'attente : elles vidaient le quota gratuit
   // (3 requêtes par minute) avant même la première vraie phrase.
-  if (estGemini(cle)) {
+  if (estGemini(cle) || estEleven(cle)) {
     attentes = { cle, mp3: [] }
     return
   }

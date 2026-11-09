@@ -9,9 +9,9 @@ import { existe, lireSecret, poser } from './secrets'
  * `secrets.ts`, et le panneau ne sait que si elle existe.
  */
 
-type Stock = Omit<Reglages, 'cleGroq' | 'cleGemini'>
+type Stock = Omit<Reglages, 'cleGroq' | 'cleGemini' | 'cleEleven'>
 
-const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: true, suite: true, demarrage: true, modele: 'auto' }
+const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: false, suite: true, demarrage: true, modele: 'auto' }
 
 const fichier = (): string => join(app.getPath('userData'), 'reglages.json')
 
@@ -28,7 +28,8 @@ function charger(): Stock {
   // Une voix retirée de la liste (les multilingues) : on revient à celle par défaut.
   stock.voixPerso ??= []
   const connues = [...VOIX, ...VOIX_GEMINI, ...stock.voixPerso.map((v) => ({ id: `gemini:${v.id}` }))]
-  if (!connues.some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
+  // Les voix ElevenLabs viennent du compte (liste en ligne) : on les garde telles quelles.
+  if (!stock.voix.startsWith('eleven:') && !connues.some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
   if (!['auto', 'sonnet', 'opus', 'claude'].includes(stock.modele)) stock.modele = DEFAUT.modele
   if (!existe('groq')) heriterCle()
   return stock
@@ -59,7 +60,7 @@ function heriterCle(): void {
 }
 
 export function reglages(): Reglages {
-  return { ...charger(), cleGroq: existe('groq'), cleGemini: existe('gemini') }
+  return { ...charger(), cleGroq: existe('groq'), cleGemini: existe('gemini'), cleEleven: existe('eleven') }
 }
 
 export function modifier(champs: Partial<Stock>): Reglages {
@@ -73,3 +74,5 @@ export const cleGroq = (): string | null => lireSecret('groq')
 export const poserCleGroq = (cle: string | null): void => poser('groq', cle)
 export const cleGemini = (): string | null => lireSecret('gemini')
 export const poserCleGemini = (cle: string | null): void => poser('gemini', cle)
+export const cleEleven = (): string | null => lireSecret('eleven')
+export const poserCleEleven = (cle: string | null): void => poser('eleven', cle)

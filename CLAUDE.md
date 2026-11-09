@@ -341,6 +341,20 @@ réponse reste écrite, le panneau affiche « Tako répond par écrit… »
 (`voix-muette`). L'alternance Gemini/Edge était « ultra perturbante ».
 Non vérifié : la création de voix en offre gratuite (à voir au premier essai).
 
+### Voix ElevenLabs (09/11)
+
+Lucas prend ElevenLabs (essai en gratuit, 10 000 crédits/mois, puis Creator).
+Clé dans Réglages → Voix → Clés (secret « eleven », vérifiée en listant les
+voix). Les voix du **compte** (`GET /v1/voices` : celles ajoutées depuis la
+Voice Library, créées ou clonées) s'affichent en tête, relues à chaque
+ouverture de l'onglet ; id `eleven:<voice_id>`. Synthèse
+`POST /v1/text-to-speech/<id>` en `eleven_flash_v2_5` (latence basse, moitié
+moins de crédits), `language_code: fr`, MP3, phrase par phrase comme Edge.
+Pas de phrases d'attente (des crédits à chaque lancement). Crédits épuisés →
+`voix-muette` (-2), réponse écrite, **jamais de relais**. **Pas encore testé
+avec une vraie clé.** Réveil au mot « Tako » **coupé par défaut** : il se
+déclenchait dès que Lucas prononçait le nom.
+
 ### Écrire pendant que Tako travaille, répondre à un passage, limites
 
 - **Messages glissés** : pendant un tour, la saisie reste ouverte (↑ si du

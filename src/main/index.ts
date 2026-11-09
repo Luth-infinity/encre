@@ -15,7 +15,7 @@ import * as outils from './outils'
 import * as projets from './projets'
 import * as reglages from './reglages'
 import * as updates from './updates'
-import { attentePrete, creerVoix, estGemini, prechaufferAttentes, quandMuet, QuotaGemini, synthetiser } from './voix'
+import { attentePrete, creerVoix, estEleven, estGemini, prechaufferAttentes, quandMuet, QuotaEleven, QuotaGemini, synthetiser, voixEleven } from './voix'
 
 /**
  * Encre : une bulle toujours au-dessus, un panneau de chat branché sur le
@@ -376,7 +376,7 @@ function brancher(): void {
 
   // Réglages : la clé Groq ne repart jamais vers le panneau, seulement sa présence.
   ipcMain.on('reglages', (_e, champs: Partial<Reglages>) => {
-    const { cleGroq: _ignore, cleGemini: _ignore2, ...reste } = champs
+    const { cleGroq: _ignore, cleGemini: _ignore2, cleEleven: _ignore3, ...reste } = champs
     const r = reglages.modifier(reste)
     if ('demarrage' in reste) appliquerDemarrage(r)
     if ('voix' in reste) void prechaufferAttentes({ voix: r.voix, dossier: '' })
@@ -407,6 +407,33 @@ function brancher(): void {
       return String((e as Error).message)
     }
   })
+  // La clé ElevenLabs : vérifiée en listant les voix du compte ; enregistrée,
+  // Tako prend la première de ces voix (Lucas choisit ensuite dans la liste).
+  ipcMain.handle('cle-eleven', async (_e, cle: string | null) => {
+    try {
+      let premiere: string | undefined
+      if (cle) {
+        const liste = await voixEleven(cle.trim())
+        premiere = liste[0]?.id
+        cle = cle.trim()
+      }
+      reglages.poserCleEleven(cle)
+      const r = reglages.reglages()
+      if (cle && premiere && !estEleven(r.voix)) reglages.modifier({ voix: premiere })
+      if (!cle && estEleven(r.voix)) reglages.modifier({ voix: VOIX[0].id })
+      publierEtat()
+      return null
+    } catch (e) {
+      return String((e as Error).message)
+    }
+  })
+  ipcMain.handle('voix-eleven', async (): Promise<{ voix: { id: string; nom: string; aide: string }[]; erreur?: string }> => {
+    try {
+      return { voix: await voixEleven() }
+    } catch (e) {
+      return { voix: [], erreur: String((e as Error).message) }
+    }
+  })
   // « Tester » dans les réglages : une phrase de Tako avec la voix choisie, rendue en base64.
   // Gardée en mémoire par voix : réécouter ne coûte pas une requête du quota Gemini.
   const essais = new Map<string, string>()
@@ -420,6 +447,7 @@ function brancher(): void {
     } catch (e) {
       journal(`essai de voix : ${String(e)}`)
       if (e instanceof QuotaGemini) return { erreur: e.pourLucas }
+      if (e instanceof QuotaEleven) return { erreur: 'Plus de crédits ElevenLabs ce mois-ci.' }
       return { erreur: 'La voix n’a pas répondu. Réessaie dans un instant.' }
     }
   })

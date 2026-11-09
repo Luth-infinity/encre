@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
@@ -184,6 +184,16 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
 
   const [onglet, setOnglet] = useState<Onglet>('general')
   const voix = [...(r.cleGemini ? VOIX_GEMINI : []), ...VOIX]
+  // Les voix ElevenLabs du compte, relues en ouvrant l'onglet (une voix ajoutée sur le site apparaît).
+  const [eleven, setEleven] = useState<{ id: string; nom: string; aide: string }[]>([])
+  const [souciEleven, setSouciEleven] = useState<string | null>(null)
+  useEffect(() => {
+    if (onglet !== 'voix' || !r.cleEleven) return setEleven([])
+    void window.api.voixEleven().then(({ voix, erreur }) => {
+      setEleven(voix)
+      setSouciEleven(erreur ?? null)
+    })
+  }, [onglet, r.cleEleven])
 
   return (
     <div className="page">
@@ -234,6 +244,11 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
           <section>
             <h4>Voix de Tako</h4>
             <div className="liste-voix" role="radiogroup">
+              {eleven.map((v) => (
+                <button key={v.id} type="button" role="radio" aria-checked={r.voix === v.id} className={`perso ${r.voix === v.id ? 'on' : ''}`} onClick={() => poser({ voix: v.id })}>
+                  {v.nom}<small>ElevenLabs · {v.aide}</small>
+                </button>
+              ))}
               {r.cleGemini && r.voixPerso.map((v) => (
                 <button key={v.id} type="button" role="radio" aria-checked={r.voix === `gemini:${v.id}`} className={`perso ${r.voix === `gemini:${v.id}` ? 'on' : ''}`} onClick={() => poser({ voix: `gemini:${v.id}` })} title={v.description}>
                   ✦ {v.nom}<small>Sur mesure</small>
@@ -247,6 +262,8 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
             </div>
             <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? 'Tako parle…' : '▶ Tester la voix'}</button>
             {souciEssai && <p className="erreur">{souciEssai}</p>}
+            {souciEleven && <p className="erreur">{souciEleven}</p>}
+            {r.cleEleven && <p className="aide">Les voix de ton compte ElevenLabs : pour en ajouter une, Voice Library sur elevenlabs.io → « Add to my voices », puis reviens sur cet onglet. Modèle Flash : rapide, deux fois moins de crédits. Crédits épuisés : Tako répond par écrit.</p>}
             {r.cleGemini && r.voixPerso.some((v) => r.voix === `gemini:${v.id}`) && (
               <button type="button" className="lien" onClick={() => window.api.oublierVoix(r.voix.slice('gemini:'.length))}>Oublier cette voix</button>
             )}
@@ -264,6 +281,12 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
               prefixe="gsk_"
               aide="Pour transcrire ta voix (gratuit) : console.groq.com → API Keys. Chiffrée par Windows."
               enregistrer={(v) => window.api.cleGroq(v)}
+            />
+            <Cle
+              nom="ElevenLabs"
+              presente={r.cleEleven}
+              aide="Pour les voix ElevenLabs : elevenlabs.io → profil → API Keys → Create (droits Text to Speech et Voices : Read). Chiffrée par Windows."
+              enregistrer={(v) => window.api.cleEleven(v)}
             />
             <Cle
               nom="Gemini"

@@ -49,6 +49,9 @@ const api = {
   reglages: (champs: Partial<Reglages>) => ipcRenderer.send('reglages', champs),
   cleGroq: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-groq', cle),
   cleGemini: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-gemini', cle),
+  cleEleven: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-eleven', cle),
+  /** Les voix du compte ElevenLabs (lues en ligne à chaque ouverture de l'onglet Voix). */
+  voixEleven: (): Promise<{ voix: { id: string; nom: string; aide: string }[]; erreur?: string }> => ipcRenderer.invoke('voix-eleven'),
   /** Une phrase de Tako dans la voix donnée, en base64 (MP3 ou WAV). */
   essaiVoix: (voix: string): Promise<{ son?: string; erreur?: string }> => ipcRenderer.invoke('essai-voix', voix),
   /** Crée une voix Gemini sur mesure à partir d'une description ; rend l'échantillon. */

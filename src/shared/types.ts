@@ -166,12 +166,17 @@ export type VoixPerso = { id: string; nom: string; description: string; creee: n
 export const DESCRIPTION_TAKO =
   'Une petite voix douce, chaleureuse et malicieuse, celle d’un poulpe mignon qui parle français avec le sourire. Plutôt jeune, rassurante, jamais criarde, avec une pointe d’espièglerie et un débit naturel de conversation.'
 
+/** Une voix du compte ElevenLabs de l'utilisateur, telle que l'API la liste. */
+export type VoixEleven = { id: string; nom: string; aide: string }
+
 /** Les réglages tels que le panneau les voit : jamais la clé elle-même. */
 export type Reglages = {
   /** Une clé Groq est enregistrée (pour la transcription du mode Parler). */
   cleGroq: boolean
   /** Une clé Gemini est enregistrée : Tako parle avec les voix Gemini. */
   cleGemini: boolean
+  /** Une clé ElevenLabs est enregistrée : les voix du compte ElevenLabs (`eleven:<id>`) sont proposées. */
+  cleEleven: boolean
   voix: string
   /** Les voix créées sur mesure chez Gemini (id `voice_…`), de la plus récente à la plus ancienne. */
   voixPerso: VoixPerso[]
