@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
-  Bloc, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse
+  Bloc, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse, VoixEleven
 } from '../shared/types'
 
 function recevoir<T extends unknown[]>(canal: string, cb: (...v: T) => void): () => void {
@@ -51,7 +51,7 @@ const api = {
   cleGemini: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-gemini', cle),
   cleEleven: (cle: string | null): Promise<string | null> => ipcRenderer.invoke('cle-eleven', cle),
   /** Les voix du compte ElevenLabs (lues en ligne à chaque ouverture de l'onglet Voix). */
-  voixEleven: (): Promise<{ voix: { id: string; nom: string; aide: string }[]; erreur?: string }> => ipcRenderer.invoke('voix-eleven'),
+  voixEleven: (): Promise<{ voix: VoixEleven[]; erreur?: string }> => ipcRenderer.invoke('voix-eleven'),
   /** Une phrase de Tako dans la voix donnée, en base64 (MP3 ou WAV). */
   essaiVoix: (voix: string): Promise<{ son?: string; erreur?: string }> => ipcRenderer.invoke('essai-voix', voix),
   /** Crée une voix Gemini sur mesure à partir d'une description ; rend l'échantillon. */

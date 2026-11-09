@@ -482,8 +482,20 @@ export async function voixEleven(cle = cleEleven()): Promise<VoixEleven[]> {
     id: `eleven:${v.voice_id}`,
     // « Rachel - Calm and warm » : le prénom suffit à l'écran, le reste passe en aide.
     nom: v.name.split(/\s[-–]\s/)[0].trim(),
-    aide: v.category === 'premade' ? 'Par défaut' : v.category === 'cloned' ? 'Clonée' : v.category === 'generated' ? 'Créée' : 'Ma voix'
+    // Le genre et le caractère (« Femme · calme ») aident à choisir parmi les voix par défaut, toutes en anglais de nom.
+    aide: v.category === 'premade' ? decrireEleven(v.labels ?? {}) : v.category === 'cloned' ? 'Clonée' : v.category === 'generated' ? 'Créée' : 'Ma voix',
+    perso: v.category !== 'premade'
   }))
+}
+
+const MOTS_ELEVEN: Record<string, string> = {
+  female: 'Femme', male: 'Homme', neutral: 'Neutre', young: 'jeune', 'middle aged': 'adulte', 'middle-aged': 'adulte', old: 'âgée',
+  calm: 'calme', warm: 'chaleureuse', confident: 'assurée', casual: 'décontractée', deep: 'grave', soft: 'douce', raspy: 'éraillée',
+  friendly: 'amicale', professional: 'pro', energetic: 'énergique', upbeat: 'enjouée', crisp: 'nette', husky: 'voilée', expressive: 'expressive'
+}
+function decrireEleven(l: Record<string, string>): string {
+  const tr = (m?: string): string => (m ? MOTS_ELEVEN[m.toLowerCase()] ?? '' : '')
+  return [tr(l.gender), tr(l.descriptive) || tr(l.description) || tr(l.age)].filter(Boolean).join(' · ') || 'Par défaut'
 }
 
 /** Le quota est plein : `apres` = secondes à attendre selon Google. */

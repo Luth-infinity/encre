@@ -167,7 +167,8 @@ export const DESCRIPTION_TAKO =
   'Une petite voix douce, chaleureuse et malicieuse, celle d’un poulpe mignon qui parle français avec le sourire. Plutôt jeune, rassurante, jamais criarde, avec une pointe d’espièglerie et un débit naturel de conversation.'
 
 /** Une voix du compte ElevenLabs de l'utilisateur, telle que l'API la liste. */
-export type VoixEleven = { id: string; nom: string; aide: string }
+/** `perso` : ajoutée, créée ou clonée par l'utilisateur (sinon une voix par défaut d'ElevenLabs). */
+export type VoixEleven = { id: string; nom: string; aide: string; perso: boolean }
 
 /** Les réglages tels que le panneau les voit : jamais la clé elle-même. */
 export type Reglages = {

@@ -2,7 +2,7 @@ import './avant'
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse } from '@shared/types'
+import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse, type VoixEleven } from '@shared/types'
 import * as agent from './agent'
 import * as comptes from './comptes'
 import { etatClaude, noterConnexion, reprendrePathDuShell } from './claude'
@@ -427,7 +427,18 @@ function brancher(): void {
       return String((e as Error).message)
     }
   })
-  ipcMain.handle('voix-eleven', async (): Promise<{ voix: { id: string; nom: string; aide: string }[]; erreur?: string }> => {
+  ipcMain.handle('voix-eleven', async (): Promise<{ voix: VoixEleven[]; erreur?: string }> => {
+    // Vérification sans clé : une liste aussi longue que celle d'un vrai compte.
+    if (process.env.ENCRE_VERIF_VOIX) {
+      const noms = ['Rachel', 'Adam', 'Bella', 'Josh', 'Charlotte', 'George', 'Lily', 'Daniel', 'Sarah', 'Brian', 'Alice', 'Bill', 'Jessica', 'Eric', 'Laura', 'Liam', 'Matilda', 'Will', 'River', 'Chris']
+      return {
+        voix: [
+          { id: 'eleven:moi1', nom: 'Ma voix douce', aide: 'Ma voix', perso: true },
+          { id: 'eleven:moi2', nom: 'Narratrice', aide: 'Créée', perso: true },
+          ...noms.map((n, i) => ({ id: `eleven:${n}`, nom: n, aide: i % 2 ? 'Homme · grave' : 'Femme · calme', perso: false }))
+        ]
+      }
+    }
     try {
       return { voix: await voixEleven() }
     } catch (e) {
@@ -696,6 +707,10 @@ async function verifier(dossier: string): Promise<void> {
     await attendre(5000)
     comptes.retirer(id)
     return app.quit()
+  }
+  if (process.env.ENCRE_VERIF_VOIX) {
+    reglages.poserCleEleven('verif')
+    reglages.modifier({ voix: 'eleven:Josh' })
   }
   const p = projets.ajouter(dossier)
   projets.modifier(p.id, { mode: (process.env.ENCRE_VERIF_MODE as Mode) || 'demander', session: null })

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sortieDouce } from './lib/adoucir'
-import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
+import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R, type VoixEleven, type VoixPerso } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -174,6 +174,96 @@ function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
 }
 
 /** Les réglages d'Encre : la voix, le démarrage, et l'état du Claude Code de la machine. */
+type Voix = { id: string; nom: string; aide: string; perso?: boolean }
+type Famille = 'mes' | 'eleven' | 'gemini' | 'microsoft'
+const FAMILLES: [Famille, string][] = [['mes', 'Mes voix'], ['eleven', 'ElevenLabs'], ['gemini', 'Gemini'], ['microsoft', 'Microsoft']]
+/** Au-delà, la liste se replie : une trentaine de boutons d'un coup, c'était illisible. */
+const VISIBLES = 6
+
+/**
+ * Le choix de la voix. ElevenLabs renvoie ses voix par défaut en plus de
+ * celles du compte : tout afficher d'un bloc faisait des dizaines de
+ * boutons (« il y en a 36 000 »). La voix choisie reste en haut avec
+ * l'essai ; en dessous, une famille à la fois, filtrable et repliée.
+ */
+function ChoixVoix({ actuelle, choisir, eleven, perso, gemini, tester, essai }: {
+  actuelle: string
+  choisir: (id: string) => void
+  eleven: VoixEleven[]
+  perso: VoixPerso[]
+  gemini: boolean
+  tester: () => void
+  essai: string | null
+}): JSX.Element {
+  const familles: Record<Famille, Voix[]> = {
+    mes: [...eleven.filter((v) => v.perso), ...perso.map((v) => ({ id: `gemini:${v.id}`, nom: v.nom, aide: 'Sur mesure', perso: true }))],
+    eleven: eleven.filter((v) => !v.perso),
+    gemini: gemini ? VOIX_GEMINI.map((v) => ({ ...v })) : [],
+    microsoft: VOIX.map((v) => ({ ...v, aide: 'Illimitée' }))
+  }
+  const presentes = FAMILLES.filter(([id]) => familles[id].length)
+  const deLaVoix = presentes.find(([id]) => familles[id].some((v) => v.id === actuelle))?.[0]
+  const [famille, setFamille] = useState<Famille>(deLaVoix ?? presentes[0]?.[0] ?? 'microsoft')
+  const [genre, setGenre] = useState<'tous' | 'Femme' | 'Homme'>('tous')
+  const [cherche, setCherche] = useState('')
+  const [tout, setTout] = useState(false)
+  // Les voix ElevenLabs arrivent après coup : la famille de la voix choisie s'ouvre alors.
+  useEffect(() => {
+    if (deLaVoix) setFamille(deLaVoix)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eleven.length])
+  useEffect(() => { setTout(false); setCherche(''); setGenre('tous') }, [famille])
+
+  const toutes = presentes.flatMap(([id]) => familles[id])
+  const choisie = toutes.find((v) => v.id === actuelle)
+  const nomFamille = FAMILLES.find(([id]) => familles[id].some((v) => v.id === actuelle))?.[1]
+  const liste = familles[famille] ?? []
+  const avecGenre = liste.some((v) => /^(Femme|Homme)/.test(v.aide))
+  const q = cherche.trim().toLowerCase()
+  const filtrees = liste.filter((v) => (genre === 'tous' || v.aide.startsWith(genre)) && (!q || `${v.nom} ${v.aide}`.toLowerCase().includes(q)))
+  const montrees = tout || q ? filtrees : filtrees.slice(0, VISIBLES)
+
+  return (
+    <div className="choix-voix-v2">
+      <div className="voix-actuelle">
+        <span>
+          <strong>{choisie?.nom ?? 'Voix par défaut'}</strong>
+          <small>{[nomFamille, choisie?.aide].filter(Boolean).join(' · ')}</small>
+        </span>
+        <button type="button" className="btn essai" onClick={tester} disabled={!!essai}>{essai ?? '▶ Tester'}</button>
+      </div>
+      {presentes.length > 1 && (
+        <div className="segments" role="tablist">
+          {presentes.map(([id, nom]) => (
+            <button key={id} type="button" role="tab" aria-selected={famille === id} className={famille === id ? 'on' : ''} onClick={() => setFamille(id)}>
+              {nom} <em>{familles[id].length}</em>
+            </button>
+          ))}
+        </div>
+      )}
+      {liste.length > VISIBLES && (
+        <div className="filtres-voix">
+          <input placeholder="Chercher une voix…" value={cherche} onChange={(e) => setCherche(e.target.value)} />
+          {avecGenre && (['tous', 'Femme', 'Homme'] as const).map((g) => (
+            <button key={g} type="button" className={`puce ${genre === g ? 'on' : ''}`} onClick={() => setGenre(g)}>{g === 'tous' ? 'Toutes' : `${g}s`}</button>
+          ))}
+        </div>
+      )}
+      <div className="liste-voix" role="radiogroup">
+        {montrees.map((v) => (
+          <button key={v.id} type="button" role="radio" aria-checked={actuelle === v.id} className={`${actuelle === v.id ? 'on' : ''} ${v.perso ? 'perso' : ''}`} onClick={() => choisir(v.id)}>
+            {v.nom}<small>{v.aide}</small>
+          </button>
+        ))}
+      </div>
+      {!montrees.length && <p className="aide">Aucune voix ne correspond.</p>}
+      {!tout && !q && filtrees.length > VISIBLES && (
+        <button type="button" className="lien" onClick={() => setTout(true)}>Voir les {filtrees.length - VISIBLES} autres</button>
+      )}
+    </div>
+  )
+}
+
 export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
   const r = etat.reglages
   // Chaque avatar a sa voix : on règle celle de l'avatar du compte actif.
@@ -194,9 +284,8 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
   }
 
   const [onglet, setOnglet] = useState<Onglet>('general')
-  const voix = [...(r.cleGemini ? VOIX_GEMINI : []), ...VOIX]
   // Les voix ElevenLabs du compte, relues en ouvrant l'onglet (une voix ajoutée sur le site apparaît).
-  const [eleven, setEleven] = useState<{ id: string; nom: string; aide: string }[]>([])
+  const [eleven, setEleven] = useState<VoixEleven[]>([])
   const [souciEleven, setSouciEleven] = useState<string | null>(null)
   useEffect(() => {
     if (onglet !== 'voix' || !r.cleEleven) return setEleven([])
@@ -254,24 +343,15 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
         <>
           <section>
             <h4>Voix de {qui.nom}</h4>
-            <div className="liste-voix" role="radiogroup">
-              {eleven.map((v) => (
-                <button key={v.id} type="button" role="radio" aria-checked={r.voix === v.id} className={`perso ${r.voix === v.id ? 'on' : ''}`} onClick={() => poser({ voix: v.id })}>
-                  {v.nom}<small>ElevenLabs · {v.aide}</small>
-                </button>
-              ))}
-              {r.cleGemini && r.voixPerso.map((v) => (
-                <button key={v.id} type="button" role="radio" aria-checked={r.voix === `gemini:${v.id}`} className={`perso ${r.voix === `gemini:${v.id}` ? 'on' : ''}`} onClick={() => poser({ voix: `gemini:${v.id}` })} title={v.description}>
-                  ✦ {v.nom}<small>Sur mesure</small>
-                </button>
-              ))}
-              {voix.map((v) => (
-                <button key={v.id} type="button" role="radio" aria-checked={r.voix === v.id} className={r.voix === v.id ? 'on' : ''} onClick={() => poser({ voix: v.id })}>
-                  {v.nom}<small>{'aide' in v ? String(v.aide) : 'Illimitée'}</small>
-                </button>
-              ))}
-            </div>
-            <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? `${qui.nom} parle…` : '▶ Tester la voix'}</button>
+            <ChoixVoix
+              actuelle={r.voix}
+              choisir={(id) => poser({ voix: id })}
+              eleven={eleven}
+              perso={r.cleGemini ? r.voixPerso : []}
+              gemini={r.cleGemini}
+              tester={() => void essayer()}
+              essai={essai ? `${qui.nom} parle…` : null}
+            />
             {souciEssai && <p className="erreur">{souciEssai}</p>}
             {souciEleven && <p className="erreur">{souciEleven}</p>}
             {r.cleEleven && (

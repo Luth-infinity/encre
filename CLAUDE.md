@@ -363,6 +363,17 @@ Pas de phrases d'attente (des crédits à chaque lancement). Crédits épuisés 
 avec une vraie clé.** Réveil au mot « Tako » **coupé par défaut** : il se
 déclenchait dès que Lucas prononçait le nom.
 
+### Choix de la voix rangé (09/11)
+
+L'onglet Voix affichait toutes les voix d'un bloc (les voix par défaut
+d'ElevenLabs en plus de celles du compte : « il y en a 36 000 »).
+`ChoixVoix` (`Reglages.tsx`) : la voix choisie en haut avec ▶ Tester, puis
+une famille à la fois (Mes voix, ElevenLabs, Gemini, Microsoft, avec leur
+nombre), recherche et filtre Femmes / Hommes au-delà de six voix, six
+visibles puis « Voir les N autres ». `voixEleven` donne `perso` et le genre
+et le caractère traduits (`decrireEleven`). Vérif sans clé :
+`ENCRE_VERIF_VOIX=1` (fausse liste de 22 voix), capture `4-reglages-2`.
+
 ### Écrire pendant que Tako travaille, répondre à un passage, limites
 
 - **Messages glissés** : pendant un tour, la saisie reste ouverte (↑ si du
