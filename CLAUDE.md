@@ -52,7 +52,7 @@ d'instance unique ferme le test aussitôt).
 
 ## Publier une version
 
-1. Bumper `version` dans `package.json` (rester en `0.x`).
+1. Bumper `version` dans `package.json` (rester en `0.x`). **Jamais de `0.x.10`** : après `0.3.9` vient `0.4.0` (règle de Lucas, 09/11 ; une 0.3.10 est partie par erreur).
 2. Commiter, pousser, puis pousser le tag `vX.Y.Z` : `.github/workflows/release.yml`
    construit Windows (`.exe`) et macOS (`.dmg` arm64 et x64, non signés) dans
    une release brouillon, puis la publie. Windows se met à jour seul
