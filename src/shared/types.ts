@@ -28,6 +28,11 @@ export type Projet = {
   jetons?: string[]
   /** État des serveurs MCP au dernier tour, tel que Claude Code l'a donné. */
   serveurs?: { nom: string; etat: string }[]
+  /** Taille du fil au dernier appel (tokens que Claude relit à chaque action). */
+  contexte?: number
+  /** Niveau et modèle du fil en cours : un long fil les garde, pour ne pas perdre son cache. */
+  niveau?: Niveau
+  modeleVu?: string
 }
 
 export type Diff = { fichier: string; avant: string; apres: string }
@@ -49,7 +54,7 @@ export type Evenement =
   | { type: 'demande'; demande: Outil }
   | { type: 'demande-close'; id: string }
   /** `suites` : ce que l'utilisateur pourrait répondre, proposé par Tako en fin de réponse. */
-  | { type: 'fin'; erreur?: string; duree: number; suites?: string[]; modele?: string }
+  | { type: 'fin'; erreur?: string; duree: number; suites?: string[]; modele?: string; fil?: number; cout?: number }
   /** Une ligne d'Encre dans le fil, par exemple « Projet créé ». */
   | { type: 'info'; texte: string }
 
@@ -63,7 +68,7 @@ export type Bloc =
   | { type: 'ia'; texte: string }
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
-  | { type: 'fin'; erreur?: string; duree: number; suites?: string[]; modele?: string }
+  | { type: 'fin'; erreur?: string; duree: number; suites?: string[]; modele?: string; fil?: number; cout?: number }
   | { type: 'info'; texte: string }
 
 /**
@@ -88,7 +93,7 @@ export function appliquer(fil: Bloc[], e: Evenement): Bloc[] {
     case 'info':
       return [...fil, { type: 'info', texte: e.texte }]
     case 'fin':
-      return [...fil, { type: 'fin', erreur: e.erreur, duree: e.duree, suites: e.suites, modele: e.modele }]
+      return [...fil, { type: 'fin', erreur: e.erreur, duree: e.duree, suites: e.suites, modele: e.modele, fil: e.fil, cout: e.cout }]
   }
 }
 

@@ -815,6 +815,22 @@ async function verifier(dossier: string): Promise<void> {
   })
   publierEtat()
   await fin
+  // ENCRE_VERIF_SUITE : un second message. Avec ENCRE_RANGER_APRES court, la
+  // session est rangée entre les deux et le second repart des notes.
+  if (process.env.ENCRE_VERIF_SUITE) {
+    await attendre((Number(process.env.ENCRE_RANGER_APRES) || 0) + 500)
+    const suite = process.env.ENCRE_VERIF_SUITE
+    diffuser(actif.id, { type: 'moi', texte: suite })
+    await agent.envoyer(projets.trouver(actif.id) ?? actif, suite, {
+      evenement: (ev) => {
+        diffuser(actif.id, ev)
+        journal(`verif suite ${ev.type} ${JSON.stringify(ev).slice(0, 300)}`)
+        if (ev.type === 'demande') agent.repondre(ev.demande.id, 'oui')
+      },
+      humeur: (h) => humeurDe(actif.id, h),
+      projets: publierEtat
+    })
+  }
   fils.ecrire()
   publierEtat()
   await attendre(1500)

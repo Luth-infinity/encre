@@ -18,6 +18,8 @@ const MODES: { id: Mode; nom: string; aide: string }[] = [
   { id: 'auto', nom: 'Auto', aide: 'Le mode auto de Claude Code : il ne demande que quand il hésite.' }
 ]
 
+/** 48 200 → « 48 k », 1 250 000 → « 1,3 M ». */
+const k = (n: number): string => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace('.', ',')} M` : `${Math.max(1, Math.round(n / 1000))} k`)
 const duree = (ms: number): string => (ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s`)
 const initiales = (nom: string): string => nom.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').map((m) => m[0]).join('').slice(0, 2).toUpperCase() || '·'
 
@@ -543,7 +545,9 @@ export default function Panneau(): JSX.Element {
           const proposer = !!x.suites?.length && !enCours && n === tous.length - 1
           return (
             <Fragment key={i}>
-              <div className="fait">Fait en {duree(x.duree)}{x.modele ? ` · ${x.modele}` : ''}</div>
+              <div className="fait" title={x.fil ? 'Fil : ce que Claude relit à chaque action. Coût : ce tour en tokens au prix d’une entrée (relu en cache = un dixième).' : undefined}>
+                Fait en {duree(x.duree)}{x.modele ? ` · ${x.modele}` : ''}{x.fil ? ` · fil ${k(x.fil)}` : ''}{x.cout ? ` · coût ≈ ${k(x.cout)}` : ''}
+              </div>
               {proposer && (
                 <div className="suites" aria-label="Réponses proposées">
                   {x.suites!.map((t) => <button key={t} type="button" onClick={() => envoyer(t, [])}>{t}</button>)}

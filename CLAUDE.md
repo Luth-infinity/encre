@@ -238,6 +238,37 @@ l'arrivée du message, le parallèle en cache peu). Ne pas mettre de balises
 autour de la demande dans le tri : essayé, Haiku se trompait deux fois plus.
 **Pas encore vu dans l'app.**
 
+### Économie de tokens (09/11)
+
+Constat sur les journaux : une session « Modopak » reprise toute une journée
+(`resume` sans fin) est montée à 660 k tokens de fil, relus à **chaque**
+action (75 M tokens relus en cache). D'après la doc Claude Code (prompt
+caching) : cache d'une heure sur un abonnement, **propre à chaque modèle**
+(changer de modèle réécrit tout l'historique), mais l'effort et le mode
+d'autorisation se changent sans le casser (modèles 5.5) ; une consigne
+système changée n'est **pas appliquée** à la reprise d'une session.
+
+- **Compteur** : sous chaque réponse, « fil 32 k » (ce que Claude relit à
+  chaque action) et « coût ≈ 24 k » (tokens au prix d'une entrée : cache lu
+  ×0,1, écrit ×1,25, sortie ×5), compté message par message (le
+  `modelUsage` du résultat cumule toute la session reprise). Aussi dans le
+  journal (`tour <projet> : …`).
+- **Tri** : fil neuf, court (< 40 k) ou froid (> 55 min) → modèle libre. Long
+  fil encore en cache sur Opus → Opus gardé, une demande simple passe en
+  effort `medium` (`applyFlagSettings`) ; Sonnet → Opus reste permis.
+  Niveau et modèle gardés dans le projet (`niveau`, `modeleVu`).
+- **Consigne vocale dans le message** (`CONSIGNE_VOIX`), plus dans la
+  consigne système : elle sautait dès le 2e message d'une session.
+- **Rangement** (idée de Lucas) : 45 min sans message sur un projet (pas
+  Libre, fil ≥ 15 k), Encre reprend la session avec les mêmes réglages
+  (cache chaud), Claude écrit ses notes de reprise sans outil →
+  `userData/notes/<id>.md`, et la session est lâchée. La session suivante
+  les reçoit dans sa consigne. Le fil affiché ne change pas. Un message
+  arrivé pendant le rangement l'attend. Vérifié le 09/11
+  (`ENCRE_RANGER_APRES=8000` + `ENCRE_VERIF_SUITE`) : notes écrites pour
+  ≈ 5 k, la session neuve retrouve le travail. **Pas encore vu** : le
+  passage en effort moyen sur un vrai long fil, la consigne vocale au micro.
+
 ### Libre = brouillon
 
 Libre repart **à vide** (fil + session) chaque fois qu'on y va et au

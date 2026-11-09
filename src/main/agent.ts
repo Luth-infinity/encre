@@ -1,9 +1,11 @@
 import {
-  createSdkMcpServer, query, tool, type PermissionMode, type PermissionResult, type Query, type SDKUserMessage
+  createSdkMcpServer, query, tool, type EffortLevel, type PermissionMode, type PermissionResult, type Query, type SDKUserMessage
 } from '@anthropic-ai/claude-agent-sdk'
-import { existsSync, statSync } from 'fs'
+import { app } from 'electron'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { join } from 'path'
 import { z } from 'zod'
-import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Niveau, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
+import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
 import { cheminClaude, noterConnexion } from './claude'
 import { avatarActif, dossierActif } from './comptes'
 import * as fils from './fils'
@@ -105,8 +107,6 @@ const MODES: Record<Mode, PermissionMode> = { demander: 'default', modifs: 'acce
 type Tour = { q: Query; abort: AbortController; glisser: (m: SDKUserMessage) => boolean; demandes: Set<string> }
 const tours = new Map<string, Tour>()
 const enAttente = new Map<string, (r: Reponse) => void>()
-/** Le dernier niveau choisi par projet : une suite (« vas-y ») garde le même modèle. */
-const niveaux = new Map<string, Niveau>()
 
 /** Sans projet : un tour tourne-t-il quelque part ? */
 export const enCours = (projet?: string): boolean => (projet ? tours.has(projet) : tours.size > 0)
@@ -120,18 +120,55 @@ export function nomModele(id: string): string {
   return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] && m[3].length < 3 ? `.${m[3]}` : ''}`
 }
 
-/** Le modèle du tour : celui choisi dans les réglages, ou trié selon la demande. */
-async function choisirModele(projet: Projet, texte: string, pieces: number): Promise<string | undefined> {
+/**
+ * Au-delà, un fil est « long ». Chaque modèle a son propre cache : changer de
+ * modèle dans un long fil fait réécrire tout l'historique au prix fort
+ * (doc Claude Code, prompt caching), ce qui coûte plus que le modèle moins
+ * cher ne fait gagner. Changer l'effort, lui, garde le cache (modèles 5.5).
+ */
+const FIL_LONG = 40_000
+/** Le cache d'un abonnement dure une heure : passé ce délai, il n'y a plus rien à protéger. */
+const CACHE = 55 * 60_000
+
+type Choix = { modele?: string; effort?: EffortLevel }
+
+/**
+ * Le modèle du tour : celui des réglages, ou trié selon la demande. Fil neuf,
+ * court ou refroidi : le tri choisit librement. Long fil encore en cache : on
+ * garde Opus et une demande simple baisse seulement l'effort ; monter de
+ * Sonnet à Opus reste permis (mieux vaut payer le cache qu'une réponse à côté).
+ */
+async function choisirModele(projet: Projet, texte: string, pieces: number, chaud: boolean): Promise<Choix> {
   const choix = reglages().modele
-  if (choix === 'claude') return undefined
-  if (choix !== 'auto') return choix
+  if (choix === 'claude') return {}
+  if (choix !== 'auto') return { modele: choix }
+  const avant = projet.niveau ?? null
   // La réponse précédente aide Haiku à voir si la demande poursuit un travail en cours.
   const derniere = [...fils.fil(projet.id)].reverse().find((b) => b.type === 'ia')
-  const n = await trier(texte, pieces, niveaux.get(projet.id) ?? null, derniere?.type === 'ia' ? derniere.texte : null, envPropre())
-  niveaux.set(projet.id, n)
-  journal(`modèle de ${projet.nom} : ${MODELES[n]}`)
-  return MODELES[n]
+  const n = await trier(texte, pieces, avant, derniere?.type === 'ia' ? derniere.texte : null, envPropre())
+  if (chaud && avant === 'costaud' && n === 'rapide') {
+    journal(`modèle de ${projet.nom} : opus gardé (fil de ${Math.round((projet.contexte ?? 0) / 1000)} k), effort moyen`)
+    return { modele: MODELES.costaud, effort: 'medium' }
+  }
+  projets.modifier(projet.id, { niveau: n })
+  journal(`modèle de ${projet.nom} : ${MODELES[n]}${chaud ? ' (fil long)' : ''}`)
+  return { modele: MODELES[n] }
 }
+
+/**
+ * Ce qu'un appel a coûté, en « tokens au prix d'une entrée » : un token relu
+ * en cache compte un dixième, un token mis en cache 1,25, un token écrit 5
+ * (rapports de prix de l'API). Une estimation pour comparer les tours entre
+ * eux, pas la facture. Compté message par message : le `modelUsage` du
+ * résultat cumule toute la session reprise (vu le 09/11), pas le seul tour.
+ */
+type Usage = Record<string, number | null> | undefined
+function cout(u: Usage): number {
+  if (!u) return 0
+  return Math.round((u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) * 1.25 + (u.cache_read_input_tokens ?? 0) * 0.1 + (u.output_tokens ?? 0) * 5)
+}
+/** Somme des appels d'un tour : un même message revient plusieurs fois dans le flux, compté une fois. */
+const total = (couts: Map<string, number>): number => [...couts.values()].reduce((a, b) => a + b, 0)
 
 const court = (s: string, n = 140): string => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
@@ -164,18 +201,33 @@ function decrire(id: string, nom: string, e: Record<string, unknown>): Outil {
 
 const ESPECES = { poulpe: 'le poulpe', meduse: 'la méduse', axolotl: 'l’axolotl' }
 
-function consigne(projet: Projet, voix: boolean): string {
+/**
+ * La consigne vocale part **dans le message**, pas dans la consigne système :
+ * Claude Code n'applique pas une consigne système changée à la reprise d'une
+ * session (doc « prompt caching »), donc elle sautait dès le 2e message.
+ */
+const CONSIGNE_VOIX = [
+  '(Mode Parler pour ce message : ta réponse est lue à voix haute. Écris pour l’oreille : phrases courtes, aucune liste, aucun tableau, aucun code, aucun chemin de fichier, pas d’emoji. Deux à quatre phrases suffisent, sauf si on te demande plus. Tu peux quand même agir avec tes outils.',
+  // Un lien épelé (« encre-app point vercel point app ») était illisible à l'écran :
+  // en lien Markdown, il est cliquable dans le fil et la voix n'en lit que le texte.
+  'Si tu donnes un lien, écris-le en lien Markdown avec un texte court, par exemple [le site](https://…) : il sera cliquable à l’écran, et la voix ne lira que le texte. N’épelle jamais une adresse.)'
+].join(' ')
+
+/** Les notes de reprise d'un projet (écrites par Claude quand Encre range une session). */
+export const cheminNotes = (id: string): string => join(app.getPath('userData'), 'notes', `${id}.md`)
+function notes(projet: Projet): string {
+  if (projet.session || projet.libre) return ''
+  try {
+    return readFileSync(cheminNotes(projet.id), 'utf-8').slice(0, 12000).trim()
+  } catch {
+    return ''
+  }
+}
+
+function consigne(projet: Projet): string {
   const a = avatarActif()
+  const n = notes(projet)
   return [
-    ...(voix
-      ? [
-          'MODE PARLER : ta réponse est lue à voix haute. Écris pour l’oreille : phrases courtes, aucune liste, aucun tableau, aucun code, aucun chemin de fichier, pas d’emoji. Deux à quatre phrases suffisent, sauf si on te demande plus. Tu peux quand même agir avec tes outils.',
-          // Un lien épelé (« encre-app point vercel point app ») était illisible à l'écran :
-          // en lien Markdown, il est cliquable dans le fil et la voix n'en lit que le texte.
-          'Si tu donnes un lien, écris-le en lien Markdown avec un texte court, par exemple [le site d’Encre](https://…) : il sera cliquable à l’écran, et la voix ne lira que le texte. N’épelle jamais une adresse.',
-          ''
-        ]
-      : []),
     `Tu es ${a.nom}, ${ESPECES[a.espece]} d’Encre : une bulle qui flotte sur le bureau de l’utilisateur et ouvre ce chat. Si on te demande ton nom, c’est ${a.nom}. Ton ton est ${a.ton}.`,
     'Réponds en français, court et concret. Avant chaque étape, une phrase courte qui dit ce que tu fais.',
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
@@ -184,7 +236,8 @@ function consigne(projet: Projet, voix: boolean): string {
     '',
     projet.libre
       ? 'Mode Libre : un brouillon qui repart à vide à chaque visite. Une question rapide (une info, une explication, une formulation) se traite ici, sans projet. Mais dès que l’utilisateur veut FAIRE quelque chose qui demande du travail ou un suivi (« j’aimerais faire tel truc », un client, un sujet, une app, un document à produire), ne commence pas le travail ici : regarde lister_projets, ouvre le projet s’il existe (ouvrir_projet), sinon crée-le tout de suite sans lui demander (creer_projet) avec un nom court et tout le contexte qu’il t’a donné. Dis-lui en une phrase que tu t’y mets dans ce projet, et arrête-toi : Encre y déplace la conversation et t’y relance aussitôt.'
-      : `Projet ouvert : « ${projet.nom} » (${projet.dossier}). Pour changer de projet ou en créer un, utilise les outils encre.`
+      : `Projet ouvert : « ${projet.nom} » (${projet.dossier}). Pour changer de projet ou en créer un, utilise les outils encre.`,
+    ...(n ? ['', 'Tes notes de reprise, écrites à la fin de la session précédente sur ce projet (c’est là qu’on en était) :', n] : [])
   ].join('\n')
 }
 
@@ -232,12 +285,21 @@ function contenu(texte: string, pieces: PieceJointe[]): SDKUserMessage['message'
 
 export async function envoyer(projet: Projet, texte: string, sortie: Sortie, options: Options = {}): Promise<void> {
   if (tours.has(projet.id)) return
+  clearTimeout(minuteurs.get(projet.id))
+  // Encre range la session de ce projet en ce moment : on attend ses notes.
+  const rangement = rangements.get(projet.id)
+  if (rangement) {
+    sortie.humeur('reflechit')
+    await rangement
+    projet = projets.trouver(projet.id) ?? projet
+  }
   const abort = new AbortController()
   const debut = Date.now()
   sortie.humeur('reflechit')
+  const chaud = !!projet.session && (projet.contexte ?? 0) > FIL_LONG && debut - projet.derniere < CACHE
   projets.modifier(projet.id, { derniere: debut })
   // Le tri tourne pendant que Claude Code démarre (2 à 3 s) : il ne retarde presque rien.
-  const modele = choisirModele(projet, texte, options.pieces?.length ?? 0).catch(() => undefined)
+  const modele = choisirModele(projet, texte, options.pieces?.length ?? 0, chaud).catch((): Choix => ({}))
   let modeleVu: string | undefined
   const diseur =
     options.voix && sortie.audio
@@ -260,11 +322,12 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   abort.signal.addEventListener('abort', finEntree)
   async function* entree(): AsyncGenerator<SDKUserMessage> {
     // Le modèle se pose juste avant le premier message, une fois le tri rendu.
-    const m = await modele
-    if (m) await q.setModel(m).catch((e) => journal(`modèle ${m} refusé : ${String(e)}`))
+    const c = await modele
+    if (c.modele) await q.setModel(c.modele).catch((e) => journal(`modèle ${c.modele} refusé : ${String(e)}`))
+    if (c.effort) await q.applyFlagSettings({ effortLevel: c.effort }).catch((e) => journal(`effort ${c.effort} refusé : ${String(e)}`))
     yield {
       type: 'user',
-      message: { role: 'user', content: contenu(texte, options.pieces ?? []) },
+      message: { role: 'user', content: contenu(diseur ? `${CONSIGNE_VOIX}\n\n${texte}` : texte, options.pieces ?? []) },
       parent_tool_use_id: null
     } as SDKUserMessage
     while (!ferme) {
@@ -302,7 +365,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       permissionMode: MODES[projet.mode],
       // Les réglages de l'utilisateur et du projet : CLAUDE.md, .mcp.json, règles d'autorisation.
       settingSources: ['user', 'project', 'local'],
-      systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet, !!diseur) },
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet) },
       pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
       env: { ...envPropre(), ...envDuProjet(projet) },
       mcpServers: { ...serveursDuProjet(projet), encre: outilsEncre(sortie) },
@@ -337,6 +400,9 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   tours.set(projet.id, { q, abort, glisser, demandes })
 
   let erreur: string | undefined
+  /** Taille du fil au dernier appel, et coût estimé du tour (voir `cout`). */
+  let tailleFil = 0
+  const couts = new Map<string, number>()
   try {
     for await (const m of q) {
       // Un tour relancé par un message glissé trop tard : on attend sa fin.
@@ -351,6 +417,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
         modeleVu = m.model
         projets.modifier(projet.id, {
           session: m.session_id,
+          modeleVu: m.model,
           serveurs: m.mcp_servers.filter((s) => s.name !== 'encre').map((s) => ({ nom: s.name, etat: s.status }))
         })
       } else if (m.type === 'stream_event' && !m.parent_tool_use_id) {
@@ -362,7 +429,12 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
             diseur?.pousser(propre)
           }
         }
-      } else if (m.type === 'assistant' && !m.parent_tool_use_id) {
+      }
+      // Tous les appels comptent, sous-agents compris ; la taille du fil, seulement le fil principal.
+      if (m.type === 'assistant') couts.set(m.message.id, cout(m.message.usage as unknown as Usage))
+      if (m.type === 'assistant' && !m.parent_tool_use_id) {
+        const u = m.message.usage as unknown as Usage
+        if (u) tailleFil = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.output_tokens ?? 0)
         for (const bloc of m.message.content) {
           if (bloc.type === 'tool_use') {
             diseur?.finirPhrase()
@@ -394,12 +466,106 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
   else if (!erreur) noterConnexion(true)
   const reste = filtre.finir()
   if (reste) sortie.evenement({ type: 'texte', texte: reste })
-  sortie.evenement({ type: 'fin', erreur, duree: Date.now() - debut, suites: filtre.suites.length ? filtre.suites : undefined, modele: modeleVu && nomModele(modeleVu) })
+  if (tailleFil) projets.modifier(projet.id, { contexte: tailleFil })
+  const coutTour = total(couts)
+  journal(`tour ${projet.nom} : fil ${Math.round(tailleFil / 1000)} k, coût ≈ ${Math.round(coutTour / 1000)} k${modeleVu ? `, ${modeleVu}` : ''}`)
+  sortie.evenement({
+    type: 'fin', erreur, duree: Date.now() - debut, suites: filtre.suites.length ? filtre.suites : undefined, modele: modeleVu && nomModele(modeleVu),
+    fil: tailleFil || undefined, cout: coutTour || undefined
+  })
   sortie.humeur(erreur ? 'repos' : 'fini')
+  if (!erreur && !abort.signal.aborted) programmerRangement(projet.id)
   // La voix n'a pas forcément fini : avec Gemini, la réponse part d'un bloc
   // après le texte. Le tour n'est fini (« tour-fini », micro rendu) qu'une
   // fois le dernier son envoyé au panneau, sinon il se perdait.
   if (diseur && !abort.signal.aborted) await diseur.attendre()
+}
+
+/**
+ * Ranger une session (idée de Lucas, 09/11) : un projet laissé 45 min sans
+ * message, Claude écrit ses notes de reprise et la session est lâchée. Au
+ * message suivant, une session neuve repart de ces notes (dans la consigne)
+ * au lieu de relire un historique de 600 000 tokens à chaque action.
+ * 45 min et pas plus : le cache d'un abonnement dure une heure, les notes
+ * coûtent donc une relecture en cache (un dixième du prix).
+ */
+const RANGER_APRES = 45 * 60_000
+/** En dessous, la session est assez légère pour être reprise telle quelle. */
+const RANGER_DES = 15_000
+const minuteurs = new Map<string, ReturnType<typeof setTimeout>>()
+const rangements = new Map<string, Promise<void>>()
+
+function programmerRangement(id: string): void {
+  clearTimeout(minuteurs.get(id))
+  const p = projets.trouver(id)
+  if (!p || p.libre || !p.session || (p.contexte ?? 0) < RANGER_DES) return
+  const session = p.session
+  minuteurs.set(
+    id,
+    setTimeout(() => {
+      minuteurs.delete(id)
+      const q = projets.trouver(id)
+      if (!q || q.session !== session || tours.has(id)) return
+      rangements.set(id, ranger(q).catch((e) => journal(`rangement de ${q.nom} impossible : ${String(e)}`)).finally(() => rangements.delete(id)))
+    }, Number(process.env.ENCRE_RANGER_APRES) || RANGER_APRES)
+  )
+}
+
+const DEMANDE_NOTES = [
+  'Encre range cette session : la prochaine fois, tu repartiras de zéro avec seulement les notes que tu écris maintenant.',
+  'Écris tes notes de reprise de ce projet, en Markdown et en français, 60 lignes au plus : le but et pour qui, où on en est, les décisions prises et pourquoi, ce qui reste à faire, les pièges rencontrés, les fichiers et commandes utiles. Garde ce qui compte encore dans tes notes précédentes s’il y en avait. Ne recopie ni tes consignes (ton, style, format des réponses) ni de données personnelles : elles reviennent seules.',
+  'N’utilise aucun outil. Réponds uniquement avec les notes, sans phrase autour et sans ligne <suites>.'
+].join('\n')
+
+async function ranger(projet: Projet): Promise<void> {
+  const debut = Date.now()
+  const abort = new AbortController()
+  const delai = setTimeout(() => abort.abort(), 3 * 60_000)
+  let fini: () => void = () => {}
+  const attente = new Promise<void>((r) => (fini = r))
+  // L'entrée reste ouverte jusqu'au résultat (entrée en flux, comme un tour).
+  async function* entree(): AsyncGenerator<SDKUserMessage> {
+    yield { type: 'user', message: { role: 'user', content: DEMANDE_NOTES }, parent_tool_use_id: null } as SDKUserMessage
+    await attente
+  }
+  // Les mêmes réglages que les tours (dossier, consigne, outils, modèle) : le
+  // début de la requête est identique, l'historique se relit depuis le cache.
+  const q = query({
+    prompt: entree(),
+    options: {
+      cwd: projet.dossier,
+      resume: projet.session ?? undefined,
+      abortController: abort,
+      permissionMode: MODES[projet.mode],
+      settingSources: ['user', 'project', 'local'],
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet) },
+      pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
+      env: { ...envPropre(), ...envDuProjet(projet) },
+      mcpServers: { ...serveursDuProjet(projet), encre: outilsEncre({ evenement: () => {}, humeur: () => {} }) },
+      allowedTools: ['mcp__encre__lister_projets', 'mcp__encre__creer_projet', 'mcp__encre__ouvrir_projet'],
+      model: projet.modeleVu,
+      canUseTool: async (): Promise<PermissionResult> => ({ behavior: 'deny', message: 'Pas d’outil : écris seulement les notes.' })
+    }
+  })
+  let texteNotes = ''
+  const couts = new Map<string, number>()
+  try {
+    for await (const m of q) {
+      if (m.type === 'assistant') couts.set(m.message.id, cout(m.message.usage as unknown as Usage))
+      if (m.type !== 'result') continue
+      if (m.subtype === 'success' && !m.is_error) texteNotes = m.result.replace(/<suites>[\s\S]*?<\/suites>/g, '').trim()
+      fini()
+    }
+  } finally {
+    fini()
+    clearTimeout(delai)
+  }
+  // Pas de notes valables : la session reste, rien n'est perdu.
+  if (texteNotes.length < 80) return journal(`rangement de ${projet.nom} : notes vides, session gardée`)
+  mkdirSync(join(app.getPath('userData'), 'notes'), { recursive: true })
+  writeFileSync(cheminNotes(projet.id), `${texteNotes}\n`, 'utf-8')
+  projets.modifier(projet.id, { session: null, contexte: 0 })
+  journal(`rangement de ${projet.nom} : notes écrites (${texteNotes.length} car.), session lâchée, coût ≈ ${Math.round(total(couts) / 1000)} k, ${Math.round((Date.now() - debut) / 1000)} s`)
 }
 
 /**
