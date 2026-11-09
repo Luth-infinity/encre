@@ -1,3 +1,5 @@
+import { sortieDouce } from './adoucir'
+
 /**
  * File de lecture de la voix.
  *
@@ -66,7 +68,7 @@ export class FileLecture {
       this._analyseur = this.ctx.createAnalyser()
       this._analyseur.fftSize = 1024
       this._analyseur.smoothingTimeConstant = 0.72
-      this._analyseur.connect(this.ctx.destination)
+      this._analyseur.connect(sortieDouce(this.ctx))
     }
     return { ctx: this.ctx, analyseur: this._analyseur }
   }

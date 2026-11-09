@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { sortieDouce } from './lib/adoucir'
 import { AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
@@ -50,6 +51,14 @@ function Cle({ nom, presente, prefixe, aide, enregistrer }: { nom: string; prese
 
 const jouer = (son: string, fin: () => void): void => {
   const a = new Audio(`data:${son.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg'};base64,${son}`)
+  // Même sortie adoucie que la vraie voix : l'essai sonne comme en vrai.
+  try {
+    const ctx = new AudioContext()
+    ctx.createMediaElementSource(a).connect(sortieDouce(ctx))
+    a.addEventListener('ended', () => void ctx.close())
+  } catch {
+    /* sans pile audio, on joue tel quel */
+  }
   a.onended = a.onerror = () => fin()
   void a.play().catch(() => fin())
 }

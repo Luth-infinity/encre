@@ -509,3 +509,5 @@ Claude, « Fait en 6 s ».
 3. Décider de la publication (release, site Luth), puis retirer Iris et
    Calque une fois Encre à parité, avec l'accord de Lucas.
 4. macOS : rien n'est testé (chemins, trousseau, micro).
+
+- **Voix adoucie (0.4.3)** : toute voix jouée passe par `sortieDouce` (lib/adoucir.ts : compresseur -20 dB 4:1 + gain 0,85), ElevenLabs arrivait trop fort. L'essai des Réglages passe par la même sortie.
