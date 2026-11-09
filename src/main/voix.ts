@@ -1,3 +1,4 @@
+import { direEnFrancais } from './francais'
 import { app } from 'electron'
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { VOIX } from '@shared/types'
@@ -186,7 +187,7 @@ export function pourLaVoix(brut: string, dossierTravail = ''): string {
       /\b([a-z0-9._%+-]+)@([a-z0-9.-]+\.[a-z]{2,})\b/gi,
       (_m, qui: string, hote: string) => `${qui.replace(/[._%+-]+/g, ' ')} chez ${nomDeSite(hote)}`
     )
-  return (
+  const texte = (
     parlerChemins(sansAdresses, dossierTravail)
       // Le code ne se dit pas : un bloc disparaît, un extrait perd ses marques.
       .replace(/```[\s\S]*?```/g, '')
@@ -234,6 +235,10 @@ export function pourLaVoix(brut: string, dossierTravail = ''): string {
         }
         return `${dit[touche.toLowerCase()] ?? touche} `
       })
+  )
+  // Nombres, heures, unités, sigles, abréviations : en français parlé.
+  return (
+    direEnFrancais(texte)
       // Symboles : une flèche ou une barre se dit comme une pause, une
       // esperluette comme « et ». Le reste se tait.
       .replace(/\s*(→|⟶|=>|->|—>|\|)\s*/g, ', ')
