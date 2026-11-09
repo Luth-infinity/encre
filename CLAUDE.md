@@ -58,9 +58,17 @@ d'instance unique ferme le test aussitôt).
    une release brouillon, puis la publie. Windows se met à jour seul
    (`electron-updater`) ; macOS non (Squirrel.Mac veut une app signée) : on
    reprend le `.dmg` sur le site.
-3. Le site (`site/`, Next.js, Vercel) lit les releases GitHub : rien à écrire
-   à la main. `cd site && vercel --prod`, **puis** `vercel alias set <url> encre-app.vercel.app`
-   (l'adresse publique est un alias posé à la main). Protection Vercel retirée
+3. **Ajouter la version au journal du site** (`site/app/journal.ts`) : un
+   titre, une ou deux phrases sur ce que ça change pour l'utilisateur, les
+   points. Les notes GitHub étaient vides et le journal n'affichait que des
+   numéros (« il pue », 09/11). Une grosse nouveauté mérite aussi sa carte
+   dans « Ce qui vient d'arriver » (`vitrine.tsx`). Les liens de
+   téléchargement, eux, viennent des releases GitHub. `cd site && vercel --prod`, **puis** `vercel alias set <url> encre-app.vercel.app`
+   (l'adresse publique est un alias posé à la main). Fond 3D (`abysses.ts` :
+   bulles toon instanciées, contour d'encre, la souris les écarte), les trois
+   avatars en 3D, créés seulement près de l'écran (`useProche`). Captures sans
+   écran : une fenêtre Electron `offscreen: true` (cachée, le poulpe ne se
+   dessine pas : `document.hidden`). Protection Vercel retirée
    le 07/11 (sinon le site demande une connexion). Le Tako du site est une copie
    de `poulpe.ts` (`site/app/poulpe.ts`) : la garder identique. Checklist anti
    « vibe coded UI » de Yuwen Lu : pas de dégradé, de halo ni d'apparition au défilement.

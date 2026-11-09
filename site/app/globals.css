@@ -134,8 +134,153 @@
   background: #3ddc84;
 }
 
+/* Les cartes des nouveautés : elles se soulèvent un peu au survol, comme les cartes du hub de l'app. */
+.carte {
+  transition: transform 0.35s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+.carte:hover {
+  transform: translateY(-4px) rotate(-0.4deg);
+}
+
+/* Le point d'activité d'un projet : orange qui travaille, jaune qui attend ton accord. */
+.point {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: none;
+  animation: pouls 1.4s ease-in-out infinite;
+}
+.point.travaille {
+  background: #ff9a3c;
+}
+.point.attend {
+  background: #ffc933;
+}
+@keyframes pouls {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.moi-mini {
+  border-radius: 14px 14px 4px 14px;
+  background: var(--color-ink);
+  color: var(--color-card);
+  padding: 6px 11px;
+  font-weight: 500;
+}
+.fait-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+.fait-mini::before {
+  content: '✓';
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #3ddc84;
+  color: #0b0c0e;
+  font-size: 9px;
+  font-weight: 800;
+}
+.suite {
+  transition: transform 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.carte:hover .suite:nth-child(1) {
+  transform: translateY(-2px);
+}
+
+/* L'onde de la voix : des barres qui dansent, couleur de l'humeur « écoute ». */
+.onde i {
+  display: block;
+  width: 5px;
+  height: 100%;
+  border-radius: 999px;
+  background: #3cc8f2;
+  transform-origin: center;
+  animation: onde 0.9s ease-in-out infinite;
+}
+@keyframes onde {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* La barre de la fiche des limites, avec le trait du temps écoulé. */
+.barre {
+  position: relative;
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-canvas);
+}
+.barre b {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.barre u {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-ink);
+  opacity: 0.55;
+}
+
+/* Le journal : un fil vertical d'encre qui relie les versions. */
+.journal {
+  position: relative;
+}
+.journal .version {
+  position: relative;
+}
+@media (min-width: 640px) {
+  .journal .version::before {
+    content: '';
+    position: absolute;
+    left: calc(11rem + 1.25rem - 1px);
+    top: 10px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--color-canvas);
+  }
+  .journal .version::after {
+    content: '';
+    position: absolute;
+    left: calc(11rem + 1.25rem - 6px);
+    top: 8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--color-page);
+    box-shadow: inset 0 0 0 3px var(--color-ink);
+  }
+  .journal .version > div:last-child {
+    padding-left: 1.5rem;
+  }
+}
+details[open] > summary {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .panneau .attente i {
+  .panneau .attente i,
+  .point,
+  .onde i {
     animation: none;
   }
 }
