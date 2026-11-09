@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sortieDouce } from './lib/adoucir'
-import { AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
+import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -176,6 +176,8 @@ function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
 /** Les réglages d'Encre : la voix, le démarrage, et l'état du Claude Code de la machine. */
 export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
   const r = etat.reglages
+  // Chaque avatar a sa voix : on règle celle de l'avatar du compte actif.
+  const qui = avatarDe(etat.comptes.find((c) => c.actif)?.avatar)
   const poser = (champs: Partial<R>): void => window.api.reglages(champs)
   const [essai, setEssai] = useState(false)
   const [souciEssai, setSouciEssai] = useState<string | null>(null)
@@ -251,7 +253,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
       {onglet === 'voix' && (
         <>
           <section>
-            <h4>Voix de Tako</h4>
+            <h4>Voix de {qui.nom}</h4>
             <div className="liste-voix" role="radiogroup">
               {eleven.map((v) => (
                 <button key={v.id} type="button" role="radio" aria-checked={r.voix === v.id} className={`perso ${r.voix === v.id ? 'on' : ''}`} onClick={() => poser({ voix: v.id })}>
@@ -269,10 +271,25 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
                 </button>
               ))}
             </div>
-            <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? 'Tako parle…' : '▶ Tester la voix'}</button>
+            <button type="button" className="btn essai" onClick={() => void essayer()} disabled={essai}>{essai ? `${qui.nom} parle…` : '▶ Tester la voix'}</button>
             {souciEssai && <p className="erreur">{souciEssai}</p>}
             {souciEleven && <p className="erreur">{souciEleven}</p>}
-            {r.cleEleven && <p className="aide">Les voix de ton compte ElevenLabs : pour en ajouter une, Voice Library sur elevenlabs.io → « Add to my voices », puis reviens sur cet onglet. Modèle Flash : rapide, deux fois moins de crédits. Crédits épuisés : Tako répond par écrit.</p>}
+            {r.cleEleven && (
+              <>
+                <h4>Modèle ElevenLabs</h4>
+                <div className="segments" role="radiogroup">
+                  {([['rapide', 'Rapide'], ['naturel', 'Naturel']] as const).map(([id, nom]) => (
+                    <button key={id} type="button" role="radio" aria-checked={r.modeleEleven === id} className={r.modeleEleven === id ? 'on' : ''} onClick={() => poser({ modeleEleven: id })}>{nom}</button>
+                  ))}
+                </div>
+                <p className="aide">
+                  {r.modeleEleven === 'naturel'
+                    ? 'Multilingual v2 : un vrai français, noms propres compris. Un peu plus lent, un crédit par caractère.'
+                    : 'Flash : répond tout de suite, deux fois moins de crédits, mais écorche parfois les noms propres.'}{' '}
+                  Pour ajouter une voix : Voice Library sur elevenlabs.io → « Add to my voices », puis reviens sur cet onglet. Crédits épuisés : Tako répond par écrit.
+                </p>
+              </>
+            )}
             {r.cleGemini && r.voixPerso.some((v) => r.voix === `gemini:${v.id}`) && (
               <button type="button" className="lien" onClick={() => window.api.oublierVoix(r.voix.slice('gemini:'.length))}>Oublier cette voix</button>
             )}

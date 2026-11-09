@@ -4,7 +4,7 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { VOIX } from '@shared/types'
 import { journal } from './journal'
 import type { VoixEleven } from '@shared/types'
-import { cleEleven, cleGemini } from './reglages'
+import { cleEleven, cleGemini, reglages as lesReglages } from './reglages'
 
 /** Repris d'Iris : ce qu'il faut à la voix (la voix choisie, le dossier du projet). */
 type Reglages = { voix: string; dossier: string }
@@ -440,7 +440,11 @@ function audioDans(x: unknown): string | null {
  * fois moins de crédits par caractère que Multilingual v2 (doc et grilles
  * lues le 09/11/2026). `language_code: fr` le tient en français.
  */
-const MODELE_ELEVEN = 'eleven_flash_v2_5'
+/**
+ * Flash : rapide et deux fois moins cher, mais il prononce les noms propres
+ * à l'anglaise (« Franss Info »). Multilingual v2 : un vrai français, plus lent.
+ */
+const MODELES_ELEVEN = { rapide: 'eleven_flash_v2_5', naturel: 'eleven_multilingual_v2' } as const
 export const estEleven = (voix: string): boolean => voix.startsWith('eleven:')
 
 /** Plus de crédits ce mois-ci (offre gratuite ou abonnement épuisé). */
@@ -449,10 +453,12 @@ export class QuotaEleven extends Error {}
 async function eleven(texte: string, voix: string, cle: string): Promise<Buffer> {
   const id = voix.slice('eleven:'.length)
   const debut = Date.now()
+  const modele = MODELES_ELEVEN[lesReglages().modeleEleven] ?? MODELES_ELEVEN.rapide
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(id)}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'xi-api-key': cle, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({ text: texte, model_id: MODELE_ELEVEN, language_code: 'fr' }),
+    // `language_code` n'est accepté que par les modèles v2.5 : Multilingual devine la langue.
+    body: JSON.stringify(modele === MODELES_ELEVEN.rapide ? { text: texte, model_id: modele, language_code: 'fr' } : { text: texte, model_id: modele }),
     signal: AbortSignal.timeout(20000)
   })
   if (!res.ok) {
@@ -462,7 +468,7 @@ async function eleven(texte: string, voix: string, cle: string): Promise<Buffer>
   }
   const mp3 = Buffer.from(await res.arrayBuffer())
   // Pour régler la latence : combien de temps ElevenLabs met par phrase.
-  journal(`ElevenLabs : ${Date.now() - debut} ms pour ${texte.length} car.`)
+  journal(`ElevenLabs (${modele}) : ${Date.now() - debut} ms pour ${texte.length} car.`)
   return mp3
 }
 

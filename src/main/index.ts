@@ -438,11 +438,13 @@ function brancher(): void {
   // Gardée en mémoire par voix : réécouter ne coûte pas une requête du quota Gemini.
   const essais = new Map<string, string>()
   ipcMain.handle('essai-voix', async (_e, voix: string): Promise<{ son?: string; erreur?: string }> => {
-    const deja = essais.get(voix)
+    // Le modèle ElevenLabs change le rendu : un essai par voix et par modèle.
+    const cle = voix.startsWith('eleven:') ? `${voix}|${reglages.reglages().modeleEleven}` : voix
+    const deja = essais.get(cle)
     if (deja) return { son: deja }
     try {
       const son = (await synthetiser('Salut, moi c’est Tako ! Dis-moi sur quoi on bosse, et je m’y mets tout de suite.', { voix, dossier: '' }, { secours: false })).toString('base64')
-      essais.set(voix, son)
+      essais.set(cle, son)
       return { son }
     } catch (e) {
       journal(`essai de voix : ${String(e)}`)

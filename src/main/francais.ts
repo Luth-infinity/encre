@@ -12,14 +12,15 @@ const DIZAINES = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixan
 
 function moinsDeCent(n: number): string {
   if (n <= 16) return UNITES[n]
-  if (n < 20) return `dix-${UNITES[n - 10]}`
+  // Des espaces, pas de tirets : ElevenLabs lisait « vingt-six » comme « vinci ».
+  if (n < 20) return `dix ${UNITES[n - 10]}`
   if (n < 70) {
     const d = Math.floor(n / 10), u = n % 10
-    return u === 0 ? DIZAINES[d] : u === 1 ? `${DIZAINES[d]} et un` : `${DIZAINES[d]}-${UNITES[u]}`
+    return u === 0 ? DIZAINES[d] : u === 1 ? `${DIZAINES[d]} et un` : `${DIZAINES[d]} ${UNITES[u]}`
   }
-  if (n < 80) return n === 71 ? 'soixante et onze' : `soixante-${moinsDeCent(n - 60)}`
-  if (n === 80) return 'quatre-vingts'
-  return `quatre-vingt-${moinsDeCent(n - 80)}`
+  if (n < 80) return n === 71 ? 'soixante et onze' : `soixante ${moinsDeCent(n - 60)}`
+  if (n === 80) return 'quatre vingts'
+  return `quatre vingt ${moinsDeCent(n - 80)}`
 }
 
 function moinsDeMille(n: number): string {
@@ -73,11 +74,11 @@ const UNITES_MESURE: Record<string, [string, string, boolean]> = {
   mn: ['minute', 'minutes', true],
   h: ['heure', 'heures', true],
   j: ['jour', 'jours', false],
-  ko: ['kilo-octet', 'kilo-octets', false],
+  ko: ['kilo octet', 'kilo octets', false],
   mo: ['méga', 'mégas', false],
   go: ['giga', 'gigas', false],
   to: ['téra', 'téras', false],
-  kb: ['kilo-octet', 'kilo-octets', false],
+  kb: ['kilo octet', 'kilo octets', false],
   mb: ['méga', 'mégas', false],
   gb: ['giga', 'gigas', false],
   km: ['kilomètre', 'kilomètres', false],

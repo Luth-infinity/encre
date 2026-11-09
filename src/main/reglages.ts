@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { VOIX, VOIX_GEMINI, type Reglages } from '@shared/types'
 import { existe, lireSecret, poser } from './secrets'
+import { avatarActif } from './comptes'
 
 /**
  * Les réglages d'Encre. La clé Groq n'y est pas : elle est chiffrée dans
@@ -11,7 +12,7 @@ import { existe, lireSecret, poser } from './secrets'
 
 type Stock = Omit<Reglages, 'cleGroq' | 'cleGemini' | 'cleEleven'>
 
-const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: false, suite: true, demarrage: true, modele: 'auto' }
+const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: false, suite: true, demarrage: true, modele: 'auto', modeleEleven: 'rapide', voixAvatars: {} }
 
 const fichier = (): string => join(app.getPath('userData'), 'reglages.json')
 
@@ -27,10 +28,16 @@ function charger(): Stock {
   stock ??= { ...DEFAUT }
   // Une voix retirée de la liste (les multilingues) : on revient à celle par défaut.
   stock.voixPerso ??= []
+  // Avant la 0.4.5, une seule voix pour tous : elle reste à l'avatar actif, les autres repartent de la voix par défaut.
+  if (!stock.voixAvatars) stock.voixAvatars = { [avatarActif().id]: stock.voix }
   const connues = [...VOIX, ...VOIX_GEMINI, ...stock.voixPerso.map((v) => ({ id: `gemini:${v.id}` }))]
   // Les voix ElevenLabs viennent du compte (liste en ligne) : on les garde telles quelles.
   if (!stock.voix.startsWith('eleven:') && !connues.some((v) => v.id === stock!.voix)) stock.voix = DEFAUT.voix
+  for (const [avatar, voix] of Object.entries(stock.voixAvatars)) {
+    if (!voix.startsWith('eleven:') && !connues.some((v) => v.id === voix)) delete stock.voixAvatars[avatar]
+  }
   if (!['auto', 'sonnet', 'opus', 'claude'].includes(stock.modele)) stock.modele = DEFAUT.modele
+  if (!['rapide', 'naturel'].includes(stock.modeleEleven)) stock.modeleEleven = DEFAUT.modeleEleven
   if (!existe('groq')) heriterCle()
   return stock
 }
@@ -60,11 +67,17 @@ function heriterCle(): void {
 }
 
 export function reglages(): Reglages {
-  return { ...charger(), cleGroq: existe('groq'), cleGemini: existe('gemini'), cleEleven: existe('eleven') }
+  const s = charger()
+  // Un avatar sans voix à lui prend la voix par défaut, jamais celle d'un autre.
+  const voix = s.voixAvatars[avatarActif().id] ?? DEFAUT.voix
+  return { ...s, voix, cleGroq: existe('groq'), cleGemini: existe('gemini'), cleEleven: existe('eleven') }
 }
 
 export function modifier(champs: Partial<Stock>): Reglages {
-  stock = { ...charger(), ...champs }
+  const { voix, ...reste } = champs
+  stock = { ...charger(), ...reste }
+  // Choisir une voix, c'est la choisir pour l'avatar du compte actif.
+  if (voix) stock.voixAvatars = { ...stock.voixAvatars, [avatarActif().id]: voix }
   mkdirSync(dirname(fichier()), { recursive: true })
   writeFileSync(fichier(), JSON.stringify(stock, null, 2), 'utf-8')
   return reglages()

@@ -512,3 +512,4 @@ Claude, « Fait en 6 s ».
 
 - **Voix adoucie (0.4.3)** : toute voix jouée passe par `sortieDouce` (lib/adoucir.ts : compresseur -20 dB 4:1 + gain 0,85), ElevenLabs arrivait trop fort. L'essai des Réglages passe par la même sortie.
 - **Français parlé (0.4.4)** : `direEnFrancais` (src/main/francais.ts), appelé dans `pourLaVoix` avant les symboles. Nombres, heures, dates, ordinaux, unités, sigles épelés à la française, abréviations, accords au féminin. Raison : ElevenLabs Flash ne normalise rien (option réservée à l'offre Entreprise).
+- **0.4.5** : une voix par avatar (`voixAvatars` dans les réglages ; `reglages().voix` = celle de l'avatar du compte actif, et un avatar sans voix prend la voix par défaut, jamais celle d'un autre). Choix du modèle ElevenLabs Rapide (Flash v2.5) / Naturel (Multilingual v2, sans `language_code`). Nombres écrits sans tirets (« vingt-six » était lu « vinci »).

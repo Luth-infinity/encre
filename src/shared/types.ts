@@ -177,7 +177,10 @@ export type Reglages = {
   cleGemini: boolean
   /** Une clé ElevenLabs est enregistrée : les voix du compte ElevenLabs (`eleven:<id>`) sont proposées. */
   cleEleven: boolean
+  /** La voix de l'avatar du compte actif (chaque avatar a la sienne, voir `voixAvatars`). */
   voix: string
+  /** La voix choisie pour chaque avatar (`tako`, `nori`, `momo`) : changer de compte change de voix. */
+  voixAvatars: Record<string, string>
   /** Les voix créées sur mesure chez Gemini (id `voice_…`), de la plus récente à la plus ancienne. */
   voixPerso: VoixPerso[]
   /** Dire « Encre » ouvre le mode Parler (reconnaissance locale, rien ne sort). */
@@ -188,6 +191,8 @@ export type Reglages = {
   demarrage: boolean
   /** Le modèle : trié selon la demande, imposé, ou celui de Claude Code. */
   modele: ChoixModele
+  /** Modèle ElevenLabs : `rapide` = Flash v2.5 (0,5 crédit/car.), `naturel` = Multilingual v2 (1 crédit/car., meilleur français). */
+  modeleEleven: 'rapide' | 'naturel'
 }
 
 /** `rapide` = Sonnet, `costaud` = Opus (`main/tri.ts`). */
