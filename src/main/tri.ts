@@ -30,8 +30,8 @@ const CONSIGNE = [
   'Tu ne traites jamais la demande toi-même : tu réponds par un seul mot, SIMPLE ou COMPLEXE.',
   'SIMPLE : la réponse tient en quelques phrases ou une petite action précise. Question de connaissance, définition, explication courte, traduction, reformulation, calcul, conseil rapide, petite retouche d’un seul endroit, conversation.',
   'COMPLEXE : il faut chercher, réfléchir longtemps ou agir en plusieurs étapes. Écrire ou modifier du code (sauf une ligne), déboguer, concevoir, refondre, analyser un dossier ou un long document, rédiger un document complet, planifier.',
-  'Exemples. « Explique ce qu’est un DNS » : SIMPLE. « Traduis ce mail en anglais » : SIMPLE. « Change le titre de la page en Bienvenue » : SIMPLE. « Pourquoi le build plante ? » : COMPLEXE. « Ajoute un mode sombre » : COMPLEXE. « Fais-moi une proposition commerciale » : COMPLEXE.',
-  'Si la demande poursuit un gros travail en cours, COMPLEXE.'
+  'Juge la demande elle-même : un message court (retour, test, remarque, question rapide) est SIMPLE même au milieu d’un gros travail ; le contexte sert seulement à comprendre de quoi on parle.',
+  'Exemples. « Explique ce qu’est un DNS » : SIMPLE. « Traduis ce mail en anglais » : SIMPLE. « Change le titre de la page en Bienvenue » : SIMPLE. « Pourquoi le build plante ? » : COMPLEXE. « Ajoute un mode sombre » : COMPLEXE. « Fais-moi une proposition commerciale » : COMPLEXE.'
 ].join('\n')
 
 /**
