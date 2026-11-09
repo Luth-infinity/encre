@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
-import { appliquer, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
+import { appliquer, avatarDe, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
 import tako from './assets/tako.png'
@@ -436,6 +436,7 @@ export default function Panneau(): JSX.Element {
   useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil, vue])
 
   const projet = etat?.projets.find((p) => p.id === etat.actif) ?? null
+  const avatar = avatarDe(etat?.comptes.find((c) => c.actif)?.avatar)
   actif.current = etat?.actif ?? null
   const enCours = !!projet && !!etat?.enCours.includes(projet.id)
   /** Les autres projets où Tako travaille pendant qu'on regarde celui-ci. */
@@ -518,9 +519,9 @@ export default function Panneau(): JSX.Element {
   else {
     corps = (
       <div className="fil" onMouseUp={() => setTimeout(regarderSelection, 0)} onScroll={() => selection && setSelection(null)}>
-        {fil.length === 0 && <Accueil projet={projet} humeur={humeur} touche={etat.toucheParler} envoyer={(t) => envoyer(t, [])} />}
+        {fil.length === 0 && <Accueil projet={projet} avatar={avatar} humeur={humeur} touche={etat.toucheParler} envoyer={(t) => envoyer(t, [])} />}
         {morceaux(fil).map((m, n, tous) => {
-          if (m.type === 'qui') return <div key={m.i} className="qui"><img src={tako} alt="" />Tako</div>
+          if (m.type === 'qui') return <div key={m.i} className="qui">{avatar.espece === 'poulpe' ? <img src={tako} alt="" /> : <i className="pastille" style={{ background: avatar.peau }} />}{avatar.nom}</div>
           if (m.type === 'etapes') return <Etapes key={m.i} outils={m.outils} enCours={enCours && n === tous.length - 1} />
           const { bloc: x, i } = m
           if (x.type === 'moi') {
@@ -624,7 +625,7 @@ export default function Panneau(): JSX.Element {
           {limitePleine(etat.limites) && <p className="erreur-voix">{limitePleine(etat.limites)}</p>}
           {muet && <p className="voix-muette">Tako répond par écrit : limite gratuite de la voix atteinte{muet.secondes < 0 ? ' pour aujourd’hui, elle revient demain à 9 h' : muet.secondes ? `, elle revient dans ${muet.secondes} s` : ''}.</p>}
           {parole.actif
-            ? <Appel parole={parole} humeur={humeur} grand={plein} touche={etat.toucheParler} />
+            ? <Appel parole={parole} avatar={avatar} humeur={humeur} grand={plein} touche={etat.toucheParler} />
             : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id} />}
           <div className="pied">
           <div className="modes" role="radiogroup" aria-label="Autorisations">

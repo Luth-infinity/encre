@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Humeur, Projet } from '@shared/types'
+import type { Avatar, Humeur, Projet } from '@shared/types'
 import { creerPoulpe, type Poulpe } from './poulpe'
 
 /** Des idées pour démarrer, selon qu'on est en Libre ou dans un projet. */
@@ -22,14 +22,14 @@ function suggestions(projet: Projet): string[] {
  * Le fil vide : Tako en grand qui dit bonjour, d'où on part, et trois idées
  * pour démarrer d'un clic.
  */
-export default function Accueil({ projet, humeur, touche, envoyer }: { projet: Projet; humeur: Humeur; touche: string; envoyer: (texte: string) => void }): JSX.Element {
+export default function Accueil({ projet, avatar, humeur, touche, envoyer }: { projet: Projet; avatar: Avatar; humeur: Humeur; touche: string; envoyer: (texte: string) => void }): JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
   const poulpe = useRef<Poulpe | null>(null)
   useEffect(() => {
-    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.86 })
+    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.86, espece: avatar.espece, peau: avatar.peau, motif: avatar.motif })
     return () => poulpe.current?.detruire()
-  }, [])
-  useEffect(() => poulpe.current?.humeur(humeur), [humeur])
+  }, [avatar])
+  useEffect(() => poulpe.current?.humeur(humeur), [humeur, avatar])
 
   const contexte = projet.libre
     ? 'Ici, pas de projet : pose-moi n’importe quelle question. Pour un client ou un sujet suivi, dis-le et je crée le projet.'
@@ -40,7 +40,7 @@ export default function Accueil({ projet, humeur, touche, envoyer }: { projet: P
   return (
     <div className="accueil">
       <canvas ref={canvas} className="tako-grand" />
-      <h3>Salut, moi c’est Tako.</h3>
+      <h3>Salut, moi c’est {avatar.nom}.</h3>
       <p>{contexte}</p>
       <div className="idees">
         {suggestions(projet).map((s) => (

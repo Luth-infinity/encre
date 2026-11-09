@@ -512,6 +512,8 @@ function brancher(): void {
     noterConnexion(true)
     agent.oublierLimites()
     publierEtat()
+    // L'autre compte a peut-être un autre avatar : la bulle le relit au chargement.
+    laBulle()?.webContents.reload()
     const p = projets.actif()
     if (p && comptes.comptes().find((c) => c.actif)?.connecte) void agent.lireLimites(p).then(publierEtat)
   })
@@ -529,6 +531,11 @@ function brancher(): void {
     }
     publierEtat()
     return erreur
+  })
+  ipcMain.on('compte-avatar', (_e, id: string, avatar: string) => {
+    comptes.choisirAvatar(id, avatar)
+    publierEtat()
+    if (comptes.actif() === id) laBulle()?.webContents.reload()
   })
   ipcMain.on('compte-retirer', (_e, id: string) => {
     const etaitActif = comptes.actif() === id
@@ -613,8 +620,9 @@ async function icone(sortie: string): Promise<void> {
     webPreferences: { offscreen: true, preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   const url = process.env.ELECTRON_RENDERER_URL
-  if (url) await f.loadURL(`${url}?vue=icone`)
-  else await f.loadFile(join(__dirname, '../renderer/index.html'), { query: { vue: 'icone' } })
+  const avatar = process.env.ENCRE_ICONE_AVATAR ?? 'tako'
+  if (url) await f.loadURL(`${url}?vue=icone&avatar=${avatar}`)
+  else await f.loadFile(join(__dirname, '../renderer/index.html'), { query: { vue: 'icone', avatar } })
   await new Promise((r) => setTimeout(r, 2500))
   writeFileSync(sortie, (await f.webContents.capturePage()).toPNG())
   journal(`icône enregistrée : ${sortie}`)

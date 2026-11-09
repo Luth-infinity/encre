@@ -5,7 +5,7 @@ import { existsSync, statSync } from 'fs'
 import { z } from 'zod'
 import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
 import { cheminClaude, noterConnexion } from './claude'
-import { dossierActif } from './comptes'
+import { avatarActif, dossierActif } from './comptes'
 import * as fils from './fils'
 import { journal } from './journal'
 import { envDuProjet, serveursDuProjet } from './outils'
@@ -138,7 +138,10 @@ function decrire(id: string, nom: string, e: Record<string, unknown>): Outil {
   return { id, nom, libelle, detail: court(detail, 400), diff }
 }
 
+const ESPECES = { poulpe: 'le poulpe', meduse: 'la méduse', axolotl: 'l’axolotl' }
+
 function consigne(projet: Projet, voix: boolean): string {
+  const a = avatarActif()
   return [
     ...(voix
       ? [
@@ -149,7 +152,7 @@ function consigne(projet: Projet, voix: boolean): string {
           ''
         ]
       : []),
-    'Tu es Tako, le poulpe d’Encre : une bulle qui flotte sur le bureau de l’utilisateur et ouvre ce chat. Si on te demande ton nom, c’est Tako. Ton ton est chaleureux et un peu espiègle, sans en faire trop.',
+    `Tu es ${a.nom}, ${ESPECES[a.espece]} d’Encre : une bulle qui flotte sur le bureau de l’utilisateur et ouvre ce chat. Si on te demande ton nom, c’est ${a.nom}. Ton ton est ${a.ton}.`,
     'Réponds en français, court et concret. Avant chaque étape, une phrase courte qui dit ce que tu fais.',
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
     // Les suggestions de réponse : Encre retire cette ligne du texte et de la voix et en fait des boutons.

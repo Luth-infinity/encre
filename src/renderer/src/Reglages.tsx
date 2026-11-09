@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DESCRIPTION_TAKO, VOIX, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
+import { AVATARS, DESCRIPTION_TAKO, VOIX, VOIX_GEMINI, type Compte, type Etat, type Reglages as R } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -123,13 +123,16 @@ function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
     <div className="comptes">
       {comptes.map((c) => (
         <div key={c.id} className={`compte ${c.actif ? 'on' : ''}`}>
-          <button type="button" className="choisir" role="radio" aria-checked={c.actif} onClick={() => !c.actif && window.api.choisirCompte(c.id)} title={c.actif ? 'Compte utilisé par Tako' : 'Passer sur ce compte'}>
+          <button type="button" className="choisir" role="radio" aria-checked={c.actif} onClick={() => !c.actif && window.api.choisirCompte(c.id)} title={c.actif ? 'Compte en cours' : 'Passer sur ce compte'}>
             <i />
             <span>
               <strong>{c.nom}{c.principal ? <em> · celui du terminal</em> : null}</strong>
               <small>{enCours === c.id ? 'Connexion dans la fenêtre ouverte…' : c.email ?? 'Pas encore connecté'}{c.offre && c.email && enCours !== c.id ? ` · ${c.offre}` : ''}</small>
             </span>
           </button>
+          <select className="avatar" value={c.avatar} onChange={(e) => window.api.choisirAvatar(c.id, e.target.value)} title="L’avatar de ce compte : son apparence, son nom et son ton">
+            {AVATARS.map((a) => <option key={a.id} value={a.id}>{a.nom}</option>)}
+          </select>
           {enCours !== c.id && !c.connecte && <button type="button" className="btn pri" disabled={!!enCours} onClick={() => void connecter(c.id)}>Se connecter</button>}
           {enCours !== c.id && c.connecte && <button type="button" className="lien-discret" disabled={!!enCours} onClick={() => void connecter(c.id)} title="Rouvrir la connexion (expirée, ou autre adresse)">Reconnecter</button>}
           {!c.principal && enCours !== c.id && <button type="button" className="lien-discret" onClick={() => window.api.retirerCompte(c.id)} title="Retirer d’Encre (le compte Claude, lui, ne bouge pas)">Retirer</button>}

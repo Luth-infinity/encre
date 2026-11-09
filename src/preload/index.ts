@@ -85,6 +85,8 @@ const api = {
   /** Ouvre la fenêtre de connexion ; résout avec une erreur lisible, ou null si le compte est connecté. */
   connecterCompte: (id: string): Promise<string | null> => ipcRenderer.invoke('compte-connecter', id),
   retirerCompte: (id: string) => ipcRenderer.send('compte-retirer', id),
+  /** L'avatar d'un compte (`AVATARS`) : apparence, nom et ton de la bulle. */
+  choisirAvatar: (id: string, avatar: string) => ipcRenderer.send('compte-avatar', id, avatar),
 
   bulleClic: () => ipcRenderer.send('bulle-clic'),
   bulleDeplacer: (dx: number, dy: number) => ipcRenderer.send('bulle-deplacer', dx, dy),

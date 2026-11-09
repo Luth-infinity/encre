@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Humeur } from '@shared/types'
+import { avatarDe, type Humeur } from '@shared/types'
 import { COULEURS, creerPoulpe, type Poulpe } from './poulpe'
 
 const NOMS: Record<Humeur, string> = {
@@ -23,8 +23,14 @@ export default function Bulle(): JSX.Element {
   const dernierCoucou = useRef(0)
 
   useEffect(() => {
-    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.8 })
-    void window.api.humeur().then((h) => { setHumeur(h); poulpe.current?.humeur(h) })
+    // L'avatar du compte en cours ; le main recharge la bulle quand il change.
+    void window.api.etat().then(async (e) => {
+      const a = avatarDe(e.comptes.find((c) => c.actif)?.avatar)
+      poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.8, espece: a.espece, peau: a.peau, motif: a.motif })
+      const h = await window.api.humeur()
+      setHumeur(h)
+      poulpe.current.humeur(h)
+    })
     const off = window.api.surHumeur((h) => {
       setHumeur(h)
       poulpe.current?.humeur(h)

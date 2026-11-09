@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Humeur } from '@shared/types'
+import type { Avatar, Humeur } from '@shared/types'
 import type { Parole } from './lib/parole'
 import { creerPoulpe, type Poulpe } from './poulpe'
 
@@ -16,16 +16,16 @@ const textes = (t: string): Record<Parole['phase'], [string, string]> => ({
  * (envoyer, annuler). Les messages, eux, s'écrivent dans le fil comme au
  * clavier.
  */
-export default function Appel({ parole, humeur, grand, touche }: { parole: Parole; humeur: Humeur; grand: boolean; touche: string }): JSX.Element {
+export default function Appel({ parole, avatar, humeur, grand, touche }: { parole: Parole; avatar: Avatar; humeur: Humeur; grand: boolean; touche: string }): JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
   const poulpe = useRef<Poulpe | null>(null)
   const boite = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.78 })
+    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.78, espece: avatar.espece, peau: avatar.peau, motif: avatar.motif })
     return () => poulpe.current?.detruire()
-  }, [])
-  useEffect(() => poulpe.current?.humeur(parole.phase === 'ecoute' ? 'ecoute' : humeur), [humeur, parole.phase])
+  }, [avatar])
+  useEffect(() => poulpe.current?.humeur(parole.phase === 'ecoute' ? 'ecoute' : humeur), [humeur, parole.phase, avatar])
 
   // Le halo suit la voix (la tienne ou la sienne) ; la jauge se remplit pendant
   // une pause : on voit venir l'envoi, et reprendre la parole la vide.

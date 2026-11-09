@@ -3,7 +3,7 @@ import { spawn } from 'child_process'
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import type { Compte } from '@shared/types'
+import { avatarDe, type Avatar, type Compte } from '@shared/types'
 import { cheminClaude } from './claude'
 import { journal } from './journal'
 
@@ -19,7 +19,8 @@ import { journal } from './journal'
  * l'autre compte. Seuls la connexion et le `.claude.json` sont propres.
  */
 
-type Stock = { comptes: { id: string; nom: string }[]; actif: string }
+/** `avatars` : l'avatar choisi par compte (le principal compris) ; absent = Tako. */
+type Stock = { comptes: { id: string; nom: string }[]; actif: string; avatars?: Record<string, string> }
 const PRINCIPAL = 'principal'
 const PARTAGES = ['projects', 'skills', 'plugins', 'agents', 'commands', 'file-history', 'todos']
 
@@ -81,10 +82,19 @@ export function comptes(): Compte[] {
     ...profil(c.id),
     connecte: connecte(c.id),
     actif: c.id === s.actif,
-    principal: c.id === PRINCIPAL
+    principal: c.id === PRINCIPAL,
+    avatar: avatarDe(s.avatars?.[c.id]).id
   }))
 }
 export const actif = (): string => charger().actif
+/** L'avatar du compte en cours : son nom et son ton passent dans la consigne. */
+export const avatarActif = (): Avatar => avatarDe(charger().avatars?.[charger().actif])
+
+export function choisirAvatar(compte: string, avatar: string): void {
+  const s = charger()
+  s.avatars = { ...s.avatars, [compte]: avatarDe(avatar).id }
+  ecrire()
+}
 
 export function choisir(id: string): boolean {
   const s = charger()

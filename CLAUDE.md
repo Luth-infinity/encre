@@ -203,6 +203,22 @@ Au repos, Tako **vit sa vie** : il regarde où il veut, fait coucou, sautille,
 s'étire, cligne, tourne la tête. Il ne suit la souris que quand elle passe
 tout près, 2,5 s. (Le suivi permanent était « relou ».)
 
+### Avatars (09/11)
+
+Un avatar **par compte Claude** (Réglages → Comptes Claude, menu à droite de
+chaque compte) : `AVATARS` dans `shared/types.ts`. Chacun a une créature
+(`espece`), ses couleurs, un nom et un ton passés dans la consigne
+(`avatarActif()`) : **Tako** le poulpe, **Nori** la méduse (cloche
+festonnée, filaments, bras frisés), **Momo** l'axolotl (branchies, ventre,
+pattes, queue). `poulpe.ts` partage le rendu, le visage, les humeurs et les
+gestes ; seuls le crâne et les membres (`forme()` par sorte) changent. Le
+motif irezumi reste au poulpe. Choix gardé dans `comptes.json` (`avatars`) ;
+le main recharge la bulle quand il change. Aperçu sans écran :
+`ENCRE_ICONE=<png> ENCRE_ICONE_AVATAR=nori npx electron .` (marche aussi
+quand Encre tourne). Restent « Tako » : voix (`STYLE_TAKO`), mot de réveil,
+icône, menu de la zone de notification. **Animations pas encore vues en
+mouvement.**
+
 ### Libre = brouillon
 
 Libre repart **à vide** (fil + session) chaque fois qu'on y va et au

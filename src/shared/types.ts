@@ -112,7 +112,22 @@ export type Compte = {
   connecte: boolean
   actif: boolean
   principal: boolean
+  /** L'id de l'avatar de ce compte (`AVATARS`). */
+  avatar: string
 }
+
+/**
+ * Les avatars : une créature (`poulpe.ts`), ses couleurs, un nom et un ton
+ * dans la consigne. Un par compte Claude, pour que chacun ait le sien.
+ */
+export type Espece = 'poulpe' | 'meduse' | 'axolotl'
+export type Avatar = { id: string; nom: string; espece: Espece; peau: string; motif: string; ton: string }
+export const AVATARS: Avatar[] = [
+  { id: 'tako', nom: 'Tako', espece: 'poulpe', peau: '#B7A6F5', motif: '#7E68E3', ton: 'chaleureux et un peu espiègle, sans en faire trop' },
+  { id: 'nori', nom: 'Nori', espece: 'meduse', peau: '#A9E4F5', motif: '#F59AC8', ton: 'calme et posé, précis et rassurant, avec un humour discret' },
+  { id: 'momo', nom: 'Momo', espece: 'axolotl', peau: '#FFC7D9', motif: '#F2558C', ton: 'énergique et direct, enthousiaste, droit au but' }
+]
+export const avatarDe = (id: string | undefined): Avatar => AVATARS.find((a) => a.id === id) ?? AVATARS[0]
 
 /** Les voix françaises de l'endpoint d'Edge, gratuites et sans clé (reprises d'Iris). */
 export const VOIX = [

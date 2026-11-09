@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { Humeur } from '@shared/types'
+import type { Espece, Humeur } from '@shared/types'
 
 /**
  * Le poulpe d'Encre, d'après le tatouage de Lucas : rendu « dessin animé »
@@ -72,17 +72,17 @@ function sakura(x: CanvasRenderingContext2D, cx: number, cy: number, s: number, 
   x.restore()
 }
 
-function motifTentacules(): THREE.CanvasTexture {
+function motifTentacules(peau: string, motif: string): THREE.CanvasTexture {
   const w = 512, h = 256, R = 51.2
   const c = document.createElement('canvas'); c.width = w; c.height = h
   const x = c.getContext('2d')!
-  x.fillStyle = LAVANDE; x.fillRect(0, 0, w, h)
+  x.fillStyle = peau; x.fillRect(0, 0, w, h)
   let rang = 0
   for (let y = -R; y < h + R; y += R / 2, rang++) {
     const dec = (rang % 2) * R
     for (let cx = -2 * R + dec; cx < w + 2 * R; cx += 2 * R) {
-      x.beginPath(); x.arc(cx, y, R * 0.96, 0, Math.PI * 2); x.fillStyle = LAVANDE; x.fill()
-      x.strokeStyle = '#7E68E3'; x.lineWidth = R * 0.06
+      x.beginPath(); x.arc(cx, y, R * 0.96, 0, Math.PI * 2); x.fillStyle = peau; x.fill()
+      x.strokeStyle = motif; x.lineWidth = R * 0.06
       for (const k of [0.96, 0.6]) { x.beginPath(); x.arc(cx, y, R * k, Math.PI, 0); x.stroke() }
     }
   }
@@ -100,8 +100,18 @@ function motifTentacules(): THREE.CanvasTexture {
 /**
  * `remplir` : la part du cadre (0 à 1) que le poulpe occupe, mesurée sur sa
  * vraie silhouette. `plongee` : la caméra le regarde un peu d'en haut (radians).
+ * `espece`, `peau`, `motif` : la créature de l'avatar et ses couleurs (Tako par défaut).
  */
-export type Options = { remplir?: number; plongee?: number; fov?: number }
+export type Options = { remplir?: number; plongee?: number; fov?: number; espece?: Espece; peau?: string; motif?: string }
+
+/**
+ * Un membre : tentacule, bras, branchie, patte ou queue. Un tube recalculé à
+ * chaque image le long de 12 points, avec son contour d'encre. `a` et `b` :
+ * ce que sa sorte veut (angle, côté, rang, profondeur).
+ */
+type Sorte = 'tentacule' | 'filament' | 'bras' | 'branchie' | 'patte' | 'queue'
+type Membre = { sorte: Sorte; g: THREE.BufferGeometry; gl: THREE.BufferGeometry; pts: THREE.Vector3[]; courbe: THREE.CatmullRomCurve3; r0: number; r1: number; a: number; b: number; leve: number }
+const SEGS = 56, RAD = 14
 
 export type Geste = 'coucou' | 'saut' | 'etire' | 'clins' | 'tour'
 export type Poulpe = { humeur: (h: Humeur) => void; geste: (g: Geste) => void; detruire: () => void }
@@ -116,13 +126,15 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   rampe.minFilter = rampe.magFilter = THREE.NearestFilter
   rampe.needsUpdate = true
 
-  const peau = new THREE.MeshToonMaterial({ color: LAVANDE, gradientMap: rampe })
-  const peauMotif = new THREE.MeshToonMaterial({ map: motifTentacules(), gradientMap: rampe })
+  const peau = new THREE.MeshToonMaterial({ color: o.peau ?? LAVANDE, gradientMap: rampe })
+  const peauMotif = new THREE.MeshToonMaterial({ map: motifTentacules(o.peau ?? LAVANDE, o.motif ?? '#7E68E3'), gradientMap: rampe })
   const trait = new THREE.MeshBasicMaterial({ color: ENCRE, side: THREE.BackSide })
   const blanc = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: rampe })
   const noir = new THREE.MeshBasicMaterial({ color: 0x111018 })
   const reflet = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const joue = new THREE.MeshBasicMaterial({ color: COULEURS.repos, transparent: true, opacity: 0.9 })
+  const accent = new THREE.MeshToonMaterial({ color: o.motif ?? '#7E68E3', gradientMap: rampe })
+  const espece = o.espece ?? 'poulpe'
 
   // Depuis three r155, les intensités sont physiques : ×π par rapport à l'ancien réglage.
   scene.add(new THREE.HemisphereLight(0xffffff, '#5B43D0', 0.6 * Math.PI))
@@ -135,8 +147,16 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
 
   const tete = new THREE.Group(); tete.position.y = 0.78; corps.add(tete)
   const sphere = new THREE.SphereGeometry(1, 64, 48)
-  const crane = new THREE.Mesh(sphere, peau); crane.scale.set(1.1, 0.96, 1); tete.add(crane)
-  const contour = new THREE.Mesh(sphere, trait); contour.scale.set(1.15, 1.0, 1.04); tete.add(contour)
+  // Le crâne : rond pour le poulpe, cloche aplatie pour la méduse, large pour l'axolotl.
+  const [cx, cy, cz] = espece === 'meduse' ? [1.15, 0.82, 1.05] : espece === 'axolotl' ? [1.3, 0.88, 1] : [1.1, 0.96, 1]
+  const crane = new THREE.Mesh(sphere, peau); crane.scale.set(cx, cy, cz); tete.add(crane)
+  const contour = new THREE.Mesh(sphere, trait); contour.scale.set(cx + 0.05, cy + 0.04, cz + 0.04); tete.add(contour)
+  /** Une boule de peau cerclée d'encre (festons de la méduse, ventre de l'axolotl). */
+  const boule = (parent: THREE.Object3D, r: number, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1): void => {
+    const geo = new THREE.SphereGeometry(r, 24, 18)
+    const m = new THREE.Mesh(geo, peau); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m)
+    const c = new THREE.Mesh(geo, trait); c.position.copy(m.position); c.scale.set(sx * 1.13, sy * 1.13, sz * 1.13); parent.add(c)
+  }
 
   const yeux = [-1, 1].map((sx) => {
     const g = new THREE.Group(); g.position.set(sx * 0.42, -0.12, 0.86); tete.add(g)
@@ -156,13 +176,83 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
   const bouche = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.026, 10, 24, Math.PI), noir)
   bouche.position.set(0, -0.36, 0.94); bouche.rotation.z = Math.PI; tete.add(bouche)
 
-  const SEGS = 56, RAD = 14
-  const tentacules = Array.from({ length: 8 }, (_, k) => {
+  const membres: Membre[] = []
+  const membre = (parent: THREE.Object3D, mat: THREE.Material, sorte: Sorte, r0: number, r1: number, a = 0, b = 0): void => {
     const g = tube(SEGS, RAD), gl = tube(SEGS, RAD)
-    corps.add(new THREE.Mesh(g, peauMotif)); corps.add(new THREE.Mesh(gl, trait))
+    parent.add(new THREE.Mesh(g, mat)); parent.add(new THREE.Mesh(gl, trait))
     const pts = Array.from({ length: 12 }, () => new THREE.Vector3())
-    return { g, gl, pts, courbe: new THREE.CatmullRomCurve3(pts), a: ((k + 0.5) / 8) * Math.PI * 2 + Math.PI / 2, leve: 0 }
-  })
+    membres.push({ sorte, g, gl, pts, courbe: new THREE.CatmullRomCurve3(pts), r0, r1, a, b, leve: 0 })
+  }
+  /** Les membres qui se lèvent : pour demander l'accord, et pour faire coucou. */
+  let iAccord = 1, iCoucou = 2
+  const angle = (k: number, n: number): number => ((k + 0.5) / n) * Math.PI * 2 + Math.PI / 2
+  if (espece === 'meduse') {
+    // Un bord festonné sous la cloche, des filaments fins qui flottent, quatre bras frisés au centre.
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2
+      boule(tete, 0.17, Math.cos(a) * 0.9, -0.5, Math.sin(a) * 0.82, 1, 0.7, 1)
+    }
+    for (let k = 0; k < 8; k++) membre(corps, peau, 'filament', 0.07, 0.025, angle(k, 8))
+    for (let k = 0; k < 4; k++) membre(corps, accent, 'bras', 0.13, 0.05, (k / 4) * Math.PI * 2 + Math.PI / 4)
+  } else if (espece === 'axolotl') {
+    // Trois branchies de chaque côté de la tête, un petit ventre, quatre pattes et une queue.
+    boule(corps, 1, 0, -0.18, -0.2, 0.82, 0.62, 0.85)
+    for (const [s, z] of [[-1, 0.3], [1, 0.3], [-1, -0.5], [1, -0.5]]) membre(corps, peau, 'patte', 0.16, 0.11, s, z)
+    membre(corps, peau, 'queue', 0.26, 0.04)
+    for (const s of [-1, 1]) for (let j = 0; j < 3; j++) membre(tete, accent, 'branchie', 0.11, 0.07, s, j)
+    iAccord = 0; iCoucou = 1
+  } else {
+    for (let k = 0; k < 8; k++) membre(corps, peauMotif, 'tentacule', 0.27, 0.05, angle(k, 8))
+  }
+
+  /** La position du point `u` (0 à 1, de la base au bout) d'un membre. */
+  function forme(p: THREE.Vector3, m: Membre, i: number, u: number, t: number, tt: number): void {
+    const l = m.leve
+    const agite = Math.sin(tt * 6 + u * 4) * 0.1 * u
+    switch (m.sorte) {
+      case 'tentacule': {
+        const vague = Math.sin(t * 2.2 + i * 0.85 - u * 3.2) * 0.34 * u
+        let dist = 0.3 + u * 1.2, y = 0.12 - u * 0.85 + Math.sin(u * Math.PI) * 0.1
+        if (u > 0.5) { const c = (u - 0.5) / 0.5; y += c * c * 0.85; dist -= c * c * 0.55 }
+        dist = dist * (1 - l) + (0.4 + u * 0.9) * l
+        y = y * (1 - l) + (0.15 + u * 1.55 + agite) * l
+        const a = m.a + vague * 0.5
+        p.set(Math.cos(a) * dist, y + vague * 0.35, Math.sin(a) * dist * 0.95)
+        return
+      }
+      case 'filament': {
+        // Ils pendent sous la cloche et ondulent de côté, le bout plus que la base.
+        const ondule = Math.sin(t * 1.8 + i * 1.3 - u * 4) * 0.22 * u
+        const dist = (0.7 - u * 0.12) * (1 - l) + (0.75 + u * 0.6) * l
+        const y = (0.3 - u * 1.25) * (1 - l) + (0.3 + u * 1.1 + agite) * l
+        const a = m.a + ondule * (1 - l)
+        p.set(Math.cos(a) * dist, y, Math.sin(a) * dist * 0.9)
+        return
+      }
+      case 'bras': {
+        const frise = Math.sin(u * 9 - t * 2 + m.a) * 0.07
+        const dist = 0.22 + frise + u * 0.08
+        p.set(Math.cos(m.a) * dist, 0.3 - u * 0.95, Math.sin(m.a) * dist + 0.1)
+        return
+      }
+      case 'patte': {
+        const s = m.a, pas = Math.sin(t * 2.4 + i * 1.6) * 0.12 * u
+        const x = s * (0.6 + u * 0.32), y = -0.3 - u * 0.42
+        p.set(x * (1 - l) + s * (0.62 + u * 0.3) * l, y * (1 - l) + (-0.3 + u * 0.7 + agite * 0.6) * l, m.b + pas * (1 - l) + 0.1 * u * l)
+        return
+      }
+      case 'queue': {
+        p.set(Math.sin(t * 2 - u * 3) * 0.45 * u, -0.25 + u * 0.15, -0.75 - u * 0.85)
+        return
+      }
+      case 'branchie': {
+        // Dans le repère de la tête : elles suivent ses mouvements et frémissent.
+        const s = m.a, j = m.b, frisson = Math.sin(tt * 4 + j * 1.7 + s) * 0.06 * u
+        p.set(s * (1.12 + u * 0.55), 0.28 - j * 0.3 + u * (0.4 - j * 0.32) + frisson + u * u * 0.12, -0.15 - u * 0.12)
+        return
+      }
+    }
+  }
 
   let humeur: Humeur = 'repos'
   const cible = { penche: 0, vitesse: 1, pupY: 0, oeil: 1, bouche: 1, incline: 0 }
@@ -189,32 +279,21 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     if (h === 'fini') Object.assign(cible, { oeil: 0.32, bouche: 1.6, vitesse: 1.4 })
   }
 
-  function poserTentacules(t: number, tt: number, k: number): void {
-  tentacules.forEach((tn, i) => {
-    const leve = (humeur === 'accord' && i === 1) || (geste?.nom === 'coucou' && i === 2 && geste.p > 0.05 && geste.p < 0.85)
-    tn.leve += ((leve ? 1 : 0) - tn.leve) * k
-    const ph = i * 0.85
-    tn.pts.forEach((p, s) => {
-      const u = s / (tn.pts.length - 1)
-      const vague = Math.sin(t * 2.2 + ph - u * 3.2) * 0.34 * u
-      let dist = 0.3 + u * 1.2, y = 0.12 - u * 0.85 + Math.sin(u * Math.PI) * 0.1
-      if (u > 0.5) { const c = (u - 0.5) / 0.5; y += c * c * 0.85; dist -= c * c * 0.55 }
-      const l = tn.leve
-      dist = dist * (1 - l) + (0.4 + u * 0.9) * l
-      y = y * (1 - l) + (0.15 + u * 1.55 + Math.sin(tt * 6 + u * 4) * 0.1 * u) * l
-      const a = tn.a + vague * 0.5
-      p.set(Math.cos(a) * dist, y + vague * 0.35, Math.sin(a) * dist * 0.95)
+  function poserMembres(t: number, tt: number, k: number): void {
+    membres.forEach((m, i) => {
+      const leve = (humeur === 'accord' && i === iAccord) || (geste?.nom === 'coucou' && i === iCoucou && geste.p > 0.05 && geste.p < 0.85)
+      m.leve += ((leve ? 1 : 0) - m.leve) * k
+      m.pts.forEach((p, n) => forme(p, m, i, n / (m.pts.length - 1), t, tt))
+      m.courbe.updateArcLengths()
+      majTube(m.g, m.courbe, SEGS, RAD, m.r0, m.r1)
+      majTube(m.gl, m.courbe, SEGS, RAD, m.r0 + Math.min(0.04, m.r0 * 0.5), m.r1 + Math.min(0.03, m.r1 * 0.8))
     })
-    tn.courbe.updateArcLengths()
-    majTube(tn.g, tn.courbe, SEGS, RAD, 0.27, 0.05)
-    majTube(tn.gl, tn.courbe, SEGS, RAD, 0.31, 0.08)
-  })
   }
 
-  // Cadrage sur la vraie silhouette : le centre du poulpe (tête + tentacules)
+  // Cadrage sur la vraie silhouette : le centre de la créature (tête + membres)
   // est ramené à l'origine, qui est aussi le pivot des rotations. Il reste
   // centré quel que soit le cadre, et tourner ne le décale plus.
-  poserTentacules(0, 0, 1)
+  poserMembres(0, 0, 1)
   corps.updateMatrixWorld(true)
   const boite = new THREE.Box3().setFromObject(corps, true)
   const centre = boite.getCenter(new THREE.Vector3())
@@ -316,7 +395,7 @@ export function creerPoulpe(canvas: HTMLCanvasElement, o: Options = {}): Poulpe 
     joue.opacity = 0.55 + Math.sin(tt * 3) * 0.25
     void joues
 
-    poserTentacules(t, tt, k)
+    poserMembres(t, tt, k)
     rendu.render(scene, camera)
   }
   anim = requestAnimationFrame(image)
