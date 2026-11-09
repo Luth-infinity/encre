@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.4.6',
+    date: '2026-11-09',
+    titre: 'Des voix bien rangées',
+    texte: 'Avec ElevenLabs, l’onglet Voix affichait des dizaines de voix d’un coup. Elles sont maintenant rangées par famille, et la tienne reste en haut.',
+    points: [
+      'La voix choisie en haut, avec le bouton Tester.',
+      'Une famille à la fois : tes voix, ElevenLabs, Gemini, Microsoft.',
+      'Recherche et filtre Femmes ou Hommes, six voix visibles puis « Voir les autres ».'
+    ]
+  },
+  {
     version: '0.4.5',
     date: '2026-11-09',
     titre: 'Une voix par avatar',
