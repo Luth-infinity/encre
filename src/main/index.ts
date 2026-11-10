@@ -246,6 +246,17 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
         const suite = `Ce projet vient d’être ouvert depuis Libre pour cette demande : « ${texte} ». Mets-toi au travail.`
         return void envoyer(texte, pieces, voix, suite, undefined, arrivee)
       }
+      // Tako a ouvert un sujet pour cette demande : l'ancien fil reste à sa
+      // place, la demande repart dans le sujet neuf (session vierge, fil léger).
+      const sujet = ouvert && ouvert !== p.id ? projets.trouver(ouvert) : null
+      if (!p.libre && !relance && sujet && projets.racineDe(sujet).id === projets.racineDe(p).id) {
+        vocaux.delete(p.id)
+        diffuser(sujet.id, moi())
+        publierEtat()
+        if (projets.actifId() === sujet.id) lePanneau()?.webContents.send('fil-change', sujet.id)
+        const suite = `Ce sujet vient d’être ouvert pour cette demande : « ${texte} ». Mets-toi au travail.`
+        return void envoyer(texte, pieces, voix, suite, undefined, sujet.id)
+      }
       // Déjà affichés dans le fil : ils partent sans y revenir.
       const tout = suivants.get(p.id) ?? []
       suivants.delete(p.id)
@@ -355,6 +366,15 @@ function brancher(): void {
     publierEtat()
     return p.id
   })
+  // Un sujet dans le projet ouvert : conversation neuve, même dossier et mêmes outils.
+  ipcMain.handle('creer-sujet', (_e, parent: string, nom: string) => {
+    const s = projets.creerSujet(parent, nom)
+    publierEtat()
+    return s?.id ?? null
+  })
+  ipcMain.on('ranger', (_e, id: string) => {
+    if (!agent.rangerMaintenant(id)) journal(`rangement de ${projets.trouver(id)?.nom ?? id} : rien à ranger`)
+  })
   ipcMain.on('menu-carte', (_e, id: string) => {
     const p = lePanneau(), pr = projets.trouver(id)
     if (!p || !pr || pr.libre) return
@@ -362,9 +382,10 @@ function brancher(): void {
       { label: 'Ouvrir le dossier', click: () => void shell.openPath(pr.dossier) },
       { type: 'separator' },
       {
-        label: 'Retirer d’Encre (le dossier reste)',
+        label: pr.parent ? 'Fermer ce sujet' : 'Retirer d’Encre (le dossier reste)',
         enabled: !agent.enCours(id),
         click: () => {
+          for (const s of projets.sujetsDe(id)) fils.vider(s.id)
           projets.retirer(id)
           outils.oublierJetons(id)
           fils.vider(id)
@@ -714,6 +735,31 @@ async function verifier(dossier: string): Promise<void> {
   }
   const p = projets.ajouter(dossier)
   projets.modifier(p.id, { mode: (process.env.ENCRE_VERIF_MODE as Mode) || 'demander', session: null })
+  // ENCRE_VERIF_MD=<fichier .md> : une réponse d'exemple dans le fil, capturée
+  // en panneau puis en plein écran (rendu des titres, cases, tableaux, images).
+  if (process.env.ENCRE_VERIF_MD) {
+    const { readFileSync } = await import('fs')
+    projets.choisir(p.id)
+    fils.noter(p.id, { type: 'moi', texte: 'Montre-moi le plan.' } as Evenement)
+    fils.noter(p.id, { type: 'texte', texte: readFileSync(process.env.ENCRE_VERIF_MD, 'utf-8') } as Evenement)
+    fils.noter(p.id, { type: 'fin', duree: 6000, fil: 150_000, cout: 40_000, modele: 'Opus 5.5' } as Evenement)
+    projets.creerSujet(p.id, 'Ticket 142')
+    projets.creerSujet(p.id, 'Page tarifs')
+    projets.choisir(p.id)
+    if (process.env.ENCRE_VERIF_POLICE) reglages.modifier({ police: process.env.ENCRE_VERIF_POLICE as Reglages['police'] })
+    await attendre(2500)
+    ouvrirPanneau()
+    publierEtat()
+    await attendre(3000)
+    await capturer('8-markdown')
+    await js(`document.querySelector('.fil')?.scrollTo(0, 99999)`)
+    await attendre(500)
+    await capturer('8-markdown-bas')
+    await js(`document.querySelector('[data-action=plein]')?.click()`)
+    await attendre(2000)
+    await capturer('8-markdown-plein')
+    return app.quit()
+  }
   await attendre(2500)
   ouvrirPanneau()
   publierEtat()

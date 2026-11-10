@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
-import { appliquer, avatarDe, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Reponse } from '@shared/types'
+import { appliquer, avatarDe, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
 import tako from './assets/tako.png'
@@ -90,8 +90,57 @@ function morceaux(fil: Bloc[]): Morceau[] {
 
 /** Ce que fait Tako dans un projet : rien, il travaille, ou il attend ton accord. */
 function activite(etat: Etat, id: string): 'attend' | 'travaille' | null {
-  if (etat.attend.includes(id)) return 'attend'
-  return etat.enCours.includes(id) ? 'travaille' : null
+  // Un projet compte aussi ce qui se passe dans ses sujets.
+  const ids = [id, ...etat.projets.filter((p) => p.parent === id).map((p) => p.id)]
+  if (ids.some((x) => etat.attend.includes(x))) return 'attend'
+  return ids.some((x) => etat.enCours.includes(x)) ? 'travaille' : null
+}
+
+/**
+ * Les sujets du projet ouvert (un par ticket, par chantier) : chacun sa
+ * conversation, donc un fil court. « Général », c'est le projet lui-même.
+ */
+function Sujets({ etat, projet, ouvrir }: { etat: Etat; projet: Projet; ouvrir: (id: string) => void }): JSX.Element {
+  const racine = (projet.parent && etat.projets.find((p) => p.id === projet.parent)) || projet
+  const sujets = etat.projets.filter((p) => p.parent === racine.id)
+  const [nom, setNom] = useState<string | null>(null)
+  const creer = (): void => {
+    const n = nom?.trim()
+    setNom(null)
+    if (n) void window.api.creerSujet(racine.id, n).then((id) => id && ouvrir(id))
+  }
+  const puce = (p: Projet, libelle: string): JSX.Element => (
+    <button
+      key={p.id}
+      type="button"
+      className={`sujet ${p.id === projet.id ? 'on' : ''}`}
+      onClick={() => ouvrir(p.id)}
+      onContextMenu={(e) => { if (p.parent) { e.preventDefault(); window.api.menuCarte(p.id) } }}
+      title={p.parent ? 'Clic droit : fermer ce sujet' : 'La conversation générale du projet'}
+    >
+      {libelle}
+      {(etat.attend.includes(p.id) || etat.enCours.includes(p.id)) && <i className={`activite ${etat.attend.includes(p.id) ? 'attend' : 'travaille'}`} />}
+    </button>
+  )
+  return (
+    <nav className="sujets" aria-label="Sujets du projet">
+      {puce(racine, 'Général')}
+      {sujets.map((s) => puce(s, s.nom))}
+      {nom === null
+        ? <button type="button" className="sujet ajouter" data-action="sujet" onClick={() => setNom('')} title="Une conversation à part pour un ticket ou un chantier : Tako relit moins, tu dépenses moins">＋ Sujet</button>
+        : (
+          <input
+            className="sujet-nom"
+            autoFocus
+            placeholder="Ticket 142, page tarifs…"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') creer(); if (e.key === 'Escape') { e.stopPropagation(); setNom(null) } }}
+            onBlur={creer}
+          />
+        )}
+    </nav>
+  )
 }
 function Activite({ etat, id }: { etat: Etat; id: string }): JSX.Element | null {
   const a = activite(etat, id)
@@ -101,7 +150,7 @@ function Activite({ etat, id }: { etat: Etat; id: string }): JSX.Element | null 
 /** La barre de projets du plein écran : changer de projet sans passer par le hub. */
 function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void; hub: () => void }): JSX.Element {
   const libre = etat.projets.find((p) => p.libre)
-  const autres = etat.projets.filter((p) => !p.libre).sort((a, b) => b.derniere - a.derniere)
+  const autres = etat.projets.filter((p) => !p.libre && !p.parent).sort((a, b) => b.derniere - a.derniere)
   return (
     <aside className="barre">
       <div className="marque"><img src={tako} alt="" /><strong>Encre</strong></div>
@@ -112,11 +161,16 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
       )}
       <small className="rubrique">Projets</small>
       <div className="liste">
-        {autres.map((p) => (
+        {autres.flatMap((p) => [
           <button key={p.id} type="button" className={`ligne-projet ${p.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(p.id)} title={p.dossier}>
             <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span><Activite etat={etat} id={p.id} />
-          </button>
-        ))}
+          </button>,
+          ...etat.projets.filter((s) => s.parent === p.id).map((s) => (
+            <button key={s.id} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)} onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(s.id) }}>
+              <span>{s.nom}</span><Activite etat={etat} id={s.id} />
+            </button>
+          ))
+        ])}
       </div>
       <button type="button" className="ligne-projet ajouter" onClick={hub}>＋ <span>Nouveau ou lier</span></button>
     </aside>
@@ -177,7 +231,7 @@ function Etiquette({ etat, id, sinon }: { etat: Etat; id: string; sinon: string 
 function Hub({ etat, ouvrir }: { etat: Etat; ouvrir: (id: string) => void }): JSX.Element {
   const [cree, setCree] = useState(false)
   const libre = etat.projets.find((p) => p.libre)
-  const autres = etat.projets.filter((p) => !p.libre).sort((a, b) => b.derniere - a.derniere)
+  const autres = etat.projets.filter((p) => !p.libre && !p.parent).sort((a, b) => b.derniere - a.derniere)
   return (
     <div className="hub">
       <div className="hub-tete">
@@ -405,6 +459,10 @@ export default function Panneau(): JSX.Element {
 
   // La veille : dire « Encre » ouvre le mode Parler. Elle se tait pendant
   // qu'on parle ou que le poulpe répond, sinon elle s'entendrait elle-même.
+  // La police choisie dans les réglages : posée sur la racine, les styles suivent.
+  const police = etat?.reglages.police
+  useEffect(() => { if (police) document.documentElement.dataset.police = police }, [police])
+
   const veilleActive = !!etat?.reglages.veille && !!etat?.reglages.cleGroq
   const veille = useRef<Veille | null>(null)
   useEffect(() => {
@@ -438,6 +496,7 @@ export default function Panneau(): JSX.Element {
   useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil, vue])
 
   const projet = etat?.projets.find((p) => p.id === etat.actif) ?? null
+  const racine = (projet?.parent && etat?.projets.find((p) => p.id === projet.parent)) || projet
   const avatar = avatarDe(etat?.comptes.find((c) => c.actif)?.avatar)
   actif.current = etat?.actif ?? null
   const enCours = !!projet && !!etat?.enCours.includes(projet.id)
@@ -558,6 +617,10 @@ export default function Panneau(): JSX.Element {
             <Fragment key={i}>
               <div className="fait" title={x.fil ? 'Fil : ce que Claude relit à chaque action. Coût : ce tour en tokens au prix d’une entrée (relu en cache = un dixième).' : undefined}>
                 Fait en {duree(x.duree)}{x.modele ? ` · ${x.modele}` : ''}{x.fil ? ` · fil ${k(x.fil)}` : ''}{x.cout ? ` · coût ≈ ${k(x.cout)}` : ''}
+                {/* Un fil lourd coûte à chaque action : Tako écrit ses notes et repart léger (seul au-delà de 200 k). */}
+                {n === tous.length - 1 && !enCours && !projet.libre && (x.fil ?? 0) >= 100_000 && (
+                  <button type="button" className="ranger" title="Tako écrit ses notes de reprise et repart d’une conversation légère. Le fil affiché ne change pas." onClick={() => window.api.ranger(projet.id)}>Ranger</button>
+                )}
               </div>
               {proposer && (
                 <div className="suites" aria-label="Réponses proposées">
@@ -584,6 +647,9 @@ export default function Panneau(): JSX.Element {
     <div
       className={`panneau ${plein ? 'plein' : ''} ${anim.etat}`}
       style={{ '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
+      // Le cercle d'encre restait figé une fois l'ouverture finie : calculé pour le
+      // petit panneau, il coupait le coin opposé en plein écran (bord en biais, 10/11).
+      onAnimationEnd={(e) => { if (e.target === e.currentTarget && e.animationName === 'encre-ouvre') setAnim((a) => (a.etat === 'entre' ? { ...a, etat: '' } : a)) }}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setGlisse(true) } }}
       onDragLeave={(e) => { if (e.currentTarget === e.target) setGlisse(false) }}
       onDrop={(e) => void deposer(e)}
@@ -596,8 +662,8 @@ export default function Panneau(): JSX.Element {
             {projet?.libre ? '✦' : projet ? initiales(projet.nom) : '+'}
           </span>
           <span className="noms">
-            <strong>{titre?.[0] ?? projet?.nom ?? 'Aucun projet'}</strong>
-            <small>{titre?.[1] ?? (projet?.libre ? 'Questions sans projet' : projet?.dossier)}</small>
+            <strong>{titre?.[0] ?? racine?.nom ?? 'Aucun projet'}</strong>
+            <small>{titre?.[1] ?? (projet?.libre ? 'Questions sans projet' : projet?.parent ? `Sujet · ${projet.nom}` : projet?.dossier)}</small>
           </span>
           {ailleurs.length > 0 && (
             <span
@@ -629,6 +695,8 @@ export default function Panneau(): JSX.Element {
           </div>
         </div>
       </header>
+
+      {vue === 'chat' && etat && projet && !projet.libre && <Sujets etat={etat} projet={projet} ouvrir={ouvrirProjet} />}
 
       {corps}
 

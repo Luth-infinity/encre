@@ -21,6 +21,20 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.4.7',
+    date: '2026-11-10',
+    titre: 'Des sujets, des réponses mises en forme',
+    texte: 'Un projet se range maintenant en sujets, un par ticket ou par chantier : chacun a sa conversation, et Tako ne relit plus tout le reste à chaque action. Ça consomme beaucoup moins. Les réponses, elles, arrivent enfin mises en forme.',
+    majeure: true,
+    points: [
+      'Sujets : une rangée sous le nom du projet, « ＋ Sujet » pour en ouvrir un. Même dossier, mêmes outils, conversation à part. Tako en ouvre un tout seul quand tu passes à autre chose.',
+      'Une longue conversation est rangée d’elle-même : Tako écrit ses notes et repart léger. Un bouton « Ranger » le fait à la demande.',
+      'Réponses mises en forme : titres, listes de cases à cocher, tableaux, citations, code à copier, et les images s’affichent dans le fil.',
+      'Nouvelle police, Bricolage Grotesque, au choix dans les réglages.',
+      'Plein écran : le bord en biais en haut à droite a disparu.'
+    ]
+  },
+  {
     version: '0.4.6',
     date: '2026-11-09',
     titre: 'Des voix bien rangées',

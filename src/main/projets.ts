@@ -59,7 +59,7 @@ export const trouver = (id: string): Projet | null => stock.projets.find((p) => 
 
 /** Lie un dossier existant (ou le reprend s'il est déjà connu) et l'ouvre. */
 export function ajouter(dossier: string, nom?: string): Projet {
-  const deja = stock.projets.find((p) => p.dossier.toLowerCase() === dossier.toLowerCase())
+  const deja = stock.projets.find((p) => !p.parent && p.dossier.toLowerCase() === dossier.toLowerCase())
   if (deja) {
     stock.actif = deja.id
     ecrire()
@@ -98,6 +98,31 @@ export function creer(nom: string, contexte: string): Projet {
   return ajouter(dossier, nom)
 }
 
+/** Le projet d'un sujet (ou le projet lui-même) : c'est lui qui porte les outils et les jetons. */
+export const racineDe = (p: Projet): Projet => (p.parent ? trouver(p.parent) ?? p : p)
+export const sujetsDe = (id: string): Projet[] => stock.projets.filter((p) => p.parent === id)
+
+/** Un sujet neuf dans un projet : même dossier, même couleur, même mode, conversation à part. */
+export function creerSujet(parentId: string, nom: string): Projet | null {
+  const parent = trouver(parentId)
+  if (!parent || parent.libre) return null
+  const racine = racineDe(parent)
+  const s: Projet = {
+    id: randomUUID(),
+    nom: nom.trim() || 'Sujet',
+    dossier: racine.dossier,
+    couleur: racine.couleur,
+    mode: racine.mode,
+    session: null,
+    derniere: Date.now(),
+    parent: racine.id
+  }
+  stock.projets.push(s)
+  stock.actif = s.id
+  ecrire()
+  return s
+}
+
 export function choisir(id: string): void {
   if (stock.projets.some((p) => p.id === id)) stock.actif = id
   ecrire()
@@ -113,7 +138,9 @@ export function modifier(id: string, champs: Partial<Omit<Projet, 'id'>>): void 
 /** Retire le projet d'Encre. Le dossier et ses fichiers restent sur le disque. */
 export function retirer(id: string): void {
   if (trouver(id)?.libre) return
-  stock.projets = stock.projets.filter((p) => p.id !== id)
-  if (stock.actif === id) stock.actif = LIBRE
+  // Retirer un projet retire ses sujets ; retirer un sujet ramène à son projet.
+  const parent = trouver(id)?.parent
+  stock.projets = stock.projets.filter((p) => p.id !== id && p.parent !== id)
+  if (!trouver(stock.actif ?? '')) stock.actif = parent ?? LIBRE
   assurerLibre()
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sortieDouce } from './lib/adoucir'
-import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, VOIX_GEMINI, type Compte, type Etat, type Reglages as R, type VoixEleven, type VoixPerso } from '@shared/types'
+import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, type Police, VOIX_GEMINI, type Compte, type Etat, type Reglages as R, type VoixEleven, type VoixPerso } from '@shared/types'
 
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
@@ -106,6 +106,13 @@ function CreerVoix(): JSX.Element {
 }
 
 /** Un nom court par choix (sur une ligne), et une phrase pour le choix en cours. */
+// Chaque bouton s'écrit dans sa police : on choisit en voyant.
+const POLICES: [Police, string, string][] = [
+  ['bricolage', 'Bricolage', '"Bricolage Grotesque Variable"'],
+  ['space', 'Space Grotesk', '"Space Grotesk Variable"'],
+  ['inter', 'Inter Tight', '"Inter Tight"']
+]
+
 const MODELES: [ChoixModele, string, string][] = [
   ['auto', 'Auto', 'Sonnet pour le simple, Opus pour ce qui demande de réfléchir (trié par Haiku). Dans une longue conversation, Tako garde le même modèle : en changer ferait tout relire et vider tes limites plus vite.'],
   ['sonnet', 'Sonnet', 'Toujours Sonnet : rapide, et plus léger pour tes limites.'],
@@ -324,6 +331,14 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
               ))}
             </div>
             <p className="aide">{MODELES.find(([id]) => id === r.modele)?.[2]}</p>
+          </section>
+          <section>
+            <h4>Police</h4>
+            <div className="segments" role="radiogroup">
+              {POLICES.map(([id, nom, famille]) => (
+                <button key={id} type="button" role="radio" aria-checked={r.police === id} className={r.police === id ? 'on' : ''} style={{ fontFamily: famille }} onClick={() => poser({ police: id })}>{nom}</button>
+              ))}
+            </div>
           </section>
           <section>
             <h4>Démarrage</h4>

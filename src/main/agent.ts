@@ -52,7 +52,7 @@ const texte = (t: string): { content: { type: 'text'; text: string }[] } => ({ c
  * mon client, la refonte du site »). Le tour en cours reste dans son dossier : le projet
  * ouvert prend la main au message suivant.
  */
-function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
+function outilsEncre(sortie: Sortie, projetDuTour?: string): ReturnType<typeof createSdkMcpServer> {
   const ouvrir = (id: string, ligne: string): void => {
     if (sortie.ouvert) sortie.ouvert(id)
     else projets.choisir(id)
@@ -64,7 +64,21 @@ function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
     version: '0.1.0',
     tools: [
       tool('lister_projets', 'Liste les projets d’Encre (id, nom, dossier). À appeler avant d’en créer un, pour ne pas faire de doublon.', {}, async () =>
-        texte(JSON.stringify(projets.projets().map((p) => ({ id: p.id, nom: p.nom, dossier: p.dossier, actif: p.id === projets.actifId() })), null, 2))
+        texte(JSON.stringify(projets.projets().map((p) => ({ id: p.id, nom: p.nom, dossier: p.dossier, sujetDe: p.parent, actif: p.id === projets.actifId() })), null, 2))
+      ),
+      tool(
+        'creer_sujet',
+        'Ouvre un nouveau sujet dans le projet en cours : même dossier et mêmes outils, mais une conversation neuve. À utiliser quand l’utilisateur passe à un autre ticket ou un autre chantier, pour ne pas empiler (chaque action relit toute la conversation). Encre y relance sa demande aussitôt.',
+        { nom: z.string().describe('Nom court, par exemple « Ticket 142 » ou « Page tarifs »') },
+        async ({ nom }) => {
+          const actuel = projets.trouver(projetDuTour ?? '') ?? projets.actif()
+          if (!actuel || actuel.libre) return texte('Pas de sujet dans Libre : crée ou ouvre d’abord un projet.')
+          const s = projets.creerSujet(actuel.id, nom)
+          if (!s) return texte('Impossible de créer ce sujet.')
+          ouvrir(s.id, `Sujet ${s.nom} ouvert`)
+          fils.noter(s.id, { type: 'info', texte: `Sujet ouvert depuis « ${actuel.nom} »` })
+          return texte(`Sujet « ${s.nom} » ouvert. Dis-le en une phrase et arrête-toi : Encre y relance la demande.`)
+        }
       ),
       tool(
         'creer_projet',
@@ -96,6 +110,8 @@ function outilsEncre(sortie: Sortie): ReturnType<typeof createSdkMcpServer> {
     ]
   })
 }
+
+const OUTILS_ENCRE = ['mcp__encre__lister_projets', 'mcp__encre__creer_projet', 'mcp__encre__ouvrir_projet', 'mcp__encre__creer_sujet']
 
 const MODES: Record<Mode, PermissionMode> = { demander: 'default', modifs: 'acceptEdits', auto: 'auto' }
 
@@ -215,10 +231,10 @@ const CONSIGNE_VOIX = [
 
 /** Les notes de reprise d'un projet (écrites par Claude quand Encre range une session). */
 export const cheminNotes = (id: string): string => join(app.getPath('userData'), 'notes', `${id}.md`)
-function notes(projet: Projet): string {
-  if (projet.session || projet.libre) return ''
+function notes(projet: Projet, max = 12000): string {
+  if (projet.libre) return ''
   try {
-    return readFileSync(cheminNotes(projet.id), 'utf-8').slice(0, 12000).trim()
+    return readFileSync(cheminNotes(projet.id), 'utf-8').slice(0, max).trim()
   } catch {
     return ''
   }
@@ -226,18 +242,31 @@ function notes(projet: Projet): string {
 
 function consigne(projet: Projet): string {
   const a = avatarActif()
-  const n = notes(projet)
+  // Les notes ne servent qu'à une session neuve : une session reprise a déjà tout.
+  const n = projet.session ? '' : notes(projet)
+  const racine = projets.racineDe(projet)
+  // Un sujet neuf repart aussi des notes du projet, en plus court : le contexte général sans tout l'historique.
+  const np = projet.session || racine === projet ? '' : notes(racine, 5000)
   return [
     `Tu es ${a.nom}, ${ESPECES[a.espece]} d’Encre : une bulle qui flotte sur le bureau de l’utilisateur et ouvre ce chat. Si on te demande ton nom, c’est ${a.nom}. Ton ton est ${a.ton}.`,
     'Réponds en français, court et concret. Avant chaque étape, une phrase courte qui dit ce que tu fais.',
+    // Le fil rend le Markdown (titres, tableaux, cases, citations, images) : les réponses en texte brut faisaient « pas quali » (10/11).
+    'Mets en forme quand ça aide à lire : un titre court pour une réponse longue, un tableau pour comparer, une liste de cases (- [ ] / - [x]) pour un plan ou des étapes à suivre, du gras pour l’essentiel, une citation (>) pour un extrait. Quand tu trouves des images (recherche, capture, fichier), montre-les avec ![description](adresse ou chemin du fichier) plutôt que de donner le lien seul. Une réponse simple reste un paragraphe.',
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
     // Les suggestions de réponse : Encre retire cette ligne du texte et de la voix et en fait des boutons.
     'Termine chaque réponse par une dernière ligne <suites>…</suites> contenant trois choses que l’utilisateur pourrait te répondre ensuite, séparées par | : écrites à sa place, à la première personne, courtes (deux à huit mots), utiles pour la suite (par exemple <suites>Publie et installe | Montre-moi le résultat | Explique le souci</suites>). Rien après cette ligne, et ne la mentionne jamais.',
     '',
     projet.libre
       ? 'Mode Libre : un brouillon qui repart à vide à chaque visite. Une question rapide (une info, une explication, une formulation) se traite ici, sans projet. Mais dès que l’utilisateur veut FAIRE quelque chose qui demande du travail ou un suivi (« j’aimerais faire tel truc », un client, un sujet, une app, un document à produire), ne commence pas le travail ici : regarde lister_projets, ouvre le projet s’il existe (ouvrir_projet), sinon crée-le tout de suite sans lui demander (creer_projet) avec un nom court et tout le contexte qu’il t’a donné. Dis-lui en une phrase que tu t’y mets dans ce projet, et arrête-toi : Encre y déplace la conversation et t’y relance aussitôt.'
-      : `Projet ouvert : « ${projet.nom} » (${projet.dossier}). Pour changer de projet ou en créer un, utilise les outils encre.`,
-    ...(n ? ['', 'Tes notes de reprise, écrites à la fin de la session précédente sur ce projet (c’est là qu’on en était) :', n] : [])
+      : racine !== projet
+        ? `Projet ouvert : « ${racine.nom} » (${projet.dossier}), sujet « ${projet.nom} ». Ce sujet a sa propre conversation : reste dessus. Pour changer de projet ou ouvrir un autre sujet, utilise les outils encre.`
+        : `Projet ouvert : « ${projet.nom} » (${projet.dossier}). Pour changer de projet ou en créer un, utilise les outils encre.`,
+    ...(projet.libre ? [] : [
+      // Chaque action relit toute la conversation : séparer les sujets et garder les gros résultats hors du fil, c'est ce qui coûte le moins.
+      'Économise le fil : si l’utilisateur passe à un autre ticket ou un chantier sans rapport avec la conversation en cours (et qu’elle a déjà du contenu), ouvre un sujet avec creer_sujet au lieu d’empiler, dis-le en une phrase et arrête-toi. Pour une exploration large (chercher dans beaucoup de fichiers, lire de longues pages ou documentations), passe par un sous-agent (outil Agent) qui te rend seulement l’essentiel. Lis les gros fichiers par morceaux.'
+    ]),
+    ...(np ? ['', `Les notes du projet « ${racine.nom} » (contexte général, d’autres sujets) :`, np] : []),
+    ...(n ? ['', `Tes notes de reprise, écrites à la fin de la session précédente sur ce ${racine !== projet ? 'sujet' : 'projet'} (c’est là qu’on en était) :`, n] : [])
   ].join('\n')
 }
 
@@ -367,9 +396,9 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       settingSources: ['user', 'project', 'local'],
       systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet) },
       pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
-      env: { ...envPropre(), ...envDuProjet(projet) },
-      mcpServers: { ...serveursDuProjet(projet), encre: outilsEncre(sortie) },
-      allowedTools: ['mcp__encre__lister_projets', 'mcp__encre__creer_projet', 'mcp__encre__ouvrir_projet'],
+      env: { ...envPropre(), ...envDuProjet(projets.racineDe(projet)) },
+      mcpServers: { ...serveursDuProjet(projets.racineDe(projet)), encre: outilsEncre(sortie, projet.id) },
+      allowedTools: OUTILS_ENCRE,
       canUseTool: async (nom, entree, { signal, suggestions, toolUseID }): Promise<PermissionResult> => {
         // Les outils d'Encre ne touchent qu'à la liste des projets : jamais de demande.
         if (nom.startsWith('mcp__encre__')) return { behavior: 'allow', updatedInput: entree }
@@ -492,6 +521,13 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
 const RANGER_APRES = 45 * 60_000
 /** En dessous, la session est assez légère pour être reprise telle quelle. */
 const RANGER_DES = 15_000
+/**
+ * Au-delà, la session est rangée dès la fin du tour, sans attendre 45 min :
+ * une matinée de travail sans pause est montée à 746 k relus à chaque action
+ * (10/11), et le rangement au repos ne venait jamais. Le cache est chaud, les
+ * notes coûtent un dixième d'une relecture.
+ */
+const RANGER_TAILLE = Number(process.env.ENCRE_RANGER_TAILLE) || 200_000
 const minuteurs = new Map<string, ReturnType<typeof setTimeout>>()
 const rangements = new Map<string, Promise<void>>()
 /** Le main montre Tako qui écrit pendant un rangement (humeur `note`). */
@@ -500,29 +536,45 @@ export function quandRange(cb: (projet: string, enCours: boolean) => void): void
   surRangement = cb
 }
 
+function lancerRangement(id: string, session: string | null): boolean {
+  const q = projets.trouver(id)
+  if (!q || q.libre || !q.session || q.session !== (session ?? q.session) || tours.has(id) || rangements.has(id)) return false
+  surRangement(id, true)
+  rangements.set(
+    id,
+    ranger(q)
+      .catch((e) => journal(`rangement de ${q.nom} impossible : ${String(e)}`))
+      .finally(() => {
+        rangements.delete(id)
+        surRangement(id, false)
+      })
+  )
+  return true
+}
+
 function programmerRangement(id: string): void {
   clearTimeout(minuteurs.get(id))
   const p = projets.trouver(id)
   if (!p || p.libre || !p.session || (p.contexte ?? 0) < RANGER_DES) return
   const session = p.session
+  // Un fil lourd est rangé presque tout de suite (quelques secondes laissent
+  // passer un message glissé juste après la fin du tour).
+  const lourd = (p.contexte ?? 0) >= RANGER_TAILLE
+  if (lourd) journal(`rangement de ${p.nom} : fil de ${Math.round((p.contexte ?? 0) / 1000)} k, rangé dès maintenant`)
   minuteurs.set(
     id,
     setTimeout(() => {
       minuteurs.delete(id)
-      const q = projets.trouver(id)
-      if (!q || q.session !== session || tours.has(id)) return
-      surRangement(id, true)
-      rangements.set(
-        id,
-        ranger(q)
-          .catch((e) => journal(`rangement de ${q.nom} impossible : ${String(e)}`))
-          .finally(() => {
-            rangements.delete(id)
-            surRangement(id, false)
-          })
-      )
-    }, Number(process.env.ENCRE_RANGER_APRES) || RANGER_APRES)
+      lancerRangement(id, session)
+    }, lourd ? 4000 : Number(process.env.ENCRE_RANGER_APRES) || RANGER_APRES)
   )
+}
+
+/** « Ranger maintenant » sous une réponse : la même chose, à la demande. */
+export function rangerMaintenant(id: string): boolean {
+  clearTimeout(minuteurs.get(id))
+  minuteurs.delete(id)
+  return lancerRangement(id, null)
 }
 
 const DEMANDE_NOTES = [
@@ -554,9 +606,9 @@ async function ranger(projet: Projet): Promise<void> {
       settingSources: ['user', 'project', 'local'],
       systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet) },
       pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
-      env: { ...envPropre(), ...envDuProjet(projet) },
-      mcpServers: { ...serveursDuProjet(projet), encre: outilsEncre({ evenement: () => {}, humeur: () => {} }) },
-      allowedTools: ['mcp__encre__lister_projets', 'mcp__encre__creer_projet', 'mcp__encre__ouvrir_projet'],
+      env: { ...envPropre(), ...envDuProjet(projets.racineDe(projet)) },
+      mcpServers: { ...serveursDuProjet(projets.racineDe(projet)), encre: outilsEncre({ evenement: () => {}, humeur: () => {} }) },
+      allowedTools: OUTILS_ENCRE,
       model: projet.modeleVu,
       canUseTool: async (): Promise<PermissionResult> => ({ behavior: 'deny', message: 'Pas d’outil : écris seulement les notes.' })
     }

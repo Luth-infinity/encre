@@ -39,6 +39,8 @@ const api = {
   choisirProjet: (id: string) => ipcRenderer.send('choisir-projet', id),
   creerProjet: (nom: string, contexte: string): Promise<string | null> => ipcRenderer.invoke('creer-projet', nom, contexte),
   menuCarte: (id: string) => ipcRenderer.send('menu-carte', id),
+  creerSujet: (parent: string, nom: string): Promise<string | null> => ipcRenderer.invoke('creer-sujet', parent, nom),
+  ranger: (id: string) => ipcRenderer.send('ranger', id),
   fermer: () => ipcRenderer.send('fermer-panneau'),
   /** Le panneau prend tout l'écran, ou revient contre la bulle. */
   pleinEcran: () => ipcRenderer.send('plein-ecran'),

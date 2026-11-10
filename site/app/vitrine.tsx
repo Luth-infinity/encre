@@ -122,6 +122,24 @@ function DemoProjets() {
   );
 }
 
+function DemoSujets() {
+  const sujets: [string, boolean][] = [['Général', false], ['Ticket 142', true], ['Ticket 151', false]];
+  return (
+    <div className="flex w-full max-w-[400px] flex-col gap-4 text-[13px]">
+      <div className="flex flex-wrap gap-1.5">
+        {sujets.map(([nom, on]) => (
+          <span key={nom} className={`rounded-full px-3 py-1 font-semibold ${on ? 'bg-ink text-card' : 'bg-card text-ink-soft'}`}>{nom}</span>
+        ))}
+        <span className="rounded-full px-3 py-1 font-semibold text-ink-soft ring-1 ring-inset ring-black/10">＋ Sujet</span>
+      </div>
+      <ul className="grid gap-1.5">
+        <li className="flex items-center justify-between rounded-[14px] bg-card px-3 py-2.5"><span className="text-ink-soft">Trois tickets dans une conversation</span><strong>746 k relus</strong></li>
+        <li className="flex items-center justify-between rounded-[14px] bg-card px-3 py-2.5"><span className="text-ink-soft">Un sujet par ticket</span><strong>48 k relus</strong></li>
+      </ul>
+    </div>
+  );
+}
+
 function DemoSuites() {
   return (
     <div className="flex w-full max-w-[360px] flex-col gap-3 text-[13px]">
@@ -258,6 +276,9 @@ export default async function Vitrine() {
               </p>
             </div>
             <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              <Carte large version="0.4.7" titre="Un sujet par ticket" texte="Dans un projet, ouvre un sujet par ticket ou par chantier : même dossier, mêmes outils, mais chacun sa conversation. Tako ne relit plus les autres à chaque action, et tes limites tiennent bien plus longtemps.">
+                <DemoSujets />
+              </Carte>
               <Carte large version="0.3.2" titre="Plusieurs projets en même temps" texte="Lance un chantier, passe à un autre projet, lances-en un deuxième : rien ne s’arrête. Un point te dit qui travaille et qui attend ton accord, la bulle prend la couleur la plus urgente.">
                 <DemoProjets />
               </Carte>

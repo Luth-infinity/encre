@@ -1,6 +1,7 @@
 import { BrowserWindow, screen, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
+import { fileURLToPath } from 'url'
 
 /**
  * Deux fenêtres :
@@ -25,6 +26,8 @@ function charger(f: BrowserWindow, vue: 'bulle' | 'panneau'): void {
   else void f.loadFile(join(__dirname, '../renderer/index.html'), { query: { vue } })
   f.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url)
+    // Une image locale montrée dans le fil (capture faite par Claude) s'ouvre dans la visionneuse.
+    else if (/^file:\/\/.*\.(png|jpe?g|gif|webp|avif|svg)$/i.test(url)) void shell.openPath(fileURLToPath(url))
     return { action: 'deny' }
   })
 }

@@ -12,7 +12,7 @@ import { avatarActif } from './comptes'
 
 type Stock = Omit<Reglages, 'cleGroq' | 'cleGemini' | 'cleEleven'>
 
-const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: false, suite: true, demarrage: true, modele: 'auto', modeleEleven: 'rapide', voixAvatars: {} }
+const DEFAUT: Stock = { voix: VOIX[0].id, voixPerso: [], veille: false, suite: true, demarrage: true, modele: 'auto', modeleEleven: 'rapide', voixAvatars: {}, police: 'bricolage' }
 
 const fichier = (): string => join(app.getPath('userData'), 'reglages.json')
 
@@ -38,6 +38,7 @@ function charger(): Stock {
   }
   if (!['auto', 'sonnet', 'opus', 'claude'].includes(stock.modele)) stock.modele = DEFAUT.modele
   if (!['rapide', 'naturel'].includes(stock.modeleEleven)) stock.modeleEleven = DEFAUT.modeleEleven
+  if (!['bricolage', 'space', 'inter'].includes(stock.police)) stock.police = DEFAUT.police
   if (!existe('groq')) heriterCle()
   return stock
 }

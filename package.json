@@ -1,6 +1,6 @@
 {
   "name": "encre",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": true,
   "description": "Un poulpe sur ton écran : ton Claude Code, en chat ou à la voix",
   "author": "Luth",
@@ -16,6 +16,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "*",
     "@electron-toolkit/utils": "^3.0.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/space-grotesk": "^5.3.0",
     "@fontsource/inter-tight": "^5.0.0",
     "@fontsource/jetbrains-mono": "^5.0.0",
     "electron-updater": "^6.8.11",

@@ -34,6 +34,12 @@ export type Projet = {
   /** Niveau et modèle du fil en cours : un long fil les garde, pour ne pas perdre son cache. */
   niveau?: Niveau
   modeleVu?: string
+  /**
+   * Un sujet (ticket, chantier) d'un projet : même dossier, mêmes outils, mais
+   * sa propre conversation. Trois tickets dans une seule session, c'était relire
+   * le premier pendant le troisième (fil monté à 746 k, 10/11).
+   */
+  parent?: string
 }
 
 export type Diff = { fichier: string; avant: string; apres: string }
@@ -194,7 +200,11 @@ export type Reglages = {
   modele: ChoixModele
   /** Modèle ElevenLabs : `rapide` = Flash v2.5 (0,5 crédit/car.), `naturel` = Multilingual v2 (1 crédit/car., meilleur français). */
   modeleEleven: 'rapide' | 'naturel'
+  /** La police de l'interface et des réponses. */
+  police: Police
 }
+
+export type Police = 'bricolage' | 'space' | 'inter'
 
 /** `rapide` = Sonnet, `costaud` = Opus (`main/tri.ts`). */
 export type Niveau = 'rapide' | 'costaud'
