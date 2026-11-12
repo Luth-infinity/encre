@@ -21,6 +21,16 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.4.9',
+    date: '2026-11-12',
+    titre: 'La fenêtre de connexion s’ouvre enfin',
+    texte: 'En 0.4.8, « Connecter » ne faisait rien : une apostrophe dans un message empêchait la fenêtre de démarrer. C’est réparé, Notion et les autres se connectent pour de vrai.',
+    points: [
+      'Le bouton « Connecter » de la page Outils ouvre bien sa fenêtre.',
+      'Quand tu demandes à Tako de connecter un outil, la fenêtre s’ouvre aussi.'
+    ]
+  },
+  {
     version: '0.4.8',
     date: '2026-11-12',
     titre: 'Tes outils, connectés en un clic',

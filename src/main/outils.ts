@@ -124,7 +124,9 @@ function ouvrirConsole(titre: string, intro: string[], commandes: string[][], cw
     spawn('open', ['-a', 'Terminal', script], { cwd, env, detached: true, stdio: 'ignore' }).unref()
     return true
   }
-  const q = (x: string): string => `'${x.replace(/'/g, "''")}'`
+  // PowerShell prend aussi les apostrophes courbes (’ ‘) pour des guillemets :
+  // « s’ouvrir » fermait la chaîne et le script entier ne se lisait plus.
+  const q = (x: string): string => `'${x.replace(/['‘’‚‛]/g, '$&$&')}'`
   const script = join(scripts, 'connecter.ps1')
   // PowerShell 5 lit un script sans BOM en ANSI : les accents casseraient.
   writeFileSync(
