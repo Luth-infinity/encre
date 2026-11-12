@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
-import { appliquer, avatarDe, type Bloc, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
+import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
 import tako from './assets/tako.png'
@@ -504,9 +504,9 @@ export default function Panneau(): JSX.Element {
   const ailleurs = etat ? etat.projets.filter((p) => p.id !== projet?.id && etat.enCours.includes(p.id)) : []
 
   // Pendant un tour, le message rejoint le travail en cours (le main le glisse).
-  const envoyer = (texte: string, pieces: PieceJointe[], citation?: string): void => {
+  const envoyer = (texte: string, pieces: PieceJointe[], citations?: Cite[]): void => {
     if (!projet) return
-    window.api.envoyer(texte, pieces, false, citation)
+    window.api.envoyer(texte, pieces, false, citations)
   }
 
   /** Une sélection dans une réponse de Tako fait apparaître « Répondre » juste au-dessus. */
@@ -599,7 +599,12 @@ export default function Panneau(): JSX.Element {
           if (x.type === 'moi') {
             return (
               <div key={i} className={`moi ${x.voix ? 'voix' : ''} ${x.pendant ? 'pendant' : ''}`} title={x.pendant ? 'Envoyé pendant que Tako travaillait' : undefined}>
-                {x.citation && <div className="cite">{x.citation}</div>}
+                {(x.citations ?? (x.citation ? [{ passage: x.citation }] : [])).map((c, j) => (
+                  <Fragment key={j}>
+                    <div className="cite">{c.passage}</div>
+                    {c.reponse && <div className="cite-reponse">{c.reponse}</div>}
+                  </Fragment>
+                ))}
                 {x.voix && <span className="dit-voix"><Micro /></span>}
                 {x.texte}
                 {x.pieces?.length ? <div className="jointes">{x.pieces.map((n, j) => <span key={j}>{n}</span>)}</div> : null}

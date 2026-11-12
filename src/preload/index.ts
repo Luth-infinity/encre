@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
-  Bloc, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, OutilConnu, OutilMachine, PieceJointe, Reglages, Reponse, VoixEleven
+  Bloc, Cite, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, OutilConnu, OutilMachine, PieceJointe, Reglages, Reponse, VoixEleven
 } from '../shared/types'
 
 function recevoir<T extends unknown[]>(canal: string, cb: (...v: T) => void): () => void {
@@ -25,9 +25,9 @@ const api = {
   surTourFini: (cb: () => void) => recevoir('tour-fini', cb),
   fil: (id: string): Promise<Bloc[]> => ipcRenderer.invoke('fil', id),
 
-  /** Pendant un tour, le message s'y glisse. `citation` : le passage d'une réponse auquel on répond. */
-  envoyer: (texte: string, pieces: PieceJointe[] = [], voix = false, citation?: string) =>
-    ipcRenderer.send('envoyer', texte, pieces, voix, citation),
+  /** Pendant un tour, le message s'y glisse. `citations` : les passages des réponses auxquels on répond. */
+  envoyer: (texte: string, pieces: PieceJointe[] = [], voix = false, citations?: Cite[]) =>
+    ipcRenderer.send('envoyer', texte, pieces, voix, citations),
   /** Relire les limites du compte Claude (5 h, semaine) si elles datent : la réponse arrive par `etat`. */
   limites: () => ipcRenderer.send('limites'),
   arreter: () => ipcRenderer.send('arreter'),

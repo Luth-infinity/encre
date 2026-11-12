@@ -2,7 +2,7 @@ import './avant'
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { VOIX, VOIX_GEMINI, type Etat, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse, type VoixEleven } from '@shared/types'
+import { VOIX, VOIX_GEMINI, type Etat, type Cite, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse, type VoixEleven } from '@shared/types'
 import * as agent from './agent'
 import * as comptes from './comptes'
 import { etatClaude, noterConnexion, reprendrePathDuShell } from './claude'
@@ -151,11 +151,20 @@ function viderLibre(): void {
  * `relance` : le tour qui suit une création de projet depuis Libre. La
  * demande est déjà dans le fil déplacé : on ne la réaffiche pas.
  */
-/** Ce que Claude reçoit quand on répond à un passage : le passage en citation Markdown, puis le message. */
-function citer(citation: string | undefined, texte: string): string {
-  if (!citation?.trim()) return texte
-  const cite = citation.trim().split('\n').map((l) => `> ${l}`).join('\n')
-  return `Je réponds à ce passage de ta réponse :\n${cite}\n\n${texte}`
+/**
+ * Ce que Claude reçoit quand on répond à des passages : chacun en citation
+ * Markdown suivi de ce qu'on y répond, puis le message. On peut en cumuler
+ * plusieurs (répondre à la question 1, puis à la 2, en un seul envoi).
+ */
+function citer(citations: Cite[] | undefined, texte: string): string {
+  const liste = (citations ?? []).filter((c) => c.passage.trim())
+  if (!liste.length) return texte
+  const blocs = liste.map((c) => {
+    const cite = c.passage.trim().split('\n').map((l) => `> ${l}`).join('\n')
+    return c.reponse?.trim() ? `${cite}\n\n${c.reponse.trim()}` : cite
+  })
+  const intro = liste.length > 1 ? 'Je réponds à plusieurs passages de ta réponse, chacun suivi de ma réponse :' : 'Je réponds à ce passage de ta réponse :'
+  return [`${intro}\n${blocs.join('\n\n')}`, texte].filter((x) => x.trim()).join('\n\n')
 }
 
 /**
@@ -174,19 +183,20 @@ const vocaux = new Set<string>()
  * relances (Libre qui déménage, messages en attente) visent leur projet même
  * si l'utilisateur est parti ailleurs entre-temps.
  */
-function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string, citation?: string, cible?: string): void {
+function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: string, citations?: Cite[], cible?: string): void {
   const p = cible ? projets.trouver(cible) : projets.actif()
-  if (!p || (!texte.trim() && !pieces.length)) return
+  const cites = citations?.filter((c) => c.passage.trim()).map((c) => ({ passage: c.passage.trim(), reponse: c.reponse?.trim() || undefined }))
+  if (!p || (!texte.trim() && !pieces.length && !cites?.some((c) => c.reponse))) return
   const moi = (pendant?: boolean): Evenement => ({
     type: 'moi', texte, pieces: pieces.length ? pieces.map((x) => x.nom) : undefined, voix: voix || undefined,
-    citation: citation?.trim() || undefined, pendant
+    citations: cites?.length ? cites : undefined, pendant
   })
   // Tako travaille déjà sur ce projet : le message rejoint son tour (comme
   // dans Claude Code), ou attend la fin s'il est trop tard pour l'y glisser.
   // Les autres projets, eux, travaillent en parallèle.
   if (agent.enCours(p.id)) {
     if (!relance) diffuser(p.id, moi(true))
-    const message = relance ?? citer(citation, texte)
+    const message = relance ?? citer(cites, texte)
     if (!agent.glisser(p.id, message, pieces)) suivants.set(p.id, [...(suivants.get(p.id) ?? []), { texte: message, pieces }])
     return
   }
@@ -208,7 +218,7 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
   void agent
     .envoyer(
       p,
-      relance ?? citer(citation, texte),
+      relance ?? citer(cites, texte),
       {
         evenement: (ev) => {
           if (ev.type === 'texte') parle = true
@@ -313,8 +323,8 @@ function brancher(): void {
   ipcMain.handle('humeur', () => humeur)
   ipcMain.handle('fil', (_e, id: string) => fils.fil(id))
 
-  ipcMain.on('envoyer', (_e, texte: string, pieces: PieceJointe[] = [], voix = false, citation?: string) =>
-    envoyer(texte, pieces, voix, undefined, citation)
+  ipcMain.on('envoyer', (_e, texte: string, pieces: PieceJointe[] = [], voix = false, citations?: Cite[]) =>
+    envoyer(texte, pieces, voix, undefined, Array.isArray(citations) ? citations : undefined)
   )
   // Le panneau s'ouvre : les limites lues il y a plus d'une minute sont relues (hors tour, le tour les donne seul).
   ipcMain.on('limites', () => {

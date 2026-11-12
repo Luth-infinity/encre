@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import type { Commande, PieceJointe } from '@shared/types'
+import type { Cite, Commande, PieceJointe } from '@shared/types'
 import { Micro, Trombone } from './icones'
 
 /** Les images partent telles quelles à Claude ; au-delà, mieux vaut le chemin. */
@@ -29,13 +29,13 @@ export async function versPiece(f: File): Promise<PieceJointe | null> {
   return chemin ? { nom: f.name, chemin } : null
 }
 
-/** `citer` : répondre à un passage d'une réponse (sélectionné dans le fil). */
+/** `citer` : répondre à un passage d'une réponse (sélectionné dans le fil). Les passages se cumulent. */
 export type SaisieRef = { ajouter: (p: PieceJointe[]) => void; focus: () => void; citer: (passage: string) => void }
 
 type Props = {
   enCours: boolean
   /** Pendant un tour aussi : le message rejoint le travail en cours. */
-  envoyer: (texte: string, pieces: PieceJointe[], citation?: string) => void
+  envoyer: (texte: string, pieces: PieceJointe[], citations?: Cite[]) => void
   arreter: () => void
   /** Ouvre la conversation à la voix (le bouton micro, quand rien n'est écrit). */
   parler: () => void
@@ -52,7 +52,12 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
   const [pieces, setPieces] = useState<PieceJointe[]>([])
   const [commandes, setCommandes] = useState<Commande[] | null>(null)
   const [choix, setChoix] = useState(0)
-  const [citation, setCitation] = useState<string | null>(null)
+  /**
+   * Les passages auxquels on répond, dans l'ordre. Le dernier a pour réponse
+   * le texte en cours ; citer un autre passage fige ce texte sous le précédent
+   * (une seule citation à la fois obligeait à envoyer entre chaque question).
+   */
+  const [citations, setCitations] = useState<Cite[]>([])
   const zone = useRef<HTMLTextAreaElement>(null)
   const fichier = useRef<HTMLInputElement>(null)
 
@@ -60,7 +65,12 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
     ajouter: (p) => setPieces((x) => [...x, ...p]),
     focus: () => zone.current?.focus(),
     citer: (passage) => {
-      setCitation(passage)
+      const t = texte.trim()
+      setCitations((x) => {
+        const avant = x.length && t ? [...x.slice(0, -1), { ...x[x.length - 1], reponse: t }] : x
+        return [...avant, { passage }]
+      })
+      if (citations.length && t) setTexte('')
       zone.current?.focus()
     }
   }))
@@ -68,7 +78,7 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
   // Un autre projet, d'autres commandes : on les redemandera. La citation venait de l'autre fil.
   useEffect(() => {
     setCommandes(null)
-    setCitation(null)
+    setCitations([])
   }, [projet])
 
   const motif = /^\/(\S*)$/.exec(texte)
@@ -85,14 +95,20 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
   }
 
   const partir = (): void => {
-    const t = texte.trim()
+    let t = texte.trim()
+    let cites = citations
+    // Rien d'écrit sous le dernier passage : la dernière réponse figée redevient le message.
+    if (!t && cites.length > 1 && cites[cites.length - 2].reponse) {
+      t = cites[cites.length - 2].reponse ?? ''
+      cites = [...cites.slice(0, -2), { passage: cites[cites.length - 2].passage }]
+    }
     if (!t && !pieces.length) return
     // Une commande / ne se glisse pas dans un tour : Claude Code la lirait comme du texte.
-    if (enCours && t.startsWith('/')) return
-    envoyer(t, pieces, citation ?? undefined)
+    if (enCours && t.startsWith('/') && !cites.length) return
+    envoyer(t, pieces, cites.length ? cites : undefined)
     setTexte('')
     setPieces([])
-    setCitation(null)
+    setCitations([])
   }
 
   const touche = (e: React.KeyboardEvent): void => {
@@ -142,11 +158,18 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
           ))}
         </div>
       )}
-      {citation && (
-        <div className="citation">
-          <span className="trait" />
-          <span className="passage">{citation}</span>
-          <button type="button" title="Ne plus répondre à ce passage" onClick={() => setCitation(null)}>✕</button>
+      {citations.length > 0 && (
+        <div className="citations">
+          {citations.map((c, i) => (
+            <div key={i} className="citation">
+              <span className="trait" />
+              <span className="corps">
+                <span className="passage">{c.passage}</span>
+                {c.reponse && <span className="reponse">{c.reponse}</span>}
+              </span>
+              <button type="button" title="Ne plus répondre à ce passage" onClick={() => setCitations(citations.filter((_, j) => j !== i))}>✕</button>
+            </div>
+          ))}
         </div>
       )}
       {pieces.length > 0 && (
@@ -179,7 +202,7 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
           ref={zone}
           rows={1}
           value={texte}
-          placeholder={enCours ? 'Une autre idée ? Tako la prend en route…' : citation ? 'Ta réponse à ce passage…' : 'Écris à Claude, / pour les commandes…'}
+          placeholder={citations.length ? (citations.length > 1 ? 'Ta réponse à ce passage… (sélectionne-en un autre pour enchaîner)' : 'Ta réponse à ce passage…') : enCours ? 'Une autre idée ? Tako la prend en route…' : 'Écris à Claude, / pour les commandes…'}
           onChange={(e) => setTexte(e.target.value)}
           onKeyDown={touche}
           onPaste={(e) => void coller(e)}

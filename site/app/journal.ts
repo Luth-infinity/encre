@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.0',
+    date: '2026-11-12',
+    titre: 'Réponds à plusieurs passages d’un coup',
+    texte: 'Quand Tako pose plusieurs questions, tu peux maintenant répondre à chacune dans le même message : tu sélectionnes la première, tu réponds, tu sélectionnes la suivante, et tout part ensemble.',
+    points: [
+      'Chaque « Répondre » s’ajoute aux précédents au lieu de les remplacer.',
+      'Ta réponse reste rangée sous son passage, au-dessus de la saisie, avant l’envoi.',
+      'Dans le fil, chaque passage s’affiche suivi de ta réponse.'
+    ]
+  },
+  {
     version: '0.4.9',
     date: '2026-11-12',
     titre: 'La fenêtre de connexion s’ouvre enfin',

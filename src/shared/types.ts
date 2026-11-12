@@ -53,9 +53,16 @@ export type Outil = { id: string; nom: string; libelle: string; detail: string; 
  */
 export type PieceJointe = { nom: string; chemin?: string; image?: { media: string; donnees: string } }
 
+/**
+ * Un passage d'une réponse auquel on répond. On peut en cumuler plusieurs dans
+ * un message : `reponse` est ce qu'on a écrit sous ce passage avant d'en citer
+ * un autre (le dernier passage, lui, a le texte du message pour réponse).
+ */
+export type Cite = { passage: string; reponse?: string }
+
 /** Ce que le main envoie au panneau pendant un tour, et ce qu'il garde dans le fil. */
 export type Evenement =
-  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean; citation?: string; pendant?: boolean }
+  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean; citation?: string; citations?: Cite[]; pendant?: boolean }
   | { type: 'texte'; texte: string }
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
@@ -68,10 +75,11 @@ export type Evenement =
 /** Un élément du fil affiché (et enregistré) : les événements, une fois cumulés. */
 export type Bloc =
   /**
-   * `citation` : le passage d'une réponse auquel on répond (sélectionné dans le fil).
+   * `citations` : les passages auxquels on répond (sélectionnés dans le fil).
+   * `citation` : l'ancienne forme (un seul passage), gardée pour les fils déjà enregistrés.
    * `pendant` : envoyé pendant que Tako travaillait, glissé dans son tour.
    */
-  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean; citation?: string; pendant?: boolean }
+  | { type: 'moi'; texte: string; pieces?: string[]; voix?: boolean; citation?: string; citations?: Cite[]; pendant?: boolean }
   | { type: 'ia'; texte: string }
   | { type: 'outil'; outil: Outil }
   | { type: 'demande'; demande: Outil }
@@ -92,7 +100,7 @@ export function appliquer(fil: Bloc[], e: Evenement): Bloc[] {
     case 'demande-close':
       return fil.filter((x) => !(x.type === 'demande' && x.demande.id === e.id))
     case 'moi':
-      return [...fil, { type: 'moi', texte: e.texte, pieces: e.pieces, voix: e.voix, citation: e.citation, pendant: e.pendant }]
+      return [...fil, { type: 'moi', texte: e.texte, pieces: e.pieces, voix: e.voix, citation: e.citation, citations: e.citations, pendant: e.pendant }]
     case 'outil':
       return [...fil, { type: 'outil', outil: e.outil }]
     case 'demande':
