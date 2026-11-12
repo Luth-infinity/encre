@@ -386,10 +386,13 @@ et le caractère traduits (`decrireEleven`). Vérif sans clé :
 - **Répondre à un passage** : sélectionner du texte dans une réponse fait
   apparaître « ↳ Répondre » ; le passage s'affiche au-dessus de la saisie,
   puis part en citation Markdown (`citer()` dans `main/index.ts`).
-  **Citations cumulées (12/11)** : citer un autre passage fige le texte déjà
-  tapé sous le précédent (`Cite.reponse`) et empile le nouveau ; tout part en un
-  message (question 1, réponse, question 2, réponse). Avant, il fallait envoyer
-  entre chaque passage. Les fils anciens gardent `citation` (un seul passage).
+  **Citations cumulées (12/11)** : « Répondre » ouvre une petite bulle
+  (`BulleReponse` dans `Panneau.tsx`) où l'on écrit sa réponse ; « Ajouter »
+  la pose en vignette au-dessus du champ, comme une pièce jointe (clic =
+  corriger, ✕ = retirer). Le champ reste au message neutre, envoyé après un
+  « Par ailleurs : ». Tout part en un message. Première version (0.5.0) :
+  la réponse s'écrivait dans le champ même, « ça mélange tout ». Les fils
+  anciens gardent `citation` (un seul passage).
 - **Limites** (5 h, semaine) : `rate_limit_event` à chaque appel
   (`unifiedWindows`, part de 0 à 1, absent des types du SDK) ; hors tour,
   `usage_EXPERIMENTAL_…` sur une session sans message, relu à l'ouverture du

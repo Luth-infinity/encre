@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.1',
+    date: '2026-11-12',
+    titre: 'Une petite bulle pour chaque réponse',
+    texte: 'Répondre à un passage ne passe plus par le champ du bas : une petite bulle s’ouvre près du passage, tu écris ta réponse et tu l’ajoutes. Le champ reste libre pour le reste.',
+    points: [
+      '« Répondre » ouvre une bulle d’écriture juste au-dessus du passage choisi.',
+      '« Ajouter » pose ta réponse au-dessus du champ, comme une image jointe. Un clic pour la corriger, ✕ pour la retirer.',
+      'Le champ du bas sert à ce qui ne répond à rien de précis, et tout part dans le même message.'
+    ]
+  },
+  {
     version: '0.5.0',
     date: '2026-11-12',
     titre: 'Réponds à plusieurs passages d’un coup',

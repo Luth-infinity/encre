@@ -164,7 +164,9 @@ function citer(citations: Cite[] | undefined, texte: string): string {
     return c.reponse?.trim() ? `${cite}\n\n${c.reponse.trim()}` : cite
   })
   const intro = liste.length > 1 ? 'Je réponds à plusieurs passages de ta réponse, chacun suivi de ma réponse :' : 'Je réponds à ce passage de ta réponse :'
-  return [`${intro}\n${blocs.join('\n\n')}`, texte].filter((x) => x.trim()).join('\n\n')
+  // Le champ du bas est un message neutre : sans ce « Par ailleurs », Claude le lirait comme la réponse au dernier passage.
+  const suite = texte.trim() && liste.every((c) => c.reponse?.trim()) ? `Par ailleurs :\n${texte}` : texte
+  return [`${intro}\n${blocs.join('\n\n')}`, suite].filter((x) => x.trim()).join('\n\n')
 }
 
 /**
@@ -775,6 +777,35 @@ async function verifier(dossier: string): Promise<void> {
     await js(`document.querySelector('.fil')?.scrollTo(0, 99999)`)
     await attendre(500)
     await capturer('8-markdown-bas')
+    // ENCRE_VERIF_CITER=1 : deux réponses à des passages, puis un message neutre (rien n'est envoyé).
+    if (process.env.ENCRE_VERIF_CITER) {
+      const f = lePanneau()?.webContents
+      const repondreA = async (n: number, reponse: string, nom: string): Promise<void> => {
+        await js(`(() => {
+          const el = [...document.querySelectorAll('.ia p, .ia li')][${n}]
+          if (!el) return
+          const r = document.createRange(); r.selectNodeContents(el)
+          const s = getSelection(); s.removeAllRanges(); s.addRange(r)
+          document.querySelector('.fil').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+        })()`)
+        await attendre(400)
+        await js(`document.querySelector('.repondre-a')?.click()`)
+        await attendre(500)
+        f?.insertText(reponse)
+        await attendre(300)
+        await capturer(nom)
+        await js(`document.querySelector('.bulle-reponse .ajouter')?.click()`)
+        await attendre(500)
+      }
+      await js(`document.querySelector('.fil')?.scrollTo(0, 0)`)
+      await repondreA(0, 'Oui, on part là-dessus.', '9-citer-bulle')
+      await repondreA(2, 'Plutôt la deuxième option.', '9-citer-bulle-2')
+      await js(`document.querySelector('.saisie textarea')?.focus()`)
+      f?.insertText('Et pense à prévenir le client.')
+      await attendre(400)
+      await capturer('9-citer-pile')
+      return app.quit()
+    }
     await js(`document.querySelector('[data-action=plein]')?.click()`)
     await attendre(2000)
     await capturer('8-markdown-plein')

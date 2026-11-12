@@ -449,12 +449,29 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 }
 .citation { display: flex; align-items: flex-start; gap: 8px; background: var(--canvas); border-radius: 12px; padding: 6px 6px 6px 10px; font-size: 12px; color: var(--soft); animation: monte .3s cubic-bezier(.25,1.3,.5,1) both; }
 .citation .trait { width: 3px; align-self: stretch; border-radius: 2px; background: var(--mood); flex: none; }
-.citations { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
-.citation .corps { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.citation .reponse { color: var(--ink); white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.citation .passage { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
-.citation button { border: 0; background: transparent; color: var(--soft); width: 22px; height: 22px; border-radius: 50%; font-size: 10px; flex: none; }
-.citation button:hover { background: var(--card); color: var(--ink); }
+.citations { display: flex; gap: 6px; flex-wrap: wrap; max-height: 150px; overflow-y: auto; }
+.citation { display: flex; align-items: center; gap: 2px; background: var(--canvas); border-radius: 12px; padding: 4px; max-width: 100%; font-size: 12px; animation: monte .35s cubic-bezier(.25,1.3,.5,1) both; }
+.citation .corps { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; max-width: 230px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 2px 4px 2px 8px; border-left: 3px solid var(--mood); border-radius: 0; cursor: pointer; }
+.citation .passage, .citation .reponse { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.citation .passage { color: var(--soft); }
+.citation .reponse { color: var(--ink); font-weight: 600; }
+.citation .retirer { border: 0; background: transparent; color: var(--soft); width: 22px; height: 22px; border-radius: 50%; font-size: 10px; flex: none; }
+.citation .retirer:hover { background: var(--card); color: var(--ink); }
+.voile-reponse { position: fixed; inset: 0; z-index: 30; }
+.bulle-reponse {
+  position: fixed; z-index: 31; display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+  animation: monte .25s cubic-bezier(.25,1.3,.5,1) both;
+}
+.bulle-reponse .rappel { display: flex; gap: 8px; font-size: 12px; color: var(--soft); }
+.bulle-reponse .rappel .trait { width: 3px; border-radius: 2px; background: var(--mood); flex: none; }
+.bulle-reponse .rappel span:last-child { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.bulle-reponse textarea { resize: none; border: 0; outline: 0; background: var(--canvas); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; min-height: 52px; max-height: 160px; }
+.bulle-reponse .actions { display: flex; justify-content: flex-end; gap: 6px; }
+.bulle-reponse .actions button { border: 0; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; }
+.bulle-reponse .annuler { background: transparent; color: var(--soft); }
+.bulle-reponse .annuler:hover { background: var(--canvas); color: var(--ink); }
+.bulle-reponse .ajouter { background: var(--ink); color: var(--card); }
 .moi .cite {
   border-left: 3px solid var(--mood); padding: 1px 0 1px 8px; margin-bottom: 6px; font-size: 12px; font-weight: 400; opacity: .75;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;

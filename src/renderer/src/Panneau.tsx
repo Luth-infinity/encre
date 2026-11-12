@@ -396,7 +396,12 @@ export default function Panneau(): JSX.Element {
   /** L'entrée en tache d'encre depuis la bulle, et la sortie inverse. */
   const [anim, setAnim] = useState<{ etat: 'entre' | 'sort' | ''; x: number; y: number; n: number }>({ etat: '', x: 0, y: 0, n: 0 })
   /** Le bouton « Répondre » posé sur un passage sélectionné d'une réponse. */
-  const [selection, setSelection] = useState<{ texte: string; x: number; y: number } | null>(null)
+  const [selection, setSelection] = useState<{ texte: string; x: number; y: number; bas: number } | null>(null)
+  /**
+   * La bulle où l'on écrit sa réponse à un passage. « Ajouter » la pose au-dessus
+   * du champ : le champ reste au message neutre. `n` : la réponse qu'on corrige.
+   */
+  const [brouillon, setBrouillon] = useState<{ passage: string; reponse: string; x: number; y: number; bas: number; n?: number } | null>(null)
   const parole = useParole()
   // Les écouteurs posés au montage lisent l'appel par ici : le leur serait figé.
   const appel = useRef(parole)
@@ -517,13 +522,18 @@ export default function Panneau(): JSX.Element {
     const dans = (n: Node | null): boolean => !!(n instanceof Element ? n : n?.parentElement)?.closest('.ia')
     if (!dans(sel.anchorNode) || !dans(sel.focusNode)) return setSelection(null)
     const r = sel.getRangeAt(0).getBoundingClientRect()
-    setSelection({ texte, x: r.left + r.width / 2, y: r.top })
+    setSelection({ texte, x: r.left + r.width / 2, y: r.top, bas: r.bottom })
   }
   const citer = (): void => {
     if (!selection) return
-    saisie.current?.citer(selection.texte)
+    setBrouillon({ passage: selection.texte, reponse: '', x: selection.x, y: selection.y, bas: selection.bas })
     getSelection()?.removeAllRanges()
     setSelection(null)
+  }
+  const poserReponse = (): void => {
+    if (!brouillon) return
+    saisie.current?.citer({ passage: brouillon.passage, reponse: brouillon.reponse.trim() || undefined }, brouillon.n)
+    setBrouillon(null)
   }
   const repondre = (id: string, r: Reponse): void => window.api.repondre(id, r)
   const nouvelle = (): void => { if (!enCours) { setFil([]); window.api.nouvelle() } }
@@ -719,6 +729,15 @@ export default function Panneau(): JSX.Element {
         </button>
       )}
 
+      {brouillon && vue === 'chat' && (
+        <BulleReponse
+          brouillon={brouillon}
+          changer={(reponse) => setBrouillon({ ...brouillon, reponse })}
+          poser={poserReponse}
+          fermer={() => { setBrouillon(null); saisie.current?.focus() }}
+        />
+      )}
+
       {projet && vue === 'chat' && etat?.claude.installe && (
         <footer>
           {parole.erreur && !parole.actif && <p className="erreur-voix">{parole.erreur}</p>}
@@ -726,7 +745,8 @@ export default function Panneau(): JSX.Element {
           {muet && <p className="voix-muette">Tako répond par écrit : limite gratuite de la voix atteinte{muet.secondes < 0 ? ' pour aujourd’hui, elle revient demain à 9 h' : muet.secondes ? `, elle revient dans ${muet.secondes} s` : ''}.</p>}
           {parole.actif
             ? <Appel parole={parole} avatar={avatar} humeur={humeur} grand={plein} touche={etat.toucheParler} />
-            : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id} />}
+            : <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id}
+                corriger={(c, n, cadre) => setBrouillon({ passage: c.passage, reponse: c.reponse ?? '', x: cadre.left + cadre.width / 2, y: cadre.top, bas: cadre.bottom, n })} />}
           <div className="pied">
           <div className="modes" role="radiogroup" aria-label="Autorisations">
             {MODES.map((m) => (
@@ -749,5 +769,54 @@ export default function Panneau(): JSX.Element {
       )}
       </div>
     </div>
+  )
+}
+
+/**
+ * La petite bulle qui sort de « Répondre » : le passage en rappel, un champ pour
+ * la réponse, « Ajouter ». Posée au-dessus du passage, ou dessous s'il est trop
+ * haut, et gardée dans la fenêtre.
+ */
+function BulleReponse({ brouillon, changer, poser, fermer }: {
+  brouillon: { passage: string; reponse: string; x: number; y: number; bas: number; n?: number }
+  changer: (reponse: string) => void
+  poser: () => void
+  fermer: () => void
+}): JSX.Element {
+  const zone = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const z = zone.current
+    if (!z) return
+    z.focus()
+    z.setSelectionRange(z.value.length, z.value.length)
+  }, [])
+  const largeur = Math.min(320, window.innerWidth - 24)
+  const gauche = Math.min(Math.max(brouillon.x - largeur / 2, 12), window.innerWidth - largeur - 12)
+  const dessous = brouillon.y < 230
+  const style: React.CSSProperties = dessous
+    ? { left: gauche, top: brouillon.bas + 8, width: largeur }
+    : { left: gauche, top: brouillon.y - 8, width: largeur, transform: 'translateY(-100%)' }
+  return (
+    <>
+      <div className="voile-reponse" onMouseDown={fermer} />
+      <div className="bulle-reponse" style={style} role="dialog" aria-label="Répondre à ce passage">
+        <div className="rappel"><span className="trait" /><span>{brouillon.passage}</span></div>
+        <textarea
+          ref={zone}
+          rows={2}
+          value={brouillon.reponse}
+          placeholder="Ta réponse à ce passage…"
+          onChange={(e) => changer(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { e.preventDefault(); fermer() }
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); poser() }
+          }}
+        />
+        <div className="actions">
+          <button type="button" className="annuler" onClick={fermer}>Annuler</button>
+          <button type="button" className="ajouter" onClick={poser}>{brouillon.n !== undefined ? 'Corriger' : 'Ajouter'}</button>
+        </div>
+      </div>
+    </>
   )
 }

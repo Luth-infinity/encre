@@ -29,8 +29,11 @@ export async function versPiece(f: File): Promise<PieceJointe | null> {
   return chemin ? { nom: f.name, chemin } : null
 }
 
-/** `citer` : répondre à un passage d'une réponse (sélectionné dans le fil). Les passages se cumulent. */
-export type SaisieRef = { ajouter: (p: PieceJointe[]) => void; focus: () => void; citer: (passage: string) => void }
+/**
+ * `citer` : ajoute une réponse à un passage (écrite dans la bulle « Répondre »
+ * du fil), ou remplace la n-ième quand on la corrige. Les réponses se cumulent.
+ */
+export type SaisieRef = { ajouter: (p: PieceJointe[]) => void; focus: () => void; citer: (c: Cite, n?: number) => void }
 
 type Props = {
   enCours: boolean
@@ -41,21 +44,23 @@ type Props = {
   parler: () => void
   /** Change à chaque projet : les commandes `/` dépendent du dossier. */
   projet: string
+  /** Un clic sur une réponse posée la rouvre dans la bulle, pour la corriger. */
+  corriger: (c: Cite, n: number, cadre: DOMRect) => void
 }
 
 /**
  * La zone de saisie : texte, pièces jointes (glisser, coller, trombone) et
  * menu des commandes `/` dès qu'on tape une barre oblique en début de message.
  */
-export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, envoyer, arreter, parler, projet }, ref) {
+export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, envoyer, arreter, parler, projet, corriger }, ref) {
   const [texte, setTexte] = useState('')
   const [pieces, setPieces] = useState<PieceJointe[]>([])
   const [commandes, setCommandes] = useState<Commande[] | null>(null)
   const [choix, setChoix] = useState(0)
   /**
-   * Les passages auxquels on répond, dans l'ordre. Le dernier a pour réponse
-   * le texte en cours ; citer un autre passage fige ce texte sous le précédent
-   * (une seule citation à la fois obligeait à envoyer entre chaque question).
+   * Les réponses à des passages, posées au-dessus du champ comme les pièces
+   * jointes. Le champ reste libre pour un message neutre : écrire la réponse
+   * dans le champ même mélangeait tout (retour du 12/11).
    */
   const [citations, setCitations] = useState<Cite[]>([])
   const zone = useRef<HTMLTextAreaElement>(null)
@@ -64,13 +69,8 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
   useImperativeHandle(ref, () => ({
     ajouter: (p) => setPieces((x) => [...x, ...p]),
     focus: () => zone.current?.focus(),
-    citer: (passage) => {
-      const t = texte.trim()
-      setCitations((x) => {
-        const avant = x.length && t ? [...x.slice(0, -1), { ...x[x.length - 1], reponse: t }] : x
-        return [...avant, { passage }]
-      })
-      if (citations.length && t) setTexte('')
+    citer: (c, n) => {
+      setCitations((x) => (n !== undefined && n < x.length ? x.map((y, i) => (i === n ? c : y)) : [...x, c]))
       zone.current?.focus()
     }
   }))
@@ -95,17 +95,11 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
   }
 
   const partir = (): void => {
-    let t = texte.trim()
-    let cites = citations
-    // Rien d'écrit sous le dernier passage : la dernière réponse figée redevient le message.
-    if (!t && cites.length > 1 && cites[cites.length - 2].reponse) {
-      t = cites[cites.length - 2].reponse ?? ''
-      cites = [...cites.slice(0, -2), { passage: cites[cites.length - 2].passage }]
-    }
-    if (!t && !pieces.length) return
+    const t = texte.trim()
+    if (!t && !pieces.length && !citations.length) return
     // Une commande / ne se glisse pas dans un tour : Claude Code la lirait comme du texte.
-    if (enCours && t.startsWith('/') && !cites.length) return
-    envoyer(t, pieces, cites.length ? cites : undefined)
+    if (enCours && t.startsWith('/') && !citations.length) return
+    envoyer(t, pieces, citations.length ? citations : undefined)
     setTexte('')
     setPieces([])
     setCitations([])
@@ -161,14 +155,13 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
       {citations.length > 0 && (
         <div className="citations">
           {citations.map((c, i) => (
-            <div key={i} className="citation">
-              <span className="trait" />
-              <span className="corps">
+            <span key={i} className="citation">
+              <button type="button" className="corps" title="Corriger ta réponse" onClick={(e) => corriger(c, i, e.currentTarget.getBoundingClientRect())}>
                 <span className="passage">{c.passage}</span>
                 {c.reponse && <span className="reponse">{c.reponse}</span>}
-              </span>
-              <button type="button" title="Ne plus répondre à ce passage" onClick={() => setCitations(citations.filter((_, j) => j !== i))}>✕</button>
-            </div>
+              </button>
+              <button type="button" className="retirer" title="Retirer cette réponse" onClick={() => setCitations(citations.filter((_, j) => j !== i))}>✕</button>
+            </span>
           ))}
         </div>
       )}
@@ -202,12 +195,12 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
           ref={zone}
           rows={1}
           value={texte}
-          placeholder={citations.length ? (citations.length > 1 ? 'Ta réponse à ce passage… (sélectionne-en un autre pour enchaîner)' : 'Ta réponse à ce passage…') : enCours ? 'Une autre idée ? Tako la prend en route…' : 'Écris à Claude, / pour les commandes…'}
+          placeholder={citations.length ? 'Autre chose à dire ? (facultatif)' : enCours ? 'Une autre idée ? Tako la prend en route…' : 'Écris à Claude, / pour les commandes…'}
           onChange={(e) => setTexte(e.target.value)}
           onKeyDown={touche}
           onPaste={(e) => void coller(e)}
         />
-        {texte.trim() || pieces.length
+        {texte.trim() || pieces.length || citations.length
           ? <button type="button" className="envoi" title={enCours ? 'Ajouter au travail en cours (Entrée)' : 'Envoyer (Entrée)'} onClick={partir}>↑</button>
           : enCours
             ? <button type="button" className="envoi stop" title="Arrêter" onClick={arreter}>■</button>
