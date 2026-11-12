@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, Fragment } from 'react'
 import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
+import logo from './assets/logo.svg'
 import tako from './assets/tako.png'
 import { Agrandir, Micro, Prise, Reduire, Roue } from './icones'
 import type { Veille } from './lib/veille'
@@ -153,7 +154,7 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
   const autres = etat.projets.filter((p) => !p.libre && !p.parent).sort((a, b) => b.derniere - a.derniere)
   return (
     <aside className="barre">
-      <div className="marque"><img src={tako} alt="" /><strong>Encre</strong></div>
+      <div className="marque"><img src={logo} alt="" /><strong>Encre</strong></div>
       {libre && (
         <button type="button" className={`ligne-projet ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)}>
           <span className="tag libre">✦</span><span>Libre</span><Activite etat={etat} id={libre.id} />

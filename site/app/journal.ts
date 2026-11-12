@@ -21,6 +21,16 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.2',
+    date: '2026-11-12',
+    titre: 'Un logo à Encre',
+    texte: 'Encre a maintenant son propre logo : un carré violet avec un tentacule et ses ventouses. Tako reste le personnage du chat.',
+    points: [
+      'Nouvelle icône dans le Dock et sur le site.',
+      'Le logo remplace la photo de Tako en haut du panneau.'
+    ]
+  },
+  {
     version: '0.5.1',
     date: '2026-11-12',
     titre: 'Une petite bulle pour chaque réponse',

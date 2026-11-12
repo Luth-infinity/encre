@@ -26,8 +26,9 @@ npx electron .     # lance le build
 npm run dist:win   # installeur dans dist/ (Encre-Setup-x.y.z.exe)
 ```
 
-Icône : `ENCRE_ICONE=<chemin>/assets/icon.png npx electron .` redessine le
-poulpe en PNG (vue `?vue=icone`), utilisé par electron-builder.
+Icône : `assets/icon.png` (et `site/public/icon.png`) est le logo
+`src/renderer/src/assets/logo.svg` rendu en 1024 px avec 100 px de marge (grille macOS).
+`ENCRE_ICONE=<chemin> npx electron .` dessine encore un avatar en PNG (vue `?vue=icone`).
 
 Journal : `%APPDATA%/Encre/journal.log` (le `console.log` du main n'atteint pas
 la sortie standard sous Windows). Projets : `%APPDATA%/Encre/projets.json`.
@@ -224,7 +225,7 @@ motif irezumi reste au poulpe. Choix gardé dans `comptes.json` (`avatars`) ;
 le main recharge la bulle quand il change. Aperçu sans écran :
 `ENCRE_ICONE=<png> ENCRE_ICONE_AVATAR=nori npx electron .` (marche aussi
 quand Encre tourne). Restent « Tako » : voix (`STYLE_TAKO`), mot de réveil,
-icône, menu de la zone de notification. **Animations pas encore vues en
+menu de la zone de notification. **Animations pas encore vues en
 mouvement.**
 
 ### Modèle selon la demande (09/11)
