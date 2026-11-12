@@ -302,6 +302,14 @@ footer { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; 
 .point.connected { background: var(--fini); }
 .point.failed { background: var(--erreur); }
 .point.needs-auth, .point.pending { background: var(--accord); }
+/* Outils de Claude Code : un clic pour connecter, un catalogue pour ajouter. */
+.ligne.serveur .btn.petit { margin-left: auto; padding: 4px 11px; font-size: 12px; background: var(--ink); color: var(--card); }
+.catalogue { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.outil-connu { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; border: 0; background: var(--canvas); color: var(--ink); font: inherit; padding: 9px 11px; border-radius: 14px; transition: transform .15s; }
+.outil-connu:hover { transform: translateY(-1px); background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.outil-connu strong { font-size: 13px; font-weight: 700; }
+.outil-connu small { font-size: 11.5px; color: var(--soft); line-height: 1.3; }
+.outil-connu.autre { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 .jeton code { flex: 1; }
 .version { margin: auto 0 0; color: var(--soft); font-size: 12px; }
 

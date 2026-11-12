@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
-  Bloc, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, PieceJointe, Reglages, Reponse, VoixEleven
+  Bloc, Commande, CompteFigma, Etat, Evenement, Humeur, Mode, OutilConnu, OutilMachine, PieceJointe, Reglages, Reponse, VoixEleven
 } from '../shared/types'
 
 function recevoir<T extends unknown[]>(canal: string, cb: (...v: T) => void): () => void {
@@ -82,6 +82,10 @@ const api = {
   projetFigma: (id: string, serveurs: string[]) => ipcRenderer.send('projet-figma', id, serveurs),
   jeton: (id: string, nom: string, valeur: string | null): Promise<string | null> => ipcRenderer.invoke('jeton', id, nom, valeur),
   relierFigma: (nom: string): Promise<string | null> => ipcRenderer.invoke('relier-figma', nom),
+  outilsMachine: (id: string): Promise<OutilMachine[]> => ipcRenderer.invoke('outils-machine', id),
+  catalogueOutils: (): Promise<OutilConnu[]> => ipcRenderer.invoke('catalogue-outils'),
+  /** Ouvre une console qui ajoute l'outil si besoin puis lance sa connexion dans le navigateur. */
+  connecterOutil: (id: string, nom: string, url?: string): Promise<string | null> => ipcRenderer.invoke('connecter-outil', id, nom, url),
   /** Comptes Claude : choisir, en ajouter un (une console s'ouvre pour s'y connecter), reconnecter, retirer. */
   choisirCompte: (id: string) => ipcRenderer.send('compte-choisir', id),
   /** Installer la mise à jour prête : Encre se ferme et se rouvre dans la nouvelle version. */

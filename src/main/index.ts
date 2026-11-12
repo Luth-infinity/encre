@@ -565,6 +565,16 @@ function brancher(): void {
     }
   })
   ipcMain.handle('relier-figma', (_e, nom: string) => outils.relierFigma(nom))
+  // Les outils de Claude Code (Notion, Linear…) : leur état, et une console pour les connecter.
+  ipcMain.handle('outils-machine', (_e, id: string) => {
+    const p = projets.trouver(id)
+    return p ? outils.outilsMachine(projets.racineDe(p).dossier) : []
+  })
+  ipcMain.handle('catalogue-outils', () => outils.CATALOGUE)
+  ipcMain.handle('connecter-outil', (_e, id: string, nom: string, url?: string) => {
+    const p = projets.trouver(id)
+    return outils.connecterOutil(nom, p ? projets.racineDe(p).dossier : projets.racine(), url)
+  })
 
   // Comptes Claude. Changer de compte ne coupe pas les tours en cours : ils
   // finissent sur l'ancien, les suivants partent sur le nouveau.

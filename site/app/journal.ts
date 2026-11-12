@@ -21,6 +21,18 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.4.8',
+    date: '2026-11-12',
+    titre: 'Tes outils, connectés en un clic',
+    texte: 'Notion, Linear, Sentry et les autres se branchent maintenant depuis Encre : un bouton « Connecter », et c’est fait. Tako peut aussi le proposer lui-même au lieu de t’envoyer dans un terminal.',
+    points: [
+      'Page Outils : chaque outil que Claude Code connaît pour le projet, avec son état (connecté, à connecter) et un bouton « Connecter ».',
+      'Ajouter un outil : Notion, Linear, Jira et Confluence, Sentry, Vercel, Stripe, Canva, ou n’importe quel autre par son adresse.',
+      'Tako sait connecter un outil quand tu le lui demandes.',
+      'Figma et les jetons sont rangés sur la même page.'
+    ]
+  },
+  {
     version: '0.4.7',
     date: '2026-11-10',
     titre: 'Des sujets, des réponses mises en forme',

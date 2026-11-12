@@ -10,7 +10,7 @@ import { cheminClaude, noterConnexion } from './claude'
 import { avatarActif, dossierActif } from './comptes'
 import * as fils from './fils'
 import { journal } from './journal'
-import { envDuProjet, serveursDuProjet } from './outils'
+import { CATALOGUE, connecterOutil, envDuProjet, serveursDuProjet } from './outils'
 import * as projets from './projets'
 import { reglages } from './reglages'
 import { eteindre, MODELES, trier } from './tri'
@@ -67,6 +67,22 @@ function outilsEncre(sortie: Sortie, projetDuTour?: string): ReturnType<typeof c
         texte(JSON.stringify(projets.projets().map((p) => ({ id: p.id, nom: p.nom, dossier: p.dossier, sujetDe: p.parent, actif: p.id === projets.actifId() })), null, 2))
       ),
       tool(
+        'connecter_outil',
+        `Connecte un outil externe (serveur MCP) à Claude Code : ouvre une fenêtre qui l’ajoute si besoin puis lance la connexion dans le navigateur de l’utilisateur. À appeler dès qu’un outil manque ou demande une connexion (état needs-auth, « not authenticated »), au lieu de l’envoyer vers un terminal. Outils connus : ${CATALOGUE.map((c) => `${c.nom} (${c.titre})`).join(', ')}. Pour un autre, donne l’adresse de son serveur MCP. L’outil est utilisable au message suivant, une fois la connexion acceptée.`,
+        {
+          nom: z.string().describe('Nom de l’outil, par exemple « notion »'),
+          adresse: z.string().optional().describe('Adresse du serveur MCP, seulement pour un outil hors de la liste')
+        },
+        async ({ nom, adresse }) => {
+          const actuel = projets.trouver(projetDuTour ?? '') ?? projets.actif()
+          const dossier = actuel && !actuel.libre ? projets.racineDe(actuel).dossier : projets.racine()
+          const s = connecterOutil(nom, dossier, adresse)
+          if (!s) return texte(`Je ne connais pas l’adresse de « ${nom} » : demande-la à l’utilisateur (le serveur MCP officiel de l’outil), puis rappelle connecter_outil avec.`)
+          sortie.evenement({ type: 'info', texte: `Connexion à ${s} ouverte` })
+          return texte(`Une fenêtre s’est ouverte pour connecter « ${s} ». Dis à l’utilisateur de se connecter et d’accepter dans son navigateur, puis de t’écrire « c’est bon » : l’outil sera disponible au message suivant. Arrête-toi là.`)
+        }
+      ),
+      tool(
         'creer_sujet',
         'Ouvre un nouveau sujet dans le projet en cours : même dossier et mêmes outils, mais une conversation neuve. À utiliser quand l’utilisateur passe à un autre ticket ou un autre chantier, pour ne pas empiler (chaque action relit toute la conversation). Encre y relance sa demande aussitôt.',
         { nom: z.string().describe('Nom court, par exemple « Ticket 142 » ou « Page tarifs »') },
@@ -111,7 +127,7 @@ function outilsEncre(sortie: Sortie, projetDuTour?: string): ReturnType<typeof c
   })
 }
 
-const OUTILS_ENCRE = ['mcp__encre__lister_projets', 'mcp__encre__creer_projet', 'mcp__encre__ouvrir_projet', 'mcp__encre__creer_sujet']
+const OUTILS_ENCRE = ['mcp__encre__lister_projets', 'mcp__encre__creer_projet', 'mcp__encre__ouvrir_projet', 'mcp__encre__creer_sujet', 'mcp__encre__connecter_outil']
 
 const MODES: Record<Mode, PermissionMode> = { demander: 'default', modifs: 'acceptEdits', auto: 'auto' }
 
@@ -252,6 +268,8 @@ function consigne(projet: Projet): string {
     'Réponds en français, court et concret. Avant chaque étape, une phrase courte qui dit ce que tu fais.',
     // Le fil rend le Markdown (titres, tableaux, cases, citations, images) : les réponses en texte brut faisaient « pas quali » (10/11).
     'Mets en forme quand ça aide à lire : un titre court pour une réponse longue, un tableau pour comparer, une liste de cases (- [ ] / - [x]) pour un plan ou des étapes à suivre, du gras pour l’essentiel, une citation (>) pour un extrait. Quand tu trouves des images (recherche, capture, fichier), montre-les avec ![description](adresse ou chemin du fichier) plutôt que de donner le lien seul. Une réponse simple reste un paragraphe.',
+    // Notion « pas connecté » finissait en « ouvre un terminal et tape claude mcp » (12/11) : Encre sait le faire.
+    'Si un outil externe (Notion, Linear, Jira, un serveur MCP) manque ou demande une connexion, n’envoie jamais l’utilisateur vers un terminal ni vers /mcp : appelle connecter_outil, qui ouvre la connexion pour lui.',
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
     // Les suggestions de réponse : Encre retire cette ligne du texte et de la voix et en fait des boutons.
     'Termine chaque réponse par une dernière ligne <suites>…</suites> contenant trois choses que l’utilisateur pourrait te répondre ensuite, séparées par | : écrites à sa place, à la première personne, courtes (deux à huit mots), utiles pour la suite (par exemple <suites>Publie et installe | Montre-moi le résultat | Explique le souci</suites>). Rien après cette ligne, et ne la mentionne jamais.',

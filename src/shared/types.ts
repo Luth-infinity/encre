@@ -210,6 +210,11 @@ export type Police = 'bricolage' | 'space' | 'inter'
 export type Niveau = 'rapide' | 'costaud'
 export type ChoixModele = 'auto' | 'sonnet' | 'opus' | 'claude'
 
+/** Un outil du catalogue d'Encre : son serveur MCP officiel. */
+export type OutilConnu = { nom: string; titre: string; aide: string; url: string }
+/** Un serveur MCP que Claude Code connaît pour ce dossier, et s'il est prêt. */
+export type OutilMachine = { nom: string; portee: 'tous' | 'dossier' | 'projet'; distant: boolean; aConnecter: boolean; connecte: boolean }
+
 /** Les comptes Figma que le Claude Code de la machine a déjà reliés. */
 export type CompteFigma = { serveur: string; relie: boolean }
 
