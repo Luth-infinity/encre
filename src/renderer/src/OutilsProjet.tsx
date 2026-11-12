@@ -11,9 +11,10 @@ const PORTEES: Record<OutilMachine['portee'], string> = { tous: 'tous les projet
  * Les outils du projet ouvert. En tête, ceux de Claude Code (Notion, Linear…)
  * avec leur état et un bouton pour les connecter : avant, un outil pas
  * connecté finissait en « ouvre un terminal » (12/11). Puis les comptes
- * Figma (un client, un compte) et les jetons.
+ * Figma (un client, un compte) et les jetons, ceux du projet même depuis un
+ * sujet : c'est là que le tour les lit.
  */
-export default function OutilsProjet({ projet }: { projet: Projet }): JSX.Element {
+export default function OutilsProjet({ projet, racine }: { projet: Projet; racine: Projet }): JSX.Element {
   const [machine, setMachine] = useState<OutilMachine[] | null>(null)
   const [catalogue, setCatalogue] = useState<OutilConnu[]>([])
   const [comptes, setComptes] = useState<CompteFigma[] | null>(null)
@@ -43,7 +44,7 @@ export default function OutilsProjet({ projet }: { projet: Projet }): JSX.Elemen
     })
   }
 
-  const figma = projet.figma ?? []
+  const figma = racine.figma ?? []
   const basculer = (s: string): void =>
     window.api.projetFigma(projet.id, figma.includes(s) ? figma.filter((x) => x !== s) : [...figma, s])
 
@@ -139,7 +140,8 @@ export default function OutilsProjet({ projet }: { projet: Projet }): JSX.Elemen
 
       <section>
         <h4>Jetons</h4>
-        {(projet.jetons ?? []).map((n) => (
+        {racine.id !== projet.id && <p className="aide">Ceux du projet <b>{racine.nom}</b>, partagés par tous ses sujets.</p>}
+        {(racine.jetons ?? []).map((n) => (
           <div key={n} className="ligne jeton">
             <code>{n}</code>
             <span className="aide">chiffré</span>

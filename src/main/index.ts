@@ -561,15 +561,18 @@ function brancher(): void {
     const p = projets.trouver(id)
     return p ? outils.serveursDuDossier(p.dossier) : []
   })
+  // Un sujet n'a pas d'outils à lui : tout se range sur son projet, que le tour lit.
   ipcMain.on('projet-figma', (_e, id: string, serveurs: string[]) => {
-    projets.modifier(id, { figma: serveurs })
+    const p = projets.trouver(id)
+    if (p) projets.modifier(projets.racineDe(p).id, { figma: serveurs })
     publierEtat()
   })
   ipcMain.handle('jeton', (_e, id: string, nom: string, valeur: string | null) => {
-    const p = projets.trouver(id)
-    if (!p) return 'Projet introuvable.'
+    const t = projets.trouver(id)
+    if (!t) return 'Projet introuvable.'
+    const p = projets.racineDe(t)
     try {
-      projets.modifier(id, { jetons: outils.poserJeton(p, nom, valeur) })
+      projets.modifier(p.id, { jetons: outils.poserJeton(p, nom, valeur) })
       publierEtat()
       return null
     } catch (e) {
@@ -669,6 +672,7 @@ void app.whenReady().then(() => {
   app.dock?.hide()
   brancher()
   viderLibre()
+  outils.remonterDesSujets()
   if (process.env.ENCRE_ICONE) return void icone(process.env.ENCRE_ICONE)
   creerBulle()
   creerPanneau()

@@ -21,6 +21,16 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.3',
+    date: '2026-11-12',
+    titre: 'Jetons partagés par les sujets',
+    texte: 'Un jeton ajouté depuis un sujet restait sur le sujet et Claude ne le recevait jamais. Jetons et comptes Figma vivent maintenant sur le projet, visibles et utilisés depuis tous ses sujets.',
+    points: [
+      'La page Outils d’un sujet montre les jetons de son projet.',
+      'Les jetons et comptes Figma déjà rangés sur un sujet remontent sur le projet au démarrage.'
+    ]
+  },
+  {
     version: '0.5.2',
     date: '2026-11-12',
     titre: 'Un logo à Encre',

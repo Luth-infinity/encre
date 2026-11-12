@@ -6,7 +6,7 @@ import type { CompteFigma, OutilConnu, OutilMachine, Projet } from '@shared/type
 import { cheminClaude } from './claude'
 import { dossierActif, dossierConfig } from './comptes'
 import { journal } from './journal'
-import { racine } from './projets'
+import { modifier, projets, racine, racineDe } from './projets'
 import { cles, lireSecret, poser } from './secrets'
 
 /**
@@ -83,6 +83,27 @@ export function poserJeton(p: Projet, nom: string, valeur: string | null): strin
   if (valeur) reste.add(n)
   else reste.delete(n)
   return [...reste]
+}
+
+/**
+ * Jusqu'à la 0.5.2, l'écran Outils d'un sujet rangeait jetons et comptes Figma
+ * sur le sujet, alors que le tour les lit sur le projet : Claude ne les voyait
+ * jamais. On les remonte une fois sur le projet.
+ */
+export function remonterDesSujets(): void {
+  for (const s of projets()) {
+    const r = racineDe(s)
+    if (r === s || (!s.jetons?.length && !s.figma?.length)) continue
+    let jetons = r.jetons ?? []
+    for (const nom of s.jetons ?? []) {
+      const v = lireSecret(cleJeton(s.id, nom))
+      if (v && !jetons.includes(nom)) jetons = poserJeton({ ...r, jetons }, nom, v)
+      poser(cleJeton(s.id, nom), null)
+    }
+    modifier(r.id, { jetons, figma: [...new Set([...(r.figma ?? []), ...(s.figma ?? [])])] })
+    modifier(s.id, { jetons: undefined, figma: undefined })
+    journal(`outils : jetons et Figma du sujet « ${s.nom} » remontés sur « ${r.nom} »`)
+  }
 }
 
 /** Quand un projet est retiré, ses jetons partent avec lui. */

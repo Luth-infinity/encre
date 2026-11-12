@@ -598,7 +598,7 @@ export default function Panneau(): JSX.Element {
         <button type="button" className="btn pri" onClick={() => window.api.ajouterProjet()}>Ajouter un projet</button>
       </div>
     )
-  } else if (vue === 'outils') corps = <OutilsProjet projet={projet} />
+  } else if (vue === 'outils') corps = <OutilsProjet projet={projet} racine={etat?.projets.find((p) => p.id === projet.parent) ?? projet} />
   else {
     corps = (
       <div className="fil" onMouseUp={() => setTimeout(regarderSelection, 0)} onScroll={() => selection && setSelection(null)}>
