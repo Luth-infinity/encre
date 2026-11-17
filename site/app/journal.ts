@@ -21,6 +21,18 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.4',
+    date: '2026-11-17',
+    titre: 'La cohérence de ton Figma, vérifiée à chaque fois',
+    texte: 'Dès que tu travailles sur un fichier Figma, Tako vérifie que tout reste cohérent, sans que tu aies à le demander. Il relève le contexte du projet avant d’agir, compare après chaque modification et te dit ce qu’il a contrôlé.',
+    points: [
+      'Avant d’agir, il relève le vocabulaire, les libellés, les composants et les écrans voisins.',
+      'Après chaque modification, il compare : mêmes mots, mêmes composants et icônes, mêmes formats, mêmes états, liens du prototype intacts.',
+      'Il corrige les écarts évidents sans casser le prototype et te liste ceux qui demandent ton avis.',
+      'Chaque réponse finit par une ligne « Cohérence : » qui dit ce qui a été vérifié.'
+    ]
+  },
+  {
     version: '0.5.3',
     date: '2026-11-12',
     titre: 'Jetons partagés par les sujets',

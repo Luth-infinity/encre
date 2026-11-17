@@ -245,6 +245,23 @@ const CONSIGNE_VOIX = [
   'Si tu donnes un lien, écris-le en lien Markdown avec un texte court, par exemple [le site](https://…) : il sera cliquable à l’écran, et la voix ne lira que le texte. N’épelle jamais une adresse.)'
 ].join(' ')
 
+/**
+ * La cohérence d'un Figma se vérifie à chaque fois, pas seulement quand on y
+ * pense (demande du 17/11). Même raison que la consigne vocale : elle part
+ * aussi dans le message, parce qu'une session reprise n'applique pas une
+ * consigne système changée. Rien de propre à un client : la méthode est
+ * générale, le contexte vient du CLAUDE.md du projet.
+ */
+const REGLE_FIGMA =
+  'Sur un fichier Figma, vérifie toujours la cohérence, même si on ne te le demande pas. Avant d’agir, relève le contexte : le CLAUDE.md du projet, le vocabulaire, les libellés, les composants et les écrans voisins. Après chaque modification, compare avec ce contexte : même mot pour la même chose, mêmes composants et icônes, mêmes formats de nombres et de dates, mêmes états, liens du prototype intacts. Corrige les écarts évidents sans casser le prototype, et liste ceux qui demandent un arbitrage. Si une compétence d’audit de cohérence Figma est disponible, utilise-la. Finis par une ligne « Cohérence : » qui dit ce que tu as vérifié et corrigé.'
+const CONSIGNE_FIGMA = `(Rappel Figma : ${REGLE_FIGMA})`
+
+/** Figma est en jeu : comptes branchés au projet, outil déjà appelé, ou mot dans la demande. */
+function figmaEnJeu(projet: Projet, texte: string): boolean {
+  const racine = projets.racineDe(projet)
+  return !!(projet.figmaVu || racine.figmaVu || racine.figma?.length || /figma/i.test(texte))
+}
+
 /** Les notes de reprise d'un projet (écrites par Claude quand Encre range une session). */
 export const cheminNotes = (id: string): string => join(app.getPath('userData'), 'notes', `${id}.md`)
 function notes(projet: Projet, max = 12000): string {
@@ -270,6 +287,7 @@ function consigne(projet: Projet): string {
     'Mets en forme quand ça aide à lire : un titre court pour une réponse longue, un tableau pour comparer, une liste de cases (- [ ] / - [x]) pour un plan ou des étapes à suivre, du gras pour l’essentiel, une citation (>) pour un extrait. Quand tu trouves des images (recherche, capture, fichier), montre-les avec ![description](adresse ou chemin du fichier) plutôt que de donner le lien seul. Une réponse simple reste un paragraphe.',
     // Notion « pas connecté » finissait en « ouvre un terminal et tape claude mcp » (12/11) : Encre sait le faire.
     'Si un outil externe (Notion, Linear, Jira, un serveur MCP) manque ou demande une connexion, n’envoie jamais l’utilisateur vers un terminal ni vers /mcp : appelle connecter_outil, qui ouvre la connexion pour lui.',
+    REGLE_FIGMA,
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
     // Les suggestions de réponse : Encre retire cette ligne du texte et de la voix et en fait des boutons.
     'Termine chaque réponse par une dernière ligne <suites>…</suites> contenant trois choses que l’utilisateur pourrait te répondre ensuite, séparées par | : écrites à sa place, à la première personne, courtes (deux à huit mots), utiles pour la suite (par exemple <suites>Publie et installe | Montre-moi le résultat | Explique le souci</suites>). Rien après cette ligne, et ne la mentionne jamais.',
@@ -374,7 +392,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
     if (c.effort) await q.applyFlagSettings({ effortLevel: c.effort }).catch((e) => journal(`effort ${c.effort} refusé : ${String(e)}`))
     yield {
       type: 'user',
-      message: { role: 'user', content: contenu(diseur ? `${CONSIGNE_VOIX}\n\n${texte}` : texte, options.pieces ?? []) },
+      message: { role: 'user', content: contenu([diseur ? CONSIGNE_VOIX : '', figmaEnJeu(projet, texte) ? CONSIGNE_FIGMA : '', texte].filter(Boolean).join('\n\n'), options.pieces ?? []) },
       parent_tool_use_id: null
     } as SDKUserMessage
     while (!ferme) {
@@ -484,6 +502,11 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
         if (u) tailleFil = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.output_tokens ?? 0)
         for (const bloc of m.message.content) {
           if (bloc.type === 'tool_use') {
+            // Dès qu'un outil Figma sert, le rappel de cohérence suit le projet (Figma branché hors de la liste d'Encre, par exemple).
+            if (/figma/i.test(bloc.name) && !projet.figmaVu) {
+              projet.figmaVu = true
+              projets.modifier(projet.id, { figmaVu: true })
+            }
             diseur?.finirPhrase()
             sortie.humeur('bosse')
             sortie.evenement({ type: 'outil', outil: decrire(bloc.id, bloc.name, bloc.input as Record<string, unknown>) })

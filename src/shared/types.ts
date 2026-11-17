@@ -25,6 +25,8 @@ export type Projet = {
   libre?: boolean
   /** Les comptes Figma branchés (noms de serveurs MCP déjà reliés par `claude mcp login`). */
   figma?: string[]
+  /** Un outil Figma a déjà servi dans ce projet : le rappel de cohérence part alors à chaque message (une session reprise n'applique pas une consigne changée). */
+  figmaVu?: boolean
   /** Noms des jetons du projet. Les valeurs sont chiffrées à part (`main/secrets.ts`). */
   jetons?: string[]
   /** État des serveurs MCP au dernier tour, tel que Claude Code l'a donné. */
