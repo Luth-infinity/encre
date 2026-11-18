@@ -35,7 +35,7 @@ export default function Accueil({ projet, avatar, humeur, touche, envoyer }: { p
     ? 'Ici, pas de projet : pose-moi n’importe quelle question. Pour un client ou un sujet suivi, dis-le et je crée le projet.'
     : projet.session
       ? `On reprend « ${projet.nom} » là où on l’avait laissé.`
-      : `Je travaille dans le dossier de « ${projet.nom} ».`
+      : projet.parent ? `Nouveau sujet : « ${projet.nom} ». Dis-moi par où commencer.` : `Je travaille dans le dossier de « ${projet.nom} ».`
 
   return (
     <div className="accueil">

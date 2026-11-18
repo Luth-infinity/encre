@@ -4,7 +4,7 @@ import Accueil from './Accueil'
 import Appel from './Appel'
 import logo from './assets/logo.svg'
 import tako from './assets/tako.png'
-import { Agrandir, Micro, Prise, Reduire, Roue } from './icones'
+import { Agrandir, Chevron, Crayon, Micro, Prise, Reduire, Roue } from './icones'
 import type { Veille } from './lib/veille'
 import { useParole } from './lib/parole'
 import { Markdown } from './markdown'
@@ -16,7 +16,7 @@ import { Saisie, versPiece, type SaisieRef } from './Saisie'
 const MODES: { id: Mode; nom: string; aide: string }[] = [
   { id: 'demander', nom: 'Demander', aide: 'Chaque action te sera demandée.' },
   { id: 'modifs', nom: 'Modifs auto', aide: 'Les fichiers se modifient seuls, les commandes te sont demandées.' },
-  { id: 'auto', nom: 'Auto', aide: 'Le mode auto de Claude Code : il ne demande que quand il hésite.' }
+  { id: 'auto', nom: 'Tout auto', aide: 'Le mode auto de Claude Code : il ne demande que quand il hésite.' }
 ]
 
 /** 48 200 → « 48 k », 1 250 000 → « 1,3 M ». */
@@ -100,15 +100,15 @@ function activite(etat: Etat, id: string): 'attend' | 'travaille' | null {
 /**
  * Les sujets du projet ouvert (un par ticket, par chantier) : chacun sa
  * conversation, donc un fil court. « Général », c'est le projet lui-même.
+ * Petit panneau seulement : en plein écran, la barre de gauche les montre
+ * (les avoir aux deux endroits faisait doublon, audit du 18/11).
  */
-function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; ouvrir: (id: string) => void; plein: boolean }): JSX.Element {
+function Sujets({ etat, projet, ouvrir }: { etat: Etat; projet: Projet; ouvrir: (id: string) => void }): JSX.Element {
   const racine = (projet.parent && etat.projets.find((p) => p.id === projet.parent)) || projet
   const sujets = etat.projets.filter((p) => p.parent === racine.id)
   const [nom, setNom] = useState<string | null>(null)
-  // Un seul menu ouvert à la fois : la liste des sujets ou les actions du ⋯.
-  const [ouvert, setOuvertEn] = useState<'sujets' | 'actions' | null>(null)
-  const setOuvert = (o: boolean): void => setOuvertEn(o ? 'sujets' : null)
-  const zone = useRef<HTMLElement>(null)
+  const [ouvert, setOuvert] = useState(false)
+  const zone = useRef<HTMLDivElement>(null)
   // Clic ailleurs ou Échap : le menu se ferme (Échap ne ferme pas tout le panneau).
   useEffect(() => {
     if (!ouvert) return
@@ -123,87 +123,50 @@ function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; o
     setNom(null)
     if (n) void window.api.creerSujet(racine.id, n).then((id) => id && ouvrir(id))
   }
-  const puce = (p: Projet, libelle: string): JSX.Element => (
-    <button
-      key={p.id}
-      type="button"
-      className={`sujet ${p.id === projet.id ? 'on' : ''}`}
-      onClick={() => ouvrir(p.id)}
-      onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}
-      title={p.parent ? 'Clic droit : renommer, supprimer' : 'La conversation générale du projet'}
-    >
-      {libelle}
-      {(etat.attend.includes(p.id) || etat.enCours.includes(p.id)) && <i className={`activite ${etat.attend.includes(p.id) ? 'attend' : 'travaille'}`} />}
+  const etatDe = (id: string): JSX.Element | null =>
+    etat.attend.includes(id) || etat.enCours.includes(id) ? <i className={`activite ${etat.attend.includes(id) ? 'attend' : 'travaille'}`} /> : null
+  const choix = (p: Projet, libelle: string): JSX.Element => (
+    <button key={p.id} type="button" role="menuitem" className={p.id === projet.id ? 'on' : ''} onClick={() => { setOuvert(false); ouvrir(p.id) }}
+      onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}>
+      <span>{libelle}</span>{etatDe(p.id)}{p.id === projet.id && <b className="coche">✓</b>}
     </button>
   )
-  const champ = (
+  return (
+    <nav className="sujets" aria-label="Sujets du projet">
+      {nom === null
+        ? (
+          <div className="choix-sujet" ref={zone}>
+            <button type="button" className="choix-sujet-bouton" aria-haspopup="menu" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}>
+              <small>Sujet</small>
+              <span>{projet.parent ? projet.nom : 'Général'}</span>
+              {sujets.some((x) => x.id !== projet.id && (etat.attend.includes(x.id) || etat.enCours.includes(x.id))) && <i className="activite travaille" />}
+              <span className="fleche"><Chevron haut={ouvert} /></span>
+            </button>
+            {ouvert && (
+              <div className="menu-sujets" role="menu">
+                {choix(racine, 'Général')}
+                {sujets.map((x) => choix(x, x.nom))}
+                <button type="button" role="menuitem" className="nouveau-sujet" onClick={() => { setOuvert(false); setNom('') }}>＋ Nouveau sujet</button>
+              </div>
+            )}
+          </div>
+        )
+        : <ChampSujet nom={nom} setNom={setNom} creer={creer} />}
+    </nav>
+  )
+}
+/** Le nom d'un nouveau sujet, tapé sur place (Entrée crée, Échap annule). */
+function ChampSujet({ nom, setNom, creer }: { nom: string; setNom: (n: string | null) => void; creer: () => void }): JSX.Element {
+  return (
     <input
       className="sujet-nom"
       autoFocus
       placeholder="Ticket 142, page tarifs…"
-      value={nom ?? ''}
+      value={nom}
       onChange={(e) => setNom(e.target.value)}
       onKeyDown={(e) => { if (e.key === 'Enter') creer(); if (e.key === 'Escape') { e.stopPropagation(); setNom(null) } }}
       onBlur={creer}
     />
-  )
-  // Taille de base : les puces débordaient dès trois sujets. Un menu maison :
-  // le <select> natif était illisible et « dégueu » (18/11).
-  if (!plein) {
-    const etatDe = (id: string): JSX.Element | null =>
-      etat.attend.includes(id) || etat.enCours.includes(id) ? <i className={`activite ${etat.attend.includes(id) ? 'attend' : 'travaille'}`} /> : null
-    const choix = (p: Projet, libelle: string): JSX.Element => (
-      <button key={p.id} type="button" role="menuitem" className={p.id === projet.id ? 'on' : ''} onClick={() => { setOuvert(false); ouvrir(p.id) }}
-        onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}>
-        <span>{libelle}</span>{etatDe(p.id)}{p.id === projet.id && <b className="coche">✓</b>}
-      </button>
-    )
-    const action = (a: 'renommer' | 'dossier' | 'supprimer'): void => { setOuvert(false); window.api.actionCarte(projet.id, a) }
-    return (
-      <nav className="sujets" aria-label="Sujets du projet" ref={zone}>
-        {nom === null
-          ? (
-            <div className="choix-sujet">
-              <button type="button" className="choix-sujet-bouton" aria-haspopup="menu" aria-expanded={ouvert === 'sujets'} onClick={() => setOuvert(ouvert !== 'sujets')}>
-                <small>Sujet</small>
-                <span>{projet.parent ? projet.nom : 'Général'}</span>
-                {sujets.some((x) => x.id !== projet.id && (etat.attend.includes(x.id) || etat.enCours.includes(x.id))) && <i className="activite travaille" />}
-                <em>{sujets.length + 1}</em>
-                <span className="fleche">{ouvert === 'sujets' ? '▴' : '▾'}</span>
-              </button>
-              {ouvert === 'sujets' && (
-                <div className="menu-sujets" role="menu">
-                  {choix(racine, 'Général')}
-                  {sujets.map((x) => choix(x, x.nom))}
-                  <button type="button" role="menuitem" className="nouveau-sujet" onClick={() => { setOuvert(false); setNom('') }}>＋ Nouveau sujet</button>
-                </div>
-              )}
-            </div>
-          )
-          : champ}
-        <div className="actions-sujet">
-          <button type="button" className="sujet ajouter" title="Renommer, supprimer…" aria-haspopup="menu" aria-expanded={ouvert === 'actions'}
-            onClick={() => setOuvertEn(ouvert === 'actions' ? null : 'actions')}>⋯</button>
-          {/* Le même menu que le ⋯ de l'en-tête, pas le menu système (18/11). */}
-          <div className={`menu-entete ${ouvert === 'actions' ? 'ouvert' : ''}`} role="menu">
-            <button type="button" role="menuitem" onClick={() => action('renommer')}>Renommer…</button>
-            <button type="button" role="menuitem" onClick={() => action('dossier')}>Ouvrir le dossier</button>
-            <button type="button" role="menuitem" className="danger" disabled={etat.enCours.includes(projet.id)} onClick={() => action('supprimer')}>
-              {projet.parent ? 'Supprimer ce sujet' : 'Supprimer d’Encre (le dossier reste)'}
-            </button>
-          </div>
-        </div>
-      </nav>
-    )
-  }
-  return (
-    <nav className="sujets" aria-label="Sujets du projet">
-      {puce(racine, 'Général')}
-      {sujets.map((s) => puce(s, s.nom))}
-      {nom === null
-        ? <button type="button" className="sujet ajouter" data-action="sujet" onClick={() => setNom('')} title="Une conversation à part pour un ticket ou un chantier : Tako relit moins, tu dépenses moins">＋ Sujet</button>
-        : champ}
-    </nav>
   )
 }
 function Activite({ etat, id }: { etat: Etat; id: string }): JSX.Element | null {
@@ -222,12 +185,27 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
     setReplies(r)
     localStorage.setItem('replies', JSON.stringify(r))
   }
+  // Le projet ouvert (ou celui du sujet ouvert) : c'est sous lui qu'on crée un sujet.
+  const actif = etat.projets.find((p) => p.id === etat.actif)
+  const racineActive = actif?.parent ?? actif?.id
+  const [nom, setNom] = useState<string | null>(null)
+  const creer = (): void => {
+    const n = nom?.trim()
+    setNom(null)
+    if (n && racineActive) void window.api.creerSujet(racineActive, n).then((id) => id && ouvrir(id))
+  }
+  const sousLigne = (s: Projet, libelle: string): JSX.Element => (
+    <button key={s.id} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)}
+      onContextMenu={(e) => { e.preventDefault(); if (s.parent) window.api.menuCarte(s.id) }}>
+      <span>{libelle}</span><Activite etat={etat} id={s.id} />
+    </button>
+  )
   return (
     <aside className="barre">
       <div className="marque"><img src={logo} alt="" /><strong>Encre</strong></div>
       {libre && (
         <button type="button" className={`ligne-projet ${libre.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(libre.id)}>
-          <span className="tag libre">✦</span><span>Libre</span><Activite etat={etat} id={libre.id} />
+          <span className="tag libre">✦</span><span>Libre <small>sans projet</small></span><Activite etat={etat} id={libre.id} />
         </button>
       )}
       <small className="rubrique">Projets</small>
@@ -235,8 +213,9 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
         {autres.flatMap((p) => {
           const sujets = etat.projets.filter((s) => s.parent === p.id)
           const replie = replies.includes(p.id)
-          // Replié, le projet reste surligné si l'on est dans un de ses sujets.
-          const dedans = p.id === etat.actif || (replie && sujets.some((s) => s.id === etat.actif))
+          // Le projet est surligné dès qu'on est dedans ; la sous-ligne dit où exactement.
+          const dedans = p.id === etat.actif || sujets.some((s) => s.id === etat.actif)
+          const ouvertIci = !replie && (sujets.length > 0 || p.id === racineActive)
           return [
           <div key={p.id} className="ligne-avec-pli">
             <button type="button" className={`ligne-projet ${dedans ? 'on' : ''}`} onClick={() => ouvrir(p.id)} onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }} title={p.dossier}>
@@ -244,15 +223,16 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
             </button>
             {sujets.length > 0 && (
               <button type="button" className="pli" onClick={() => replier(p.id)} title={replie ? `Montrer les ${sujets.length} sujets` : 'Replier les sujets'} aria-expanded={!replie}>
-                {replie ? `${sujets.length} ▸` : '▾'}
+                {replie && sujets.length}<Chevron haut={!replie} />
               </button>
             )}
           </div>,
-          ...(replie ? [] : sujets).map((s) => (
-            <button key={s.id} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)} onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(s.id) }}>
-              <span>{s.nom}</span><Activite etat={etat} id={s.id} />
-            </button>
-          ))
+          ...(ouvertIci && sujets.length ? [sousLigne(p, 'Général'), ...sujets.map((s) => sousLigne(s, s.nom))] : []),
+          ...(ouvertIci && p.id === racineActive
+            ? [nom === null
+              ? <button key="+" type="button" className="ligne-projet sujet-ligne ajouter" data-action="sujet" onClick={() => setNom('')} title="Une conversation à part pour un ticket ou un chantier : Tako relit moins, tu dépenses moins">＋ Nouveau sujet</button>
+              : <div key="+" className="sujet-ligne-champ"><ChampSujet nom={nom} setNom={setNom} creer={creer} /></div>]
+            : [])
           ]
         })}
       </div>
@@ -398,8 +378,8 @@ function rythme(f: Fenetre, duree: number): { ecoule: number; projection: number
 
 const H = 3600000
 const FENETRES = [
-  { cle: 'cinqHeures', court: '5 h', long: '5 heures glissantes', duree: 5 * H },
-  { cle: 'semaine', court: 'Sem.', long: 'Semaine', duree: 7 * 24 * H }
+  { cle: 'cinqHeures', court: 'Limite 5 h', long: '5 heures glissantes', duree: 5 * H },
+  { cle: 'semaine', court: 'Semaine', long: 'Semaine', duree: 7 * 24 * H }
 ] as const
 
 /**
@@ -640,6 +620,9 @@ export default function Panneau(): JSX.Element {
     return () => { removeEventListener('pointerdown', fermer); removeEventListener('keydown', echap, true) }
   }, [menu])
   const choisir = (f: () => void): void => { setMenu(false); f() }
+  // Supprimer un sujet se confirme d'un second clic, dans le menu même.
+  const [confirme, setConfirme] = useState(false)
+  useEffect(() => { if (!menu) setConfirme(false) }, [menu])
   const ouvrirProjet = (id: string): void => {
     // Libre repart à vide à chaque visite : le main l'efface, on recharge.
     if (id !== filDe.current || etat?.projets.find((p) => p.id === id)?.libre) {
@@ -721,11 +704,12 @@ export default function Panneau(): JSX.Element {
           const proposer = !!x.suites?.length && !enCours && n === tous.length - 1
           return (
             <Fragment key={i}>
-              <div className="fait" title={x.fil ? 'Fil : ce que Claude relit à chaque action. Coût : ce tour en tokens au prix d’une entrée (relu en cache = un dixième).' : undefined}>
-                Fait en {duree(x.duree)}{x.modele ? ` · ${x.modele}` : ''}{x.fil ? ` · fil ${k(x.fil)}` : ''}{x.cout ? ` · coût ≈ ${k(x.cout)}` : ''}
+              <div className="fait" title={x.fil ? 'Mémoire : la conversation que Claude relit à chaque action. Ce tour : ce qu’a consommé cette réponse, en jetons (relu en cache = un dixième).' : undefined}>
+                {/* Une seule ligne, coupée en … si le panneau est étroit (elle passait sur deux). */}
+                <span className="fait-texte">Fait en {duree(x.duree)}{x.modele ? ` · ${x.modele}` : ''}{x.fil ? ` · mémoire ${k(x.fil)}` : ''}{x.cout ? ` · ce tour ${k(x.cout)}` : ''}</span>
                 {/* Un fil lourd coûte à chaque action : Tako écrit ses notes et repart léger (seul au-delà de 200 k). */}
                 {n === tous.length - 1 && !enCours && !projet.libre && (x.fil ?? 0) >= 100_000 && (
-                  <button type="button" className="ranger" title="Tako écrit ses notes de reprise et repart d’une conversation légère. Le fil affiché ne change pas." onClick={() => window.api.ranger(projet.id)}>Ranger</button>
+                  <button type="button" className="ranger" title="Tako écrit ses notes de reprise et repart d’une conversation légère. Le fil affiché ne change pas." onClick={() => window.api.ranger(projet.id)}>Alléger</button>
                 )}
               </div>
               {proposer && (
@@ -752,7 +736,7 @@ export default function Panneau(): JSX.Element {
   return (
     <div
       className={`panneau ${plein ? 'plein' : ''} ${anim.etat}`}
-      style={{ '--teinte': projet && !projet.libre ? projet.couleur : 'var(--card)', '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
+      style={{ '--teinte': racine && !racine.libre ? racine.couleur : 'var(--card)', '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
       // Le cercle d'encre restait figé une fois l'ouverture finie : calculé pour le
       // petit panneau, il coupait le coin opposé en plein écran (bord en biais, 10/11).
       onAnimationEnd={(e) => { if (e.target === e.currentTarget && e.animationName === 'encre-ouvre') setAnim((a) => (a.etat === 'entre' ? { ...a, etat: '' } : a)) }}
@@ -761,15 +745,20 @@ export default function Panneau(): JSX.Element {
       onDrop={(e) => void deposer(e)}
     >
       {plein && etat && <Barre etat={etat} ouvrir={ouvrirProjet} hub={() => setVue('hub')} />}
-      <div className="colonne">
+      {/* La couleur du projet ne teinte que le chat : hub, réglages et outils restent neutres (audit UI du 18/11). */}
+      <div className={`colonne ${vue === 'chat' ? 'teinte' : ''}`}>
       <header>
-        <button type="button" className="projet" onClick={() => basculer('hub')} title="Tes projets">
-          <span className={`tag ${projet?.libre ? 'libre' : ''}`} style={projet?.libre ? undefined : { background: projet?.couleur }}>
-            {projet?.libre ? '✦' : projet ? initiales(projet.nom) : '+'}
-          </span>
+        <button type="button" className="projet" onClick={() => basculer('hub')} title={projet?.dossier ? `Tous les projets · ${projet.dossier}` : 'Tous les projets'}>
+          {/* Hors du chat, l'en-tête dit seulement où l'on est : pas de pastille du projet. */}
+          {!titre && (
+            <span className={`tag ${projet?.libre ? 'libre' : ''}`} style={projet?.libre ? undefined : { background: racine?.couleur }}>
+              {projet?.libre ? '✦' : racine ? initiales(racine.nom) : '+'}
+            </span>
+          )}
           <span className="noms">
             <strong>{titre?.[0] ?? racine?.nom ?? 'Aucun projet'}</strong>
-            <small>{titre?.[1] ?? (projet?.libre ? 'Questions sans projet' : projet?.parent ? `Sujet · ${projet.nom}` : projet?.dossier)}</small>
+            {/* Plus de chemin du dossier (au survol seulement) : en petit, le sélecteur dit déjà le sujet. */}
+            {(titre || projet?.libre || plein) && <small>{titre?.[1] ?? (projet?.libre ? 'Questions sans projet' : projet?.parent ? `Sujet · ${projet.nom}` : 'Général')}</small>}
           </span>
           {ailleurs.length > 0 && (
             <span
@@ -779,16 +768,31 @@ export default function Panneau(): JSX.Element {
               {ailleurs.length}
             </span>
           )}
-          <span className="chevron">{vue === 'hub' ? '▴' : '▾'}</span>
+          <span className="chevron"><Chevron haut={vue === 'hub'} /></span>
         </button>
         <div className="actions">
           {vue === 'outils' || vue === 'reglages'
             ? <button type="button" className="icone" title="Revenir à la conversation" onClick={() => setVue('chat')}>←</button>
-            : <button type="button" className="icone" title="Nouvelle conversation" onClick={nouvelle} disabled={enCours || !projet}>＋</button>}
+            : vue === 'chat' && <button type="button" className={`icone ${plein ? 'avec-texte' : ''}`} title="Nouvelle conversation (repart de zéro dans ce sujet)" onClick={nouvelle} disabled={enCours || !projet}><Crayon />{plein && 'Nouvelle conversation'}</button>}
           <button type="button" className={`icone plus ${menu || vue === 'outils' || vue === 'reglages' ? 'on' : ''}`} title="Plus" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>⋯</button>
-          <button type="button" className="icone" title="Fermer (Échap)" onClick={() => window.api.fermer()}>✕</button>
+          <button type="button" className="icone" title={plein ? 'Revenir à la bulle (Échap)' : 'Fermer (Échap)'} onClick={() => window.api.fermer()}>✕</button>
           {/* Toujours dans la page (caché fermé) : la vérification sans écran clique ces boutons. */}
           <div className={`menu-entete ${menu ? 'ouvert' : ''}`} role="menu">
+            {/* Un seul ⋯ : le sujet (ou le projet) ouvert, puis Encre. Supprimer un projet reste au clic droit, avec confirmation. */}
+            {projet && !projet.libre && vue === 'chat' && (
+              <>
+                <small className="section">{projet.parent ? `Sujet · ${projet.nom}` : `Projet · ${projet.nom}`}</small>
+                <button type="button" role="menuitem" onClick={() => choisir(() => window.api.actionCarte(projet.id, 'renommer'))}>Renommer…</button>
+                <button type="button" role="menuitem" onClick={() => choisir(() => window.api.actionCarte(projet.id, 'dossier'))}>Ouvrir le dossier</button>
+                {projet.parent && (
+                  <button type="button" role="menuitem" className="danger" disabled={enCours}
+                    onClick={() => (confirme ? choisir(() => window.api.actionCarte(projet.id, 'supprimer')) : setConfirme(true))}>
+                    {confirme ? 'Confirmer : supprimer ce sujet' : 'Supprimer ce sujet…'}
+                  </button>
+                )}
+                <small className="section">Encre</small>
+              </>
+            )}
             <button type="button" role="menuitem" data-action="plein" onClick={() => choisir(() => window.api.pleinEcran())}>
               {plein ? <Reduire /> : <Agrandir />}{plein ? 'Revenir à la bulle' : 'Plein écran'}
             </button>
@@ -802,7 +806,7 @@ export default function Panneau(): JSX.Element {
         </div>
       </header>
 
-      {vue === 'chat' && etat && projet && !projet.libre && <Sujets etat={etat} projet={projet} ouvrir={ouvrirProjet} plein={plein} />}
+      {vue === 'chat' && etat && projet && !projet.libre && !plein && <Sujets etat={etat} projet={projet} ouvrir={ouvrirProjet} />}
 
       {corps}
 

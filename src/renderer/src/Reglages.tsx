@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { sortieDouce } from './lib/adoucir'
 import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, type Police, VOIX_GEMINI, type Compte, type Etat, type Reglages as R, type VoixEleven, type VoixPerso } from '@shared/types'
 
+/** Le système de la machine, pour parler juste (« Lancer Encre avec Mac » et non Windows). */
+const OS = navigator.userAgent.includes('Mac') ? 'macOS' : 'Windows'
+
 function Bascule({ on, changer, titre, aide }: { on: boolean; changer: (v: boolean) => void; titre: string; aide?: string }): JSX.Element {
   return (
     <label className="bascule">
@@ -342,7 +345,7 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
           </section>
           <section>
             <h4>Démarrage</h4>
-            <Bascule on={r.demarrage} changer={(v) => poser({ demarrage: v })} titre="Lancer Encre avec Windows" />
+            <Bascule on={r.demarrage} changer={(v) => poser({ demarrage: v })} titre={`Lancer Encre avec ${OS}`} />
           </section>
           {etat.majPrete && (
             <div className="maj-prete">
@@ -400,19 +403,19 @@ export default function Reglages({ etat }: { etat: Etat }): JSX.Element {
               nom="Groq"
               presente={r.cleGroq}
               prefixe="gsk_"
-              aide="Pour transcrire ta voix (gratuit) : console.groq.com → API Keys. Chiffrée par Windows."
+              aide={`Pour transcrire ta voix (gratuit) : console.groq.com → API Keys. Chiffrée par ${OS}.`}
               enregistrer={(v) => window.api.cleGroq(v)}
             />
             <Cle
               nom="ElevenLabs"
               presente={r.cleEleven}
-              aide="Pour les voix ElevenLabs : elevenlabs.io → profil → API Keys → Create (droits Text to Speech et Voices : Read). Chiffrée par Windows."
+              aide={`Pour les voix ElevenLabs : elevenlabs.io → profil → API Keys → Create (droits Text to Speech et Voices : Read). Chiffrée par ${OS}.`}
               enregistrer={(v) => window.api.cleEleven(v)}
             />
             <Cle
               nom="Gemini"
               presente={r.cleGemini}
-              aide="Facultative, pour des voix plus naturelles (quota gratuit limité) : aistudio.google.com → Get API key. Chiffrée par Windows."
+              aide={`Facultative, pour des voix plus naturelles (quota gratuit limité) : aistudio.google.com → Get API key. Chiffrée par ${OS}.`}
               enregistrer={(v) => window.api.cleGemini(v)}
             />
             {r.cleGemini && <CreerVoix />}

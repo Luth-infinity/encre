@@ -419,7 +419,18 @@ function brancher(): void {
       { label: 'Renommer…', click: () => actionCarte(id, 'renommer') },
       { label: 'Ouvrir le dossier', click: () => actionCarte(id, 'dossier') },
       { type: 'separator' },
-      { label: pr.parent ? 'Supprimer ce sujet' : 'Supprimer d’Encre (le dossier reste)', enabled: !agent.enCours(id), click: () => actionCarte(id, 'supprimer') }
+      {
+        label: pr.parent ? 'Supprimer ce sujet…' : 'Retirer d’Encre…',
+        enabled: !agent.enCours(id),
+        // Rien ne se supprimait sans confirmation, même un projet entier (audit du 18/11).
+        click: () => void dialog.showMessageBox(p, {
+          type: 'warning',
+          buttons: ['Annuler', pr.parent ? 'Supprimer le sujet' : 'Retirer le projet'],
+          defaultId: 0, cancelId: 0,
+          message: pr.parent ? `Supprimer le sujet « ${pr.nom} » ?` : `Retirer « ${pr.nom} » d’Encre ?`,
+          detail: pr.parent ? 'Sa conversation est effacée. Le dossier du projet ne bouge pas.' : 'Ses sujets et conversations sont effacés d’Encre. Le dossier et ses fichiers restent sur le disque.'
+        }).then((r) => r.response === 1 && actionCarte(id, 'supprimer'))
+      }
     ]).popup({ window: p })
   })
 

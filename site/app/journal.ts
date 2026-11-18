@@ -21,6 +21,19 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.8',
+    date: '2026-11-18',
+    titre: 'Plus clair, plus doux, plus sûr',
+    texte: 'Un passage complet sur l’ergonomie et le style d’Encre, en petit panneau comme en plein écran.',
+    points: [
+      'Plein écran : les sujets vivent dans la barre de gauche, avec « Général » et le sujet ouvert surligné. L’en-tête suit la colonne du chat.',
+      'Un seul menu ⋯, avec une section pour le sujet ouvert. Supprimer demande toujours une confirmation.',
+      'Le lavande de Tako devient la couleur des choix : mode actif, sélection, bouton principal. Ton message s’affiche en lavande clair.',
+      'La couleur du projet ne teinte plus que le chat : projets, réglages et outils restent nets.',
+      'Des mots plus clairs : « mémoire », « ce tour », « Alléger », « Limite 5 h », « Tout auto ». Et « Lancer Encre avec macOS » sur Mac.'
+    ]
+  },
+  {
     version: '0.5.7',
     date: '2026-11-18',
     titre: 'Des menus ⋯ qui restent à leur place',

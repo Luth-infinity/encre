@@ -37,3 +37,13 @@ export const Reduire = (): JSX.Element => (
     <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
   </Svg>
 )
+export const Crayon = (): JSX.Element => (
+  <Svg>
+    <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </Svg>
+)
+export const Chevron = ({ haut }: { haut?: boolean }): JSX.Element => (
+  <Svg>
+    <path d={haut ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} />
+  </Svg>
+)
