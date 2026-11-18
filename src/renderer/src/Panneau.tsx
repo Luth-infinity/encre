@@ -105,6 +105,17 @@ function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; o
   const racine = (projet.parent && etat.projets.find((p) => p.id === projet.parent)) || projet
   const sujets = etat.projets.filter((p) => p.parent === racine.id)
   const [nom, setNom] = useState<string | null>(null)
+  const [ouvert, setOuvert] = useState(false)
+  const zone = useRef<HTMLDivElement>(null)
+  // Clic ailleurs ou Échap : le menu se ferme (Échap ne ferme pas tout le panneau).
+  useEffect(() => {
+    if (!ouvert) return
+    const dehors = (e: MouseEvent): void => { if (!zone.current?.contains(e.target as Node)) setOuvert(false) }
+    const echap = (e: KeyboardEvent): void => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOuvert(false) } }
+    addEventListener('mousedown', dehors)
+    addEventListener('keydown', echap, true)
+    return () => { removeEventListener('mousedown', dehors); removeEventListener('keydown', echap, true) }
+  }, [ouvert])
   const creer = (): void => {
     const n = nom?.trim()
     setNom(null)
@@ -134,22 +145,37 @@ function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; o
       onBlur={creer}
     />
   )
-  // Taille de base : les puces débordaient dès trois sujets, un menu déroulant tient sur une ligne.
+  // Taille de base : les puces débordaient dès trois sujets. Un menu maison :
+  // le <select> natif était illisible et « dégueu » (18/11).
   if (!plein) {
-    const point = (id: string): string => (etat.attend.includes(id) ? '● ' : etat.enCours.includes(id) ? '○ ' : '')
+    const etatDe = (id: string): JSX.Element | null =>
+      etat.attend.includes(id) || etat.enCours.includes(id) ? <i className={`activite ${etat.attend.includes(id) ? 'attend' : 'travaille'}`} /> : null
+    const choix = (p: Projet, libelle: string): JSX.Element => (
+      <button key={p.id} type="button" role="menuitem" className={p.id === projet.id ? 'on' : ''} onClick={() => { setOuvert(false); ouvrir(p.id) }}
+        onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}>
+        <span>{libelle}</span>{etatDe(p.id)}{p.id === projet.id && <b className="coche">✓</b>}
+      </button>
+    )
     return (
       <nav className="sujets" aria-label="Sujets du projet">
         {nom === null
           ? (
-            <select
-              className="choix-sujet"
-              value={projet.id}
-              onChange={(e) => (e.target.value === '+' ? setNom('') : ouvrir(e.target.value))}
-            >
-              <option value={racine.id}>{point(racine.id)}Général</option>
-              {sujets.map((s) => <option key={s.id} value={s.id}>{point(s.id)}{s.nom}</option>)}
-              <option value="+">＋ Nouveau sujet…</option>
-            </select>
+            <div className="choix-sujet" ref={zone}>
+              <button type="button" className="choix-sujet-bouton" aria-haspopup="menu" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}>
+                <small>Sujet</small>
+                <span>{projet.parent ? projet.nom : 'Général'}</span>
+                {sujets.some((x) => x.id !== projet.id && (etat.attend.includes(x.id) || etat.enCours.includes(x.id))) && <i className="activite travaille" />}
+                <em>{sujets.length + 1}</em>
+                <span className="fleche">{ouvert ? '▴' : '▾'}</span>
+              </button>
+              {ouvert && (
+                <div className="menu-sujets" role="menu">
+                  {choix(racine, 'Général')}
+                  {sujets.map((x) => choix(x, x.nom))}
+                  <button type="button" role="menuitem" className="nouveau-sujet" onClick={() => { setOuvert(false); setNom('') }}>＋ Nouveau sujet</button>
+                </div>
+              )}
+            </div>
           )
           : champ}
         <button type="button" className="sujet ajouter" title="Renommer, supprimer…" onClick={() => window.api.menuCarte(projet.id)}>⋯</button>

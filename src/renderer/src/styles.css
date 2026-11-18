@@ -591,12 +591,45 @@ header { position: relative; z-index: 10; }
 
 /* ─── Couleur du projet, sujets en menu, barre repliable, renommer (0.5.5) ─── */
 /* Le chat prend la couleur du projet, à peine : presque blanc, on sait où on est. */
-.colonne { background: color-mix(in srgb, var(--teinte, var(--card)) 7%, var(--card)); transition: background .4s; }
-.choix-sujet {
-  flex: 1; min-width: 0; border: 0; border-radius: 999px; background: var(--canvas); color: var(--ink);
-  font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 10px; outline: none; cursor: pointer;
+.colonne {
+  background: color-mix(in srgb, var(--teinte, var(--card)) 7%, var(--card)); transition: background .4s;
+  /* Sur le fond teinté, le gris clair d'origine ne se voyait plus (18/11) : surfaces et traits plus marqués. */
+  --canvas: color-mix(in srgb, var(--teinte, var(--card)) 12%, #E4E7EA); --line: #D5D9DD; --line-fort: #BFC5CB; --soft: #4E545A;
 }
-.choix-sujet:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (prefers-color-scheme: dark) {
+  .colonne { --canvas: color-mix(in srgb, var(--teinte, var(--card)) 8%, #2A2D33); --line: #363A40; --line-fort: #4A4F57; --soft: #A9AFB5; }
+}
+/* Le champ, les réponses proposées et les modes : en carte cerclée, lisibles sur n'importe quelle teinte. */
+.colonne .saisie { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); }
+.colonne .saisie:focus-within { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.colonne .suites button { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); }
+.colonne .suites button:hover { background: color-mix(in srgb, var(--mood) 18%, var(--card)); }
+.colonne .modes { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); }
+.colonne .modes button:not(.on) { color: var(--soft); }
+.colonne .modes button:not(.on):hover { color: var(--ink); }
+.sujets:has(.choix-sujet) { overflow: visible; position: relative; z-index: 15; }
+.choix-sujet { position: relative; flex: 1; min-width: 0; }
+.choix-sujet-bouton {
+  width: 100%; display: flex; align-items: center; gap: 8px; border: 0; border-radius: 12px; padding: 6px 10px;
+  background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; text-align: left;
+}
+.choix-sujet-bouton:hover { box-shadow: inset 0 0 0 1px var(--soft); }
+.choix-sujet-bouton small { color: var(--soft); font-size: 11px; font-weight: 600; flex: none; }
+.choix-sujet-bouton > span:not(.fleche) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.choix-sujet-bouton em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--soft); background: var(--canvas); border-radius: 999px; padding: 0 7px; }
+.choix-sujet-bouton .fleche { color: var(--soft); font-size: 11px; }
+.menu-sujets {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20; display: flex; flex-direction: column; padding: 5px; max-height: 320px; overflow-y: auto;
+  border-radius: 14px; background: var(--card); box-shadow: 0 0 0 1px var(--line-fort), 0 12px 28px -10px rgba(11,12,14,.3);
+  animation: monte .2s cubic-bezier(.25,1.3,.5,1) both;
+}
+.menu-sujets button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--ink); text-align: left; }
+.menu-sujets button span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-sujets button:hover { background: var(--canvas); }
+.menu-sujets button.on { background: color-mix(in srgb, var(--teinte) 30%, var(--card)); }
+.menu-sujets .coche { font-size: 12px; }
+.menu-sujets .nouveau-sujet { color: var(--soft); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 4px; }
+.menu-sujets .nouveau-sujet:hover { color: var(--ink); }
 .sujets .sujet-nom { flex: 1; width: auto; }
 .ligne-avec-pli { display: flex; align-items: center; gap: 2px; }
 .ligne-avec-pli .ligne-projet { flex: 1; }

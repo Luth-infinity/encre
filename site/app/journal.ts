@@ -21,6 +21,16 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.6',
+    date: '2026-11-18',
+    titre: 'Un vrai menu de sujets, et du contraste',
+    texte: 'Le choix du sujet passe par un menu propre à Encre au lieu du menu du système, et le chat teinté reste lisible : champ, réponses proposées et modes ressortent nettement.',
+    points: [
+      'Menu des sujets : le sujet en cours, leur nombre, une coche, et « Nouveau sujet » en bas.',
+      'Champ de saisie, réponses proposées et choix Demander / Modifs auto / Auto cerclés et contrastés sur la couleur du projet.'
+    ]
+  },
+  {
     version: '0.5.5',
     date: '2026-11-18',
     titre: 'Projets rangés, couleurs et Tako qui ne se perd plus',
