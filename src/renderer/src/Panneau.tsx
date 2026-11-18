@@ -194,8 +194,9 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
     setNom(null)
     if (n && racineActive) void window.api.creerSujet(racineActive, n).then((id) => id && ouvrir(id))
   }
+  // Clé propre à la sous-ligne : « Général » pointe sur le projet, sa clé ne doit pas doubler celle de la ligne du projet.
   const sousLigne = (s: Projet, libelle: string): JSX.Element => (
-    <button key={s.id} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)}
+    <button key={`sous-${s.id}`} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)}
       onContextMenu={(e) => { e.preventDefault(); if (s.parent) window.api.menuCarte(s.id) }}>
       <span>{libelle}</span><Activite etat={etat} id={s.id} />
     </button>
@@ -230,8 +231,8 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
           ...(ouvertIci && sujets.length ? [sousLigne(p, 'Général'), ...sujets.map((s) => sousLigne(s, s.nom))] : []),
           ...(ouvertIci && p.id === racineActive
             ? [nom === null
-              ? <button key="+" type="button" className="ligne-projet sujet-ligne ajouter" data-action="sujet" onClick={() => setNom('')} title="Une conversation à part pour un ticket ou un chantier : Tako relit moins, tu dépenses moins">＋ Nouveau sujet</button>
-              : <div key="+" className="sujet-ligne-champ"><ChampSujet nom={nom} setNom={setNom} creer={creer} /></div>]
+              ? <button key={`plus-${p.id}`} type="button" className="ligne-projet sujet-ligne ajouter" data-action="sujet" onClick={() => setNom('')} title="Une conversation à part pour un ticket ou un chantier : Tako relit moins, tu dépenses moins">＋ Nouveau sujet</button>
+              : <div key={`plus-${p.id}`} className="sujet-ligne-champ"><ChampSujet nom={nom} setNom={setNom} creer={creer} /></div>]
             : [])
           ]
         })}

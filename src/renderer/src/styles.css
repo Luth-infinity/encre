@@ -14,7 +14,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0D0E10; --canvas: #202227; --card: #17181C; --ink: #F2F3F5; --soft: #9AA0A6; --line: #2A2D32; --line-fort: #4A4F57; --lav-fort: #C9BCFF;
+    --page: #0D0E10; --canvas: #202227; --card: #17181C; --ink: #F2F3F5; --soft: #A9AFB5; --line: #2A2D32; --line-fort: #4A4F57; --lav-fort: #C9BCFF; --bord-champ: #767C83;
     --add: #0F2B1B; --add-fg: #72E09D; --del: #321216; --del-fg: #FF8D96; color-scheme: dark;
   }
 }
@@ -606,7 +606,7 @@ header { position: relative; z-index: 16; }
   .colonne.teinte { --canvas: color-mix(in srgb, var(--teinte, var(--card)) 8%, #2A2D33); --line: #363A40; --line-fort: #4A4F57; --soft: #A9AFB5; }
 }
 /* Le champ, les réponses proposées et les modes : en carte cerclée, lisibles sur n'importe quelle teinte. */
-.colonne .saisie { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); }
+.colonne .saisie { background: var(--card); box-shadow: inset 0 0 0 1px var(--bord-champ, #868C93); }
 .colonne .saisie:focus-within { box-shadow: inset 0 0 0 1.5px var(--lav-fort), 0 0 0 4px color-mix(in srgb, var(--lav) 25%, transparent); }
 .colonne .suites button { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); }
 .colonne .suites button:hover { background: color-mix(in srgb, var(--mood) 18%, var(--card)); }
@@ -676,3 +676,11 @@ header { position: relative; z-index: 16; }
 .carte.on:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--lav-fort), 0 12px 24px -14px rgba(11,12,14,.35); }
 .fleche, .pli { display: inline-flex; align-items: center; gap: 2px; }
 .fleche svg, .pli svg { width: 13px; height: 13px; }
+
+/* ─── Accessibilité (audit du 18/11) ─── */
+/* Le badge Libre reste noir en sombre : lavande sur fond clair ne se lisait pas (1,9:1). */
+.tag.libre, .carte.libre .tag { background: #0B0C0E; }
+/* Rouge de suppression lisible dans les deux modes (7,5:1 et 8:1). */
+.menu-entete button.danger { color: var(--del-fg); }
+/* Les champs sans contour montrent où l'on tape, comme le champ du chat. */
+.sujet-nom:focus, .renommer input:focus, .ajout-compte input:focus, .filtres-voix input:focus { box-shadow: inset 0 0 0 1.5px var(--lav-fort); }

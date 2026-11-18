@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.9',
+    date: '2026-11-18',
+    titre: 'Barre des projets réparée, plus lisible pour tous',
+    texte: "Les projets ne s'affichent plus en double dans la barre du plein écran. Et Encre se lit mieux, au clavier comme en mode sombre.",
+    points: [
+      'Plus de projets en double dans la barre de gauche quand l’ordre change.',
+      'Le champ du chat se repère mieux, et les champs montrent où l’on tape.',
+      'Mode sombre : badge Libre, bouton Supprimer et textes gris plus lisibles.',
+    ],
+  },
+  {
     version: '0.5.8',
     date: '2026-11-18',
     titre: 'Plus clair, plus doux, plus sûr',
