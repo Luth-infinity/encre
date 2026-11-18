@@ -397,24 +397,29 @@ function brancher(): void {
   ipcMain.on('ranger', (_e, id: string) => {
     if (!agent.rangerMaintenant(id)) journal(`rangement de ${projets.trouver(id)?.nom ?? id} : rien à ranger`)
   })
+  // Renommer, ouvrir le dossier, supprimer : menu natif au clic droit, menu maison sur le ⋯ des sujets.
+  const actionCarte = (id: string, action: string): void => {
+    const p = lePanneau(), pr = projets.trouver(id)
+    if (!p || !pr || pr.libre) return
+    if (action === 'renommer') p.webContents.send('renommer', id)
+    else if (action === 'dossier') void shell.openPath(pr.dossier)
+    else if (action === 'supprimer' && !agent.enCours(id)) {
+      for (const s of projets.sujetsDe(id)) fils.vider(s.id)
+      projets.retirer(id)
+      outils.oublierJetons(id)
+      fils.vider(id)
+      publierEtat()
+    }
+  }
+  ipcMain.on('carte-action', (_e, id: string, action: string) => actionCarte(id, action))
   ipcMain.on('menu-carte', (_e, id: string) => {
     const p = lePanneau(), pr = projets.trouver(id)
     if (!p || !pr || pr.libre) return
     Menu.buildFromTemplate([
-      { label: 'Renommer…', click: () => p.webContents.send('renommer', id) },
-      { label: 'Ouvrir le dossier', click: () => void shell.openPath(pr.dossier) },
+      { label: 'Renommer…', click: () => actionCarte(id, 'renommer') },
+      { label: 'Ouvrir le dossier', click: () => actionCarte(id, 'dossier') },
       { type: 'separator' },
-      {
-        label: pr.parent ? 'Supprimer ce sujet' : 'Supprimer d’Encre (le dossier reste)',
-        enabled: !agent.enCours(id),
-        click: () => {
-          for (const s of projets.sujetsDe(id)) fils.vider(s.id)
-          projets.retirer(id)
-          outils.oublierJetons(id)
-          fils.vider(id)
-          publierEtat()
-        }
-      }
+      { label: pr.parent ? 'Supprimer ce sujet' : 'Supprimer d’Encre (le dossier reste)', enabled: !agent.enCours(id), click: () => actionCarte(id, 'supprimer') }
     ]).popup({ window: p })
   })
 

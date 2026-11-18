@@ -557,7 +557,8 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 
 /* ─── En-tête : ＋ · ⋯ · ✕, le reste dans le menu ─── */
 .actions { position: relative; }
-header { position: relative; z-index: 10; }
+/* Au-dessus de la barre des sujets (z-index 15), sinon le menu ⋯ passe dessous (18/11). */
+header { position: relative; z-index: 16; }
 .menu-entete { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 190px; padding: 5px; border-radius: 14px; background: color-mix(in srgb, var(--card) 90%, var(--ink)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent), 0 14px 30px -12px rgba(0,0,0,.5); flex-direction: column; gap: 2px; -webkit-app-region: no-drag; }
 .menu-entete.ouvert { display: flex; animation: monte .25s cubic-bezier(.25,1.3,.5,1) both; }
 .menu-entete button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--ink); text-align: left; }
@@ -631,6 +632,8 @@ header { position: relative; z-index: 10; }
 .menu-sujets .nouveau-sujet { color: var(--soft); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 4px; }
 .menu-sujets .nouveau-sujet:hover { color: var(--ink); }
 .sujets .sujet-nom { flex: 1; width: auto; }
+.actions-sujet { position: relative; flex: none; display: flex; }
+.menu-entete button.danger { color: #C0392B; }
 .ligne-avec-pli { display: flex; align-items: center; gap: 2px; }
 .ligne-avec-pli .ligne-projet { flex: 1; }
 .pli { flex: none; border: 0; background: transparent; color: var(--soft); font-size: 11px; font-weight: 700; padding: 4px 6px; border-radius: 8px; white-space: nowrap; }

@@ -105,8 +105,10 @@ function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; o
   const racine = (projet.parent && etat.projets.find((p) => p.id === projet.parent)) || projet
   const sujets = etat.projets.filter((p) => p.parent === racine.id)
   const [nom, setNom] = useState<string | null>(null)
-  const [ouvert, setOuvert] = useState(false)
-  const zone = useRef<HTMLDivElement>(null)
+  // Un seul menu ouvert à la fois : la liste des sujets ou les actions du ⋯.
+  const [ouvert, setOuvertEn] = useState<'sujets' | 'actions' | null>(null)
+  const setOuvert = (o: boolean): void => setOuvertEn(o ? 'sujets' : null)
+  const zone = useRef<HTMLElement>(null)
   // Clic ailleurs ou Échap : le menu se ferme (Échap ne ferme pas tout le panneau).
   useEffect(() => {
     if (!ouvert) return
@@ -156,19 +158,20 @@ function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; o
         <span>{libelle}</span>{etatDe(p.id)}{p.id === projet.id && <b className="coche">✓</b>}
       </button>
     )
+    const action = (a: 'renommer' | 'dossier' | 'supprimer'): void => { setOuvert(false); window.api.actionCarte(projet.id, a) }
     return (
-      <nav className="sujets" aria-label="Sujets du projet">
+      <nav className="sujets" aria-label="Sujets du projet" ref={zone}>
         {nom === null
           ? (
-            <div className="choix-sujet" ref={zone}>
-              <button type="button" className="choix-sujet-bouton" aria-haspopup="menu" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}>
+            <div className="choix-sujet">
+              <button type="button" className="choix-sujet-bouton" aria-haspopup="menu" aria-expanded={ouvert === 'sujets'} onClick={() => setOuvert(ouvert !== 'sujets')}>
                 <small>Sujet</small>
                 <span>{projet.parent ? projet.nom : 'Général'}</span>
                 {sujets.some((x) => x.id !== projet.id && (etat.attend.includes(x.id) || etat.enCours.includes(x.id))) && <i className="activite travaille" />}
                 <em>{sujets.length + 1}</em>
-                <span className="fleche">{ouvert ? '▴' : '▾'}</span>
+                <span className="fleche">{ouvert === 'sujets' ? '▴' : '▾'}</span>
               </button>
-              {ouvert && (
+              {ouvert === 'sujets' && (
                 <div className="menu-sujets" role="menu">
                   {choix(racine, 'Général')}
                   {sujets.map((x) => choix(x, x.nom))}
@@ -178,7 +181,18 @@ function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; o
             </div>
           )
           : champ}
-        <button type="button" className="sujet ajouter" title="Renommer, supprimer…" onClick={() => window.api.menuCarte(projet.id)}>⋯</button>
+        <div className="actions-sujet">
+          <button type="button" className="sujet ajouter" title="Renommer, supprimer…" aria-haspopup="menu" aria-expanded={ouvert === 'actions'}
+            onClick={() => setOuvertEn(ouvert === 'actions' ? null : 'actions')}>⋯</button>
+          {/* Le même menu que le ⋯ de l'en-tête, pas le menu système (18/11). */}
+          <div className={`menu-entete ${ouvert === 'actions' ? 'ouvert' : ''}`} role="menu">
+            <button type="button" role="menuitem" onClick={() => action('renommer')}>Renommer…</button>
+            <button type="button" role="menuitem" onClick={() => action('dossier')}>Ouvrir le dossier</button>
+            <button type="button" role="menuitem" className="danger" disabled={etat.enCours.includes(projet.id)} onClick={() => action('supprimer')}>
+              {projet.parent ? 'Supprimer ce sujet' : 'Supprimer d’Encre (le dossier reste)'}
+            </button>
+          </div>
+        </div>
       </nav>
     )
   }

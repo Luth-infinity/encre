@@ -21,6 +21,16 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.7',
+    date: '2026-11-18',
+    titre: 'Des menus ⋯ qui restent à leur place',
+    texte: 'Le menu ⋯ du haut ne passe plus sous le choix du sujet, et le ⋯ du sujet ouvre le même menu qu’en haut au lieu du menu du système.',
+    points: [
+      'Menu ⋯ du haut toujours au premier plan.',
+      'Le ⋯ du sujet : Renommer, Ouvrir le dossier, Supprimer, dans le menu d’Encre.'
+    ]
+  },
+  {
     version: '0.5.6',
     date: '2026-11-18',
     titre: 'Un vrai menu de sujets, et du contraste',
