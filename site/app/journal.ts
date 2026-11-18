@@ -21,6 +21,18 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.6.0',
+    date: '2026-11-19',
+    titre: 'Tako dépense moins pour le même travail',
+    texte: 'Plusieurs réglages de Claude Code passent en mode économe : les longs fils pèsent moins, les recherches coûtent moins cher et une pause ne fait plus tout relire au prix fort.',
+    points: [
+      'Les sous-agents, qui lisent et résument pour Tako, tournent sur Sonnet au lieu d’Opus.',
+      'Un très long tour se compacte vers 300 k au lieu de grossir jusqu’au million.',
+      'Le cache tient une heure, même sur une clé API ou des crédits en plus.',
+      'Plus de compactage en arrière-plan ni de suggestions en double : Encre a déjà les siens.'
+    ]
+  },
+  {
     version: '0.5.9',
     date: '2026-11-18',
     titre: 'Barre des projets réparée, plus lisible pour tous',

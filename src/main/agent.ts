@@ -344,7 +344,36 @@ function envPropre(): Record<string, string> {
   // Le compte choisi dans Encre : son dossier de config porte sa connexion.
   const compte = dossierActif()
   if (compte) env.CLAUDE_CONFIG_DIR = compte
+  // Encre a ses propres réponses proposées (`<suites>`) : le petit appel de
+  // Claude Code qui prédit la suite après chaque réponse ferait doublon.
+  env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = 'false'
+  // Les sous-agents lisent et résument (la consigne les envoie sur les grosses
+  // explorations) : sur un fil en Opus, ils tournaient aussi en Opus. Sonnet
+  // suffit, y compris pour Explore, qui n'obéit à la variable qu'avec FORCE.
+  // Un choix déjà posé par l'utilisateur reste le sien.
+  if (!process.env.CLAUDE_CODE_SUBAGENT_MODEL) {
+    env.CLAUDE_CODE_SUBAGENT_MODEL = 'sonnet'
+    env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE = '1'
+  }
   return env
+}
+
+/**
+ * Réglages posés sur chaque session.
+ * - Claude Code peut compacter tout seul un long fil laissé en pause : Encre
+ *   range déjà les siens avec ses notes de reprise, ce serait payé deux fois.
+ * - Le rangement par taille n'agit qu'en fin de tour : pendant un long tour
+ *   (Figma, débogage), le fil pouvait monter vers le million avant que
+ *   Claude Code compacte. 300 k plafonne ce qui est relu à chaque action.
+ * - Cache d'une heure même sur clé API ou crédits (5 min par défaut) : sinon
+ *   la moindre pause relit tout le fil au prix fort, et le rangement après
+ *   45 min tomberait sur un cache froid.
+ */
+const REGLAGES_ECO = {
+  idleCompaction: false,
+  promptSuggestionEnabled: false,
+  autoCompactWindow: 300_000,
+  promptCacheTtl: '1h' as const
 }
 
 /**
@@ -451,6 +480,7 @@ export async function envoyer(projet: Projet, texte: string, sortie: Sortie, opt
       permissionMode: MODES[projet.mode],
       // Les réglages de l'utilisateur et du projet : CLAUDE.md, .mcp.json, règles d'autorisation.
       settingSources: ['user', 'project', 'local'],
+      settings: REGLAGES_ECO,
       systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet) },
       pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
       env: { ...envPropre(), ...envDuProjet(projets.racineDe(projet)) },
@@ -666,6 +696,7 @@ async function ranger(projet: Projet): Promise<void> {
       abortController: abort,
       permissionMode: MODES[projet.mode],
       settingSources: ['user', 'project', 'local'],
+      settings: REGLAGES_ECO,
       systemPrompt: { type: 'preset', preset: 'claude_code', append: consigne(projet) },
       pathToClaudeCodeExecutable: cheminClaude() ?? undefined,
       env: { ...envPropre(), ...envDuProjet(projets.racineDe(projet)) },
