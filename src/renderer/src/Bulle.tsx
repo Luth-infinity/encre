@@ -39,7 +39,10 @@ export default function Bulle(): JSX.Element {
       requestAnimationFrame(() => setChange(true))
       if (h === 'fini') poulpe.current?.geste('saut')
     })
-    return () => { off(); poulpe.current?.detruire() }
+    // Contexte 3D perdu (veille, GPU relancé) : le poulpe ne se dessine plus, la bulle semble partie.
+    const perdu = (): void => location.reload()
+    canvas.current?.addEventListener('webglcontextlost', perdu)
+    return () => { off(); canvas.current?.removeEventListener('webglcontextlost', perdu); poulpe.current?.detruire() }
   }, [])
 
   const glisse = useRef<{ x: number; y: number; bouge: boolean } | null>(null)
@@ -52,6 +55,10 @@ export default function Bulle(): JSX.Element {
   const bouge = (e: React.PointerEvent): void => {
     const g = glisse.current
     if (!g) return
+    // Le relâché s'est perdu (macOS ne l'envoie pas toujours à une fenêtre sans focus,
+    // surtout quand l'humeur change au même moment) : sans ça, la bulle restait collée
+    // à la souris jusqu'au clic suivant.
+    if (!(e.buttons & 1)) { glisse.current = null; setPresse(false); return }
     const dx = e.screenX - g.x, dy = e.screenY - g.y
     if (!g.bouge && Math.hypot(dx, dy) < 4) return
     g.bouge = true
@@ -87,6 +94,7 @@ export default function Bulle(): JSX.Element {
       onPointerDown={bas}
       onPointerMove={bouge}
       onPointerUp={haut}
+      onPointerCancel={() => { glisse.current = null; setPresse(false) }}
       onPointerEnter={survol}
       onAnimationEnd={(e) => {
         if (e.animationName === 'change') setChange(false)

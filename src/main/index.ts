@@ -7,7 +7,7 @@ import * as agent from './agent'
 import * as comptes from './comptes'
 import { etatClaude, noterConnexion, reprendrePathDuShell } from './claude'
 import {
-  aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle
+  aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle, suivreEcrans
 } from './fenetres'
 import * as fils from './fils'
 import { journal } from './journal'
@@ -52,17 +52,21 @@ function poserIcone(): void {
   petite.addRepresentation({ scaleFactor: 2, width: 32, height: 32, buffer: image.resize({ width: 32, height: 32, quality: 'best' }).toPNG() })
   zoneNotif = new Tray(petite)
   zoneNotif.setToolTip('Encre · Tako')
-  zoneNotif.on('click', () => {
-    laBulle()?.showInactive()
-    ouvrirPanneau()
-  })
+  zoneNotif.on('click', retrouverTako)
   menuNotif()
+}
+/** Cmd+H cache toute l'app, bulle comprise : on la réaffiche, ramenée dans l'écran. */
+function retrouverTako(): void {
+  if (process.platform === 'darwin') app.show()
+  laBulle()?.showInactive()
+  rangerBulle()
+  ouvrirPanneau()
 }
 /** Refait à chaque mise à jour prête : elle s'y propose. */
 function menuNotif(): void {
   zoneNotif?.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Ouvrir Tako', click: () => { laBulle()?.showInactive(); ouvrirPanneau() } },
+      { label: 'Ouvrir Tako', click: retrouverTako },
       { label: 'Parler', click: () => dicter(false) },
       ...(majPrete ? [{ label: `Mettre à jour (version ${majPrete})`, click: () => void updates.installer() }] : []),
       { type: 'separator' },
@@ -384,6 +388,12 @@ function brancher(): void {
     publierEtat()
     return s?.id ?? null
   })
+  ipcMain.on('renommer', (_e, id: string, nom: string) => {
+    const n = nom.trim()
+    if (!n || projets.trouver(id)?.libre) return
+    projets.modifier(id, { nom: n })
+    publierEtat()
+  })
   ipcMain.on('ranger', (_e, id: string) => {
     if (!agent.rangerMaintenant(id)) journal(`rangement de ${projets.trouver(id)?.nom ?? id} : rien à ranger`)
   })
@@ -391,10 +401,11 @@ function brancher(): void {
     const p = lePanneau(), pr = projets.trouver(id)
     if (!p || !pr || pr.libre) return
     Menu.buildFromTemplate([
+      { label: 'Renommer…', click: () => p.webContents.send('renommer', id) },
       { label: 'Ouvrir le dossier', click: () => void shell.openPath(pr.dossier) },
       { type: 'separator' },
       {
-        label: pr.parent ? 'Fermer ce sujet' : 'Retirer d’Encre (le dossier reste)',
+        label: pr.parent ? 'Supprimer ce sujet' : 'Supprimer d’Encre (le dossier reste)',
         enabled: !agent.enCours(id),
         click: () => {
           for (const s of projets.sujetsDe(id)) fils.vider(s.id)
@@ -675,6 +686,7 @@ void app.whenReady().then(() => {
   outils.remonterDesSujets()
   if (process.env.ENCRE_ICONE) return void icone(process.env.ENCRE_ICONE)
   creerBulle()
+  suivreEcrans()
   creerPanneau()
   poserIcone()
   // Gemini muet (quota) : le panneau le dit, la réponse reste écrite.

@@ -588,3 +588,27 @@ header { position: relative; z-index: 10; }
 .filtres-voix { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .filtres-voix input { flex: 1; min-width: 120px; font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 999px; border: 0; background: var(--canvas); color: var(--ink); outline: none; }
 .filtres-voix .puce { padding: 5px 11px; font-size: 12px; }
+
+/* ─── Couleur du projet, sujets en menu, barre repliable, renommer (0.5.5) ─── */
+/* Le chat prend la couleur du projet, à peine : presque blanc, on sait où on est. */
+.colonne { background: color-mix(in srgb, var(--teinte, var(--card)) 7%, var(--card)); transition: background .4s; }
+.choix-sujet {
+  flex: 1; min-width: 0; border: 0; border-radius: 999px; background: var(--canvas); color: var(--ink);
+  font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 10px; outline: none; cursor: pointer;
+}
+.choix-sujet:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sujets .sujet-nom { flex: 1; width: auto; }
+.ligne-avec-pli { display: flex; align-items: center; gap: 2px; }
+.ligne-avec-pli .ligne-projet { flex: 1; }
+.pli { flex: none; border: 0; background: transparent; color: var(--soft); font-size: 11px; font-weight: 700; padding: 4px 6px; border-radius: 8px; white-space: nowrap; }
+.pli:hover { background: var(--card); color: var(--ink); }
+.renommer {
+  position: absolute; z-index: 20; left: 50%; top: 84px; translate: -50% 0; width: min(320px, calc(100% - 32px));
+  background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.renommer input { border: 0; border-radius: 10px; background: var(--canvas); color: var(--ink); font: inherit; padding: 8px 10px; outline: none; user-select: text; }
+.renommer div { display: flex; justify-content: flex-end; gap: 6px; }
+.renommer button { border: 0; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; background: var(--canvas); }
+.renommer button.ok { background: var(--ink); color: var(--card); }
+.renommer button:disabled { opacity: .4; cursor: default; }

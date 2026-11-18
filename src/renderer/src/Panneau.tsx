@@ -101,7 +101,7 @@ function activite(etat: Etat, id: string): 'attend' | 'travaille' | null {
  * Les sujets du projet ouvert (un par ticket, par chantier) : chacun sa
  * conversation, donc un fil court. « Général », c'est le projet lui-même.
  */
-function Sujets({ etat, projet, ouvrir }: { etat: Etat; projet: Projet; ouvrir: (id: string) => void }): JSX.Element {
+function Sujets({ etat, projet, ouvrir, plein }: { etat: Etat; projet: Projet; ouvrir: (id: string) => void; plein: boolean }): JSX.Element {
   const racine = (projet.parent && etat.projets.find((p) => p.id === projet.parent)) || projet
   const sujets = etat.projets.filter((p) => p.parent === racine.id)
   const [nom, setNom] = useState<string | null>(null)
@@ -116,30 +116,53 @@ function Sujets({ etat, projet, ouvrir }: { etat: Etat; projet: Projet; ouvrir: 
       type="button"
       className={`sujet ${p.id === projet.id ? 'on' : ''}`}
       onClick={() => ouvrir(p.id)}
-      onContextMenu={(e) => { if (p.parent) { e.preventDefault(); window.api.menuCarte(p.id) } }}
-      title={p.parent ? 'Clic droit : fermer ce sujet' : 'La conversation générale du projet'}
+      onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }}
+      title={p.parent ? 'Clic droit : renommer, supprimer' : 'La conversation générale du projet'}
     >
       {libelle}
       {(etat.attend.includes(p.id) || etat.enCours.includes(p.id)) && <i className={`activite ${etat.attend.includes(p.id) ? 'attend' : 'travaille'}`} />}
     </button>
   )
+  const champ = (
+    <input
+      className="sujet-nom"
+      autoFocus
+      placeholder="Ticket 142, page tarifs…"
+      value={nom ?? ''}
+      onChange={(e) => setNom(e.target.value)}
+      onKeyDown={(e) => { if (e.key === 'Enter') creer(); if (e.key === 'Escape') { e.stopPropagation(); setNom(null) } }}
+      onBlur={creer}
+    />
+  )
+  // Taille de base : les puces débordaient dès trois sujets, un menu déroulant tient sur une ligne.
+  if (!plein) {
+    const point = (id: string): string => (etat.attend.includes(id) ? '● ' : etat.enCours.includes(id) ? '○ ' : '')
+    return (
+      <nav className="sujets" aria-label="Sujets du projet">
+        {nom === null
+          ? (
+            <select
+              className="choix-sujet"
+              value={projet.id}
+              onChange={(e) => (e.target.value === '+' ? setNom('') : ouvrir(e.target.value))}
+            >
+              <option value={racine.id}>{point(racine.id)}Général</option>
+              {sujets.map((s) => <option key={s.id} value={s.id}>{point(s.id)}{s.nom}</option>)}
+              <option value="+">＋ Nouveau sujet…</option>
+            </select>
+          )
+          : champ}
+        <button type="button" className="sujet ajouter" title="Renommer, supprimer…" onClick={() => window.api.menuCarte(projet.id)}>⋯</button>
+      </nav>
+    )
+  }
   return (
     <nav className="sujets" aria-label="Sujets du projet">
       {puce(racine, 'Général')}
       {sujets.map((s) => puce(s, s.nom))}
       {nom === null
         ? <button type="button" className="sujet ajouter" data-action="sujet" onClick={() => setNom('')} title="Une conversation à part pour un ticket ou un chantier : Tako relit moins, tu dépenses moins">＋ Sujet</button>
-        : (
-          <input
-            className="sujet-nom"
-            autoFocus
-            placeholder="Ticket 142, page tarifs…"
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') creer(); if (e.key === 'Escape') { e.stopPropagation(); setNom(null) } }}
-            onBlur={creer}
-          />
-        )}
+        : champ}
     </nav>
   )
 }
@@ -152,6 +175,13 @@ function Activite({ etat, id }: { etat: Etat; id: string }): JSX.Element | null 
 function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void; hub: () => void }): JSX.Element {
   const libre = etat.projets.find((p) => p.libre)
   const autres = etat.projets.filter((p) => !p.libre && !p.parent).sort((a, b) => b.derniere - a.derniere)
+  // Les projets repliés (sujets cachés), gardés d'une ouverture à l'autre.
+  const [replies, setReplies] = useState<string[]>(() => JSON.parse(localStorage.getItem('replies') ?? '[]'))
+  const replier = (id: string): void => {
+    const r = replies.includes(id) ? replies.filter((x) => x !== id) : [...replies, id]
+    setReplies(r)
+    localStorage.setItem('replies', JSON.stringify(r))
+  }
   return (
     <aside className="barre">
       <div className="marque"><img src={logo} alt="" /><strong>Encre</strong></div>
@@ -162,16 +192,29 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
       )}
       <small className="rubrique">Projets</small>
       <div className="liste">
-        {autres.flatMap((p) => [
-          <button key={p.id} type="button" className={`ligne-projet ${p.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(p.id)} title={p.dossier}>
-            <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span><Activite etat={etat} id={p.id} />
-          </button>,
-          ...etat.projets.filter((s) => s.parent === p.id).map((s) => (
+        {autres.flatMap((p) => {
+          const sujets = etat.projets.filter((s) => s.parent === p.id)
+          const replie = replies.includes(p.id)
+          // Replié, le projet reste surligné si l'on est dans un de ses sujets.
+          const dedans = p.id === etat.actif || (replie && sujets.some((s) => s.id === etat.actif))
+          return [
+          <div key={p.id} className="ligne-avec-pli">
+            <button type="button" className={`ligne-projet ${dedans ? 'on' : ''}`} onClick={() => ouvrir(p.id)} onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }} title={p.dossier}>
+              <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span><Activite etat={etat} id={p.id} />
+            </button>
+            {sujets.length > 0 && (
+              <button type="button" className="pli" onClick={() => replier(p.id)} title={replie ? `Montrer les ${sujets.length} sujets` : 'Replier les sujets'} aria-expanded={!replie}>
+                {replie ? `${sujets.length} ▸` : '▾'}
+              </button>
+            )}
+          </div>,
+          ...(replie ? [] : sujets).map((s) => (
             <button key={s.id} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)} onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(s.id) }}>
               <span>{s.nom}</span><Activite etat={etat} id={s.id} />
             </button>
           ))
-        ])}
+          ]
+        })}
       </div>
       <button type="button" className="ligne-projet ajouter" onClick={hub}>＋ <span>Nouveau ou lier</span></button>
     </aside>
@@ -403,6 +446,8 @@ export default function Panneau(): JSX.Element {
    * du champ : le champ reste au message neutre. `n` : la réponse qu'on corrige.
    */
   const [brouillon, setBrouillon] = useState<{ passage: string; reponse: string; x: number; y: number; bas: number; n?: number } | null>(null)
+  /** Le projet ou le sujet qu'on renomme (« Renommer… » du clic droit), et le nom tapé. */
+  const [renomme, setRenomme] = useState<{ id: string; nom: string } | null>(null)
   const parole = useParole()
   // Les écouteurs posés au montage lisent l'appel par ici : le leur serait figé.
   const appel = useRef(parole)
@@ -441,6 +486,11 @@ export default function Panneau(): JSX.Element {
         setTimeout(() => setMuet((m) => (m && Date.now() >= m.jusqua ? null : m)), 8200)
       }),
       window.api.surFilChange((id) => void montrerFil(id)),
+      window.api.surRenommer((id) => setEtat((e) => {
+        const p = e?.projets.find((x) => x.id === id)
+        if (p) setRenomme({ id, nom: p.nom })
+        return e
+      })),
       // Alt+Maj+E (même panneau fermé) : ouvrir l'écoute, ou envoyer. Le mot « Encre » : pareil, mains libres.
       window.api.surDicter((mainsLibres) => appel.current.basculer(mainsLibres)),
       window.api.surAnnulerDictee(() => appel.current.annuler()),
@@ -662,7 +712,7 @@ export default function Panneau(): JSX.Element {
   return (
     <div
       className={`panneau ${plein ? 'plein' : ''} ${anim.etat}`}
-      style={{ '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
+      style={{ '--teinte': projet && !projet.libre ? projet.couleur : 'var(--card)', '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
       // Le cercle d'encre restait figé une fois l'ouverture finie : calculé pour le
       // petit panneau, il coupait le coin opposé en plein écran (bord en biais, 10/11).
       onAnimationEnd={(e) => { if (e.target === e.currentTarget && e.animationName === 'encre-ouvre') setAnim((a) => (a.etat === 'entre' ? { ...a, etat: '' } : a)) }}
@@ -712,11 +762,31 @@ export default function Panneau(): JSX.Element {
         </div>
       </header>
 
-      {vue === 'chat' && etat && projet && !projet.libre && <Sujets etat={etat} projet={projet} ouvrir={ouvrirProjet} />}
+      {vue === 'chat' && etat && projet && !projet.libre && <Sujets etat={etat} projet={projet} ouvrir={ouvrirProjet} plein={plein} />}
 
       {corps}
 
       {glisse && <div className="depot">Lâche pour joindre</div>}
+
+      {renomme && (
+        <form
+          className="renommer"
+          onSubmit={(e) => { e.preventDefault(); window.api.renommer(renomme.id, renomme.nom); setRenomme(null) }}
+        >
+          <strong>Renommer</strong>
+          <input
+            autoFocus
+            value={renomme.nom}
+            onChange={(e) => setRenomme({ ...renomme, nom: e.target.value })}
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setRenomme(null) } }}
+          />
+          <div>
+            <button type="button" onClick={() => setRenomme(null)}>Annuler</button>
+            <button type="submit" className="ok" disabled={!renomme.nom.trim()}>Renommer</button>
+          </div>
+        </form>
+      )}
 
       {selection && vue === 'chat' && (
         <button

@@ -69,8 +69,22 @@ export function creerBulle(): BrowserWindow {
   surTousLesBureaux(bulle)
   bulle.once('ready-to-show', () => bulle?.showInactive())
   charger(bulle, 'bulle')
+  // Une bulle qui « disparaît » est souvent un rendu planté : la fenêtre
+  // transparente reste là, vide. On la recharge.
+  bulle.webContents.on('render-process-gone', () => laBulle()?.webContents.reload())
   bulle.on('closed', () => (bulle = null))
   return bulle
+}
+
+// Écran débranché, mis en veille ou changé de résolution : la bulle restait
+// à l'ancienne place, hors de tout écran.
+let ecransSuivis = false
+export function suivreEcrans(): void {
+  if (ecransSuivis) return
+  ecransSuivis = true
+  for (const ev of ['display-removed', 'display-added', 'display-metrics-changed'] as const) {
+    screen.on(ev as 'display-removed', () => setTimeout(rangerBulle, 500))
+  }
 }
 
 export function creerPanneau(): BrowserWindow {
@@ -215,6 +229,7 @@ export function rangerBulle(): void {
   const b = laBulle()
   if (!b) return
   const [x, y] = b.getPosition()
+  // getDisplayNearestPoint ramène sur l'écran le plus proche, même si l'ancien a disparu.
   const zone = screen.getDisplayNearestPoint({ x: x + TAILLE_BULLE / 2, y: y + TAILLE_BULLE / 2 }).workArea
   const nx = Math.min(Math.max(zone.x, x), zone.x + zone.width - TAILLE_BULLE)
   const ny = Math.min(Math.max(zone.y, y), zone.y + zone.height - TAILLE_BULLE)

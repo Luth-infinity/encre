@@ -2,7 +2,7 @@ import {
   createSdkMcpServer, query, tool, type EffortLevel, type PermissionMode, type PermissionResult, type Query, type SDKUserMessage
 } from '@anthropic-ai/claude-agent-sdk'
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { z } from 'zod'
 import type { Commande, Diff, Evenement, Fenetre, Humeur, Limites, Mode, Outil, PieceJointe, Projet, Reponse } from '@shared/types'
@@ -256,6 +256,26 @@ const REGLE_FIGMA =
   'Sur un fichier Figma, vérifie toujours la cohérence, même si on ne te le demande pas. Avant d’agir, relève le contexte : le CLAUDE.md du projet, le vocabulaire, les libellés, les composants et les écrans voisins. Après chaque modification, compare avec ce contexte : même mot pour la même chose, mêmes composants et icônes, mêmes formats de nombres et de dates, mêmes états, liens du prototype intacts. Corrige les écarts évidents sans casser le prototype, et liste ceux qui demandent un arbitrage. Si une compétence d’audit de cohérence Figma est disponible, utilise-la. Finis par une ligne « Cohérence : » qui dit ce que tu as vérifié et corrigé.'
 const CONSIGNE_FIGMA = `(Rappel Figma : ${REGLE_FIGMA})`
 
+/**
+ * Mode débogage auto (18/11) : sur un projet de code, Claude vérifie lui-même
+ * ce qu'il vient de changer au lieu d'attendre qu'on lui signale l'erreur.
+ * Dans la consigne seulement (pas recollé au message) : une session reprise
+ * l'aura au prochain rangement, sans payer la règle à chaque message.
+ */
+const REGLE_CODE =
+  'Projet de code, mode débogage automatique : après chaque modification de code, vérifie-la sans qu’on te le demande. Lance ce que le projet prévoit (typecheck, build, tests, lint : voir package.json, Makefile ou CLAUDE.md), lis les erreurs et le journal de l’app s’il y en a un, remonte à la cause, corrige et relance jusqu’à ce que ça passe. Finis par une ligne « Vérifié : » qui dit ce que tu as lancé et le résultat.'
+const MARQUES_CODE = ['package.json', '.git', 'Cargo.toml', 'pyproject.toml', 'requirements.txt', 'go.mod', 'pom.xml', 'build.gradle', 'composer.json', 'Gemfile', 'Makefile', 'Package.swift']
+// Un projet ancien a parfois son code un niveau plus bas (un clone dans le dossier du projet).
+function projetDeCode(dossier: string): boolean {
+  const ici = (d: string): boolean => MARQUES_CODE.some((m) => existsSync(join(d, m)))
+  if (ici(dossier)) return true
+  try {
+    return readdirSync(dossier, { withFileTypes: true }).some((e) => e.isDirectory() && !e.name.startsWith('.') && ici(join(dossier, e.name)))
+  } catch {
+    return false
+  }
+}
+
 /** Figma est en jeu : comptes branchés au projet, outil déjà appelé, ou mot dans la demande. */
 function figmaEnJeu(projet: Projet, texte: string): boolean {
   const racine = projets.racineDe(projet)
@@ -288,6 +308,7 @@ function consigne(projet: Projet): string {
     // Notion « pas connecté » finissait en « ouvre un terminal et tape claude mcp » (12/11) : Encre sait le faire.
     'Si un outil externe (Notion, Linear, Jira, un serveur MCP) manque ou demande une connexion, n’envoie jamais l’utilisateur vers un terminal ni vers /mcp : appelle connecter_outil, qui ouvre la connexion pour lui.',
     REGLE_FIGMA,
+    ...(projet.libre || !projetDeCode(projet.dossier) ? [] : [REGLE_CODE]),
     'À la fin, dis ce que tu as changé en une à trois phrases. Pas de tiret cadratin au milieu d’une phrase.',
     // Les suggestions de réponse : Encre retire cette ligne du texte et de la voix et en fait des boutons.
     'Termine chaque réponse par une dernière ligne <suites>…</suites> contenant trois choses que l’utilisateur pourrait te répondre ensuite, séparées par | : écrites à sa place, à la première personne, courtes (deux à huit mots), utiles pour la suite (par exemple <suites>Publie et installe | Montre-moi le résultat | Explique le souci</suites>). Rien après cette ligne, et ne la mentionne jamais.',

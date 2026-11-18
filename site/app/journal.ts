@@ -21,6 +21,20 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.5.5',
+    date: '2026-11-18',
+    titre: 'Projets rangés, couleurs et Tako qui ne se perd plus',
+    texte: 'Tako ne disparaît plus de l’écran, les sujets se choisissent dans un menu, projets et sujets se renomment, et sur un projet de code Tako vérifie seul ce qu’il vient de modifier.',
+    points: [
+      'La bulle revient d’elle-même si son affichage plante, si un écran est débranché ou si l’app a été masquée.',
+      'En taille normale, les sujets se choisissent dans un menu déroulant ; en plein écran, les projets se replient pour cacher leurs sujets.',
+      'Clic droit (ou ⋯) sur un projet ou un sujet : le renommer ou le supprimer.',
+      'Sur Mac, la bulle ne reste plus collée à la souris après une action.',
+      'Le chat prend une teinte très légère de la couleur du projet.',
+      'Sur un projet de code, mode débogage automatique : Tako lance build, typecheck ou tests après chaque modification et corrige jusqu’à ce que ça passe.'
+    ]
+  },
+  {
     version: '0.5.4',
     date: '2026-11-17',
     titre: 'La cohérence de ton Figma, vérifiée à chaque fois',

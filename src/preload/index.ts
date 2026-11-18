@@ -39,6 +39,9 @@ const api = {
   choisirProjet: (id: string) => ipcRenderer.send('choisir-projet', id),
   creerProjet: (nom: string, contexte: string): Promise<string | null> => ipcRenderer.invoke('creer-projet', nom, contexte),
   menuCarte: (id: string) => ipcRenderer.send('menu-carte', id),
+  /** « Renommer… » choisi dans le menu d'un projet ou d'un sujet : le panneau demande le nom. */
+  surRenommer: (cb: (id: string) => void) => recevoir('renommer', cb),
+  renommer: (id: string, nom: string) => ipcRenderer.send('renommer', id, nom),
   creerSujet: (parent: string, nom: string): Promise<string | null> => ipcRenderer.invoke('creer-sujet', parent, nom),
   ranger: (id: string) => ipcRenderer.send('ranger', id),
   fermer: () => ipcRenderer.send('fermer-panneau'),
