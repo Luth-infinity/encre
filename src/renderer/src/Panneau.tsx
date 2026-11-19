@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
-import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
+import { appliquer, avatarDe, type Bloc, type Cite, type Compte, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil from './Accueil'
 import Appel from './Appel'
 import logo from './assets/logo.svg'
@@ -175,6 +175,44 @@ function Activite({ etat, id }: { etat: Etat; id: string }): JSX.Element | null 
 }
 
 /** La barre de projets du plein écran : changer de projet sans passer par le hub. */
+/** Le compte Claude qui travaille sur ce projet, et le moyen d'en changer : un clic sur la pastille, un clic sur le compte. */
+function SelecteurCompte({ etat, projet }: { etat: Etat; projet: Projet | null }): JSX.Element | null {
+  const [ouvert, setOuvert] = useState(false)
+  useEffect(() => {
+    if (!ouvert) return
+    const fermer = (e: PointerEvent): void => { if (!(e.target as Element).closest('.compte-choix')) setOuvert(false) }
+    const echap = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOuvert(false) }
+    addEventListener('pointerdown', fermer)
+    addEventListener('keydown', echap, true)
+    return () => { removeEventListener('pointerdown', fermer); removeEventListener('keydown', echap, true) }
+  }, [ouvert])
+  const actuel = etat.comptes.find((c) => c.actif)
+  // Un seul compte : rien à choisir, pas de pastille de plus dans l'en-tête.
+  if (!actuel || etat.comptes.length < 2) return null
+  return (
+    <div className="compte-choix">
+      <button type="button" className={`compte-puce ${ouvert ? 'on' : ''}`} aria-haspopup="menu" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
+        title={`Compte Claude de ce projet : ${actuel.nom}. Cliquer pour changer.`}>
+        <i className="pastille" style={{ background: avatarDe(actuel.avatar).peau }} />
+        <span>{actuel.nom}</span><Chevron haut={ouvert} />
+      </button>
+      <div className={`menu-compte ${ouvert ? 'ouvert' : ''}`} role="menu">
+        <small className="section">{projet && !projet.libre ? 'Compte de ce projet' : 'Compte en cours'}</small>
+        {etat.comptes.map((c) => (
+          <button key={c.id} type="button" role="menuitemradio" aria-checked={c.actif} disabled={!c.connecte}
+            className={c.actif ? 'on' : ''} onClick={() => { setOuvert(false); if (!c.actif) window.api.choisirCompte(c.id) }}>
+            <i className="pastille" style={{ background: avatarDe(c.avatar).peau }} />
+            <span className="qui-compte"><strong>{c.nom}</strong><small>{c.connecte ? c.offre ?? c.email ?? '' : 'À connecter dans Réglages'}</small></span>
+            {c.actif && <span className="coche" aria-hidden>✓</span>}
+          </button>
+        ))}
+        {/* Un fil déjà long : l'autre compte ne l'a pas en cache, il sera relu en entier au prochain message. */}
+        {!!projet?.contexte && projet.contexte > 20000 && <small className="note">Changer de compte : ce fil ({k(projet.contexte)}) sera relu en entier au prochain message.</small>}
+      </div>
+    </div>
+  )
+}
+
 function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void; hub: () => void }): JSX.Element {
   const libre = etat.projets.find((p) => p.libre)
   const autres = etat.projets.filter((p) => !p.libre && !p.parent).sort((a, b) => b.derniere - a.derniere)
@@ -195,6 +233,7 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
     if (n && racineActive) void window.api.creerSujet(racineActive, n).then((id) => id && ouvrir(id))
   }
   // Clé propre à la sous-ligne : « Général » pointe sur le projet, sa clé ne doit pas doubler celle de la ligne du projet.
+  const compteDe = (p: Projet): Compte | undefined => etat.comptes.find((c) => c.id === p.compte)
   const sousLigne = (s: Projet, libelle: string): JSX.Element => (
     <button key={`sous-${s.id}`} type="button" className={`ligne-projet sujet-ligne ${s.id === etat.actif ? 'on' : ''}`} onClick={() => ouvrir(s.id)}
       onContextMenu={(e) => { e.preventDefault(); if (s.parent) window.api.menuCarte(s.id) }}>
@@ -220,7 +259,9 @@ function Barre({ etat, ouvrir, hub }: { etat: Etat; ouvrir: (id: string) => void
           return [
           <div key={p.id} className="ligne-avec-pli">
             <button type="button" className={`ligne-projet ${dedans ? 'on' : ''}`} onClick={() => ouvrir(p.id)} onContextMenu={(e) => { e.preventDefault(); window.api.menuCarte(p.id) }} title={p.dossier}>
-              <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span><Activite etat={etat} id={p.id} />
+              <span className="tag" style={{ background: p.couleur }}>{initiales(p.nom)}</span><span>{p.nom}</span>
+              {etat.comptes.length > 1 && compteDe(p) && <i className="pastille compte" style={{ background: avatarDe(compteDe(p)!.avatar).peau }} title={`Compte : ${compteDe(p)!.nom}`} />}
+              <Activite etat={etat} id={p.id} />
             </button>
             {sujets.length > 0 && (
               <button type="button" className="pli" onClick={() => replier(p.id)} title={replie ? `Montrer les ${sujets.length} sujets` : 'Replier les sujets'} aria-expanded={!replie}>
@@ -771,6 +812,7 @@ export default function Panneau(): JSX.Element {
           )}
           <span className="chevron"><Chevron haut={vue === 'hub'} /></span>
         </button>
+        {vue === 'chat' && etat && <SelecteurCompte etat={etat} projet={projet} />}
         <div className="actions">
           {vue === 'outils' || vue === 'reglages'
             ? <button type="button" className="icone" title="Revenir à la conversation" onClick={() => setVue('chat')}>←</button>

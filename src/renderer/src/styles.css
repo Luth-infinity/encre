@@ -684,3 +684,24 @@ header { position: relative; z-index: 16; }
 .menu-entete button.danger { color: var(--del-fg); }
 /* Les champs sans contour montrent où l'on tape, comme le champ du chat. */
 .sujet-nom:focus, .renommer input:focus, .ajout-compte input:focus, .filtres-voix input:focus { box-shadow: inset 0 0 0 1.5px var(--lav-fort); }
+
+/* ─── Compte du projet (0.6.1) ─── */
+.compte-choix { position: relative; flex: none; -webkit-app-region: no-drag; margin-left: auto; margin-right: 2px; }
+.compte-puce { display: flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 4px 8px 4px 5px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; max-width: 130px; }
+.compte-puce span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compte-puce:hover, .compte-puce.on { background: var(--canvas); }
+.compte-puce .pastille, .menu-compte .pastille { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(11,12,14,.18); }
+.compte-puce .chevron svg { width: 11px; height: 11px; }
+.menu-compte { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 230px; max-width: 290px; padding: 5px; border-radius: 14px; background: var(--card); box-shadow: 0 0 0 1px var(--line-fort), 0 12px 28px -10px rgba(11,12,14,.3); flex-direction: column; gap: 2px; }
+.menu-compte.ouvert { display: flex; animation: monte .25s cubic-bezier(.25,1.3,.5,1) both; }
+.menu-compte .section { color: var(--soft); font-size: 11px; font-weight: 700; padding: 6px 10px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-compte button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; color: var(--ink); text-align: left; }
+.menu-compte button:hover:not(:disabled) { background: var(--canvas); }
+.menu-compte button.on { background: var(--sel); }
+.menu-compte button:disabled { opacity: .55; cursor: default; }
+.menu-compte .qui-compte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.menu-compte .qui-compte strong { font-size: 13px; font-weight: 600; }
+.menu-compte .qui-compte small { font-size: 11.5px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-compte .note { font-size: 11.5px; color: var(--soft); padding: 6px 10px 4px; border-top: 1px solid var(--line); margin-top: 4px; line-height: 1.35; }
+/* Barre du plein écran : le compte du projet en une pastille. */
+.ligne-projet .pastille.compte { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-left: -2px; box-shadow: inset 0 0 0 1px rgba(11,12,14,.25); }

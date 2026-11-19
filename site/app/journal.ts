@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.6.1',
+    date: '2026-11-19',
+    titre: 'Un compte Claude par projet',
+    texte: 'Chaque projet retient le compte qui y travaille, et tu en changes en deux clics. Quand tu rouvres un projet, Encre repasse seul sur son compte.',
+    points: [
+      'Une pastille en haut du chat montre le compte du projet ; un clic ouvre la liste, un second change de compte.',
+      'La barre du plein écran marque d’une pastille de couleur le compte de chaque projet.',
+      'Si le fil est déjà long, le menu prévient que l’autre compte le relira en entier.',
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-11-19',
     titre: 'Tako dépense moins pour le même travail',

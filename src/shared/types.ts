@@ -23,6 +23,8 @@ export type Projet = {
   derniere: number
   /** Le projet Libre : questions sans projet, toujours là, jamais retiré. */
   libre?: boolean
+  /** Le compte Claude de ce projet (id de `comptes.json`), porté par le projet et non par ses sujets. Absent : il suit le compte en cours. */
+  compte?: string
   /** Les comptes Figma branchés (noms de serveurs MCP déjà reliés par `claude mcp login`). */
   figma?: string[]
   /** Un outil Figma a déjà servi dans ce projet : le rappel de cohérence part alors à chaque message (une session reprise n'applique pas une consigne changée). */

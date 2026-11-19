@@ -371,6 +371,10 @@ function brancher(): void {
   ipcMain.on('choisir-projet', (_e, id: string) => {
     if (projets.trouver(id)?.libre && !agent.enCours(id)) viderLibre()
     projets.choisir(id)
+    // Le projet a son compte : on repasse dessus, son fil y garde son cache. Un compte retiré est ignoré.
+    const p = projets.trouver(id)
+    const compte = p && projets.racineDe(p).compte
+    if (compte && comptes.comptes().some((c) => c.id === compte && c.connecte)) passerSur(compte)
     publierEtat()
   })
   // « Nouveau projet » du hub : même chemin que l'outil creer_projet du chat
@@ -621,8 +625,9 @@ function brancher(): void {
   // Comptes Claude. Changer de compte ne coupe pas les tours en cours : ils
   // finissent sur l'ancien, les suivants partent sur le nouveau.
   ipcMain.on('installer-maj', () => void updates.installer())
-  ipcMain.on('compte-choisir', (_e, id: string) => {
-    if (!comptes.choisir(id)) return
+  /** Bascule sur ce compte (limites, avatar, voix suivent). Faux si rien à changer. */
+  const passerSur = (id: string): boolean => {
+    if (id === comptes.actif() || !comptes.choisir(id)) return false
     noterConnexion(true)
     agent.oublierLimites()
     publierEtat()
@@ -630,6 +635,14 @@ function brancher(): void {
     laBulle()?.webContents.reload()
     const p = projets.actif()
     if (p && comptes.comptes().find((c) => c.actif)?.connecte) void agent.lireLimites(p).then(publierEtat)
+    return true
+  }
+  // Le compte choisi devient celui du projet ouvert : on le retrouve en y revenant.
+  ipcMain.on('compte-choisir', (_e, id: string) => {
+    if (!passerSur(id)) return
+    const p = projets.actif()
+    if (p && !p.libre) projets.modifier(projets.racineDe(p).id, { compte: id })
+    publierEtat()
   })
   // Ajouter puis connecter : la fenêtre de connexion s'ouvre, la réponse dit si ça a marché.
   ipcMain.handle('compte-ajouter', (_e, nom: string) => {
