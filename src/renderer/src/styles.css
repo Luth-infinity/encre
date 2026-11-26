@@ -140,28 +140,6 @@ header button { -webkit-app-region: no-drag; }
 .info { align-self: center; font-size: 12px; font-weight: 600; color: var(--soft); background: var(--canvas); padding: 4px 11px; border-radius: 999px; }
 .tag.libre { background: var(--ink); color: var(--lav); font-size: 14px; }
 
-/* ─── Hub ─── */
-.hub { flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 16px; }
-.hub > * { animation: monte .4s cubic-bezier(.25,1.3,.5,1) both; }
-.hub-tete { display: flex; flex-direction: column; gap: 4px; }
-.hub-tete h3 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.04em; }
-.hub-tete p { margin: 0; color: var(--soft); font-size: 13px; }
-.cartes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.carte {
-  border: 0; background: var(--card); box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(11,12,14,.05); border-radius: 20px; padding: 14px; min-height: 118px; text-align: left;
-  display: flex; flex-direction: column; gap: 2px; min-width: 0;
-  transition: transform .35s cubic-bezier(.3,1.5,.5,1), box-shadow .3s, background .3s;
-}
-.carte:hover:not(:disabled) { transform: translateY(-3px) rotate(-.8deg); box-shadow: 0 12px 24px -14px rgba(11,12,14,.35); background: var(--card); }
-.carte:disabled { opacity: .5; cursor: default; }
-.carte .tag { width: 40px; height: 40px; border-radius: 13px; font-size: 13px; margin-bottom: auto; rotate: var(--penche, -6deg); }
-.carte strong { margin-top: 12px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.carte small { color: var(--soft); font-size: 12px; }
-.carte.on { box-shadow: inset 0 0 0 2px var(--lav-fort), 0 1px 2px rgba(11,12,14,.05); }
-.carte.libre .tag { background: var(--ink); color: var(--lav); font-size: 16px; }
-.carte.lier { background: transparent; box-shadow: none; border: 1.5px dashed var(--line-fort); }
-.carte.lier .tag { background: var(--canvas); color: var(--soft); font-size: 18px; rotate: 0deg; }
-
 .fait { display: flex; gap: 8px; align-items: center; font-weight: 600; color: var(--soft); font-size: 13px; }
 .fait::before { content: "✓"; width: 20px; height: 20px; border-radius: 50%; background: var(--fini); color: #0B0C0E; display: grid; place-items: center; font-size: 11px; font-weight: 800; }
 .erreur { background: color-mix(in srgb, var(--erreur) 12%, var(--card)); color: var(--erreur); padding: 9px 12px; border-radius: 12px; font-weight: 500; }
@@ -252,18 +230,17 @@ footer { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; 
 
 /* ─── Plein écran : le chat en colonne au milieu ─── */
 .panneau.plein { inset: 0; border-radius: 0; box-shadow: none; }
-.panneau.plein .fil, .panneau.plein footer, .panneau.plein .hub, .panneau.plein .page {
+.panneau.plein .fil, .panneau.plein footer, .panneau.plein .page {
   width: 100%; max-width: 820px; margin-inline: auto;
 }
 .panneau.plein .fil { padding-inline: 24px; font-size: 15px; }
 .panneau.plein .noms small { max-width: 50vw; }
-.panneau.plein .cartes { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
 .appel.grand { padding: 14px 16px 14px 14px; gap: 18px; border-radius: 28px; }
 .appel.grand .mini { width: 92px; height: 92px; }
 .appel.grand .etat strong { font-size: 19px; }
 .appel.grand .etat small { font-size: 13px; }
 .btn:disabled { opacity: .4; cursor: default; }
-.astuce { margin: 0; color: var(--soft); font-size: 12px; }
 
 /* ─── Réglages et outils ─── */
 .page { flex: 1; overflow-y: auto; padding: 4px 16px 18px; display: flex; flex-direction: column; gap: 18px; user-select: text; }
@@ -321,7 +298,7 @@ footer { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; 
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
-/* ─── Nouveau projet (hub) ─── */
+/* ─── Nouveau projet (dans la palette) ─── */
 .nouveau { background: var(--canvas); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .nouveau strong { font-weight: 700; letter-spacing: -0.02em; }
 .nouveau input, .nouveau textarea { border: 0; border-radius: 12px; background: var(--card); color: var(--ink); font: inherit; padding: 9px 11px; outline: none; resize: none; user-select: text; }
@@ -331,13 +308,10 @@ footer { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; 
 
 /* ─── Accueil : Tako qui dit bonjour ─── */
 .accueil { margin: auto 0; align-items: center; text-align: center; gap: 8px; padding: 10px 4px 4px; }
-.accueil .tako-grand { width: 150px; height: 150px; }
+
 .accueil h3 { font-size: 26px; }
 .accueil p { margin: 0; color: var(--soft); max-width: 46ch; }
-.idees { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 8px; }
-.idees button { border: 0; background: var(--canvas); color: var(--ink); text-align: left; padding: 10px 14px; border-radius: 14px; font: inherit; font-size: 13.5px; font-weight: 500; transition: transform .2s cubic-bezier(.3,1.6,.5,1), background .2s; }
-.idees button:hover { background: color-mix(in srgb, var(--mood) 18%, var(--canvas)); transform: translateX(3px); }
-.accueil .astuce { font-size: 12px; margin-top: 4px; }
+
 kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(--canvas); border-radius: 6px; padding: 2px 6px; box-shadow: inset 0 -1px 0 var(--line); }
 
 /* ─── Tako dans le fil ─── */
@@ -350,31 +324,17 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .etapes .compte:hover span { color: var(--ink); }
 .etapes.vivantes { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--bosse) 50%, transparent); }
 
-/* ─── Plein écran : barre de projets à gauche ─── */
+/* ─── Colonne du chat ─── */
 .colonne { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .panneau.plein { flex-direction: row; }
-.barre { width: 248px; flex: none; background: var(--canvas); display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; }
-.barre .marque { display: flex; align-items: center; gap: 9px; padding: 4px 8px 14px; font-weight: 800; letter-spacing: -0.03em; font-size: 17px; -webkit-app-region: drag; }
-.barre .marque img { width: 30px; height: 30px; }
-.barre .rubrique { color: var(--soft); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 12px 8px 4px; }
-.barre .liste { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.ligne-projet { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; color: var(--ink); padding: 6px 8px; border-radius: 11px; font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; min-width: 0; }
-.ligne-projet span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ligne-projet .tag { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; }
-.ligne-projet:hover:not(:disabled) { background: var(--card); }
-.ligne-projet.on { background: var(--card); box-shadow: 0 1px 3px rgba(11,12,14,.08); }
-.ligne-projet.ajouter { color: var(--soft); justify-content: flex-start; }
-.ligne-projet.sujet-ligne { padding: 4px 8px 4px 43px; font-size: 12.5px; font-weight: 500; color: var(--soft); }
-.ligne-projet.sujet-ligne.on { color: var(--ink); }
 
 /* ─── Sujets d'un projet : une conversation par ticket ─── */
-.sujets { display: flex; gap: 4px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; flex: none; }
 .sujet { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 0; background: var(--canvas); color: var(--soft); font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sujet:hover { color: var(--ink); }
 .sujet.on { background: var(--sel); color: var(--ink); }
 .sujet.ajouter { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 .sujet-nom { flex: none; width: 170px; border: 0; border-radius: 999px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 12.5px; padding: 4px 10px; outline: none; user-select: text; }
-.panneau.plein .sujets { width: 100%; max-width: 820px; margin-inline: auto; padding-inline: 24px; }
+
 .fait .ranger { margin-left: auto; flex: none; white-space: nowrap; border: 0; background: transparent; color: var(--soft); font: inherit; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); }
 .fait .ranger:hover { color: var(--ink); background: var(--canvas); }
 
@@ -397,7 +357,7 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
   to { clip-path: circle(0px at var(--ox) var(--oy)); }
 }
 /* Le contenu suit en cascade, avec un léger ressort. */
-.panneau.entre header, .panneau.entre .colonne > :not(header):not(.depot), .panneau.entre .barre {
+.panneau.entre header, .panneau.entre .colonne > :not(header):not(.depot) {
   animation: cascade .55s cubic-bezier(.25,1.35,.5,1) both;
 }
 .panneau.entre header { animation-delay: .08s; }
@@ -521,10 +481,7 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 /* ─── Plusieurs projets à la fois ─── */
 .activite { width: 8px; height: 8px; border-radius: 50%; background: var(--bosse); flex: none; display: inline-block; animation: pouls 1.4s ease-in-out infinite; }
 .activite.attend { background: var(--accord); }
-.ligne-projet .activite { margin-left: auto; }
-.etiquette { display: flex; align-items: center; gap: 6px; color: var(--ink) !important; font-weight: 600; }
-.ailleurs { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bosse); color: #0B0C0E; font-size: 10.5px; font-weight: 800; display: grid; place-items: center; flex: none; }
-.ailleurs.attend { background: var(--accord); }
+
 @keyframes pouls { 50% { opacity: .45; } }
 
 /* ─── Comptes Claude ─── */
@@ -559,7 +516,7 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 
 /* ─── En-tête : ＋ · ⋯ · ✕, le reste dans le menu ─── */
 .actions { position: relative; }
-/* Au-dessus de la barre des sujets (z-index 15), sinon le menu ⋯ passe dessous (18/11). */
+/* Au-dessus du poulpe et du fil, sinon le menu ⋯ passe dessous (18/11). */
 header { position: relative; z-index: 16; }
 /* Même style que le menu des sujets : un seul menu de base dans Encre (audit du 18/11). */
 .menu-entete { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 220px; max-width: 280px; padding: 5px; border-radius: 14px; background: var(--card); box-shadow: 0 0 0 1px var(--line-fort, var(--line)), 0 12px 28px -10px rgba(11,12,14,.3); flex-direction: column; gap: 2px; -webkit-app-region: no-drag; }
@@ -595,7 +552,7 @@ header { position: relative; z-index: 16; }
 .filtres-voix input { flex: 1; min-width: 120px; font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 999px; border: 0; background: var(--canvas); color: var(--ink); outline: none; }
 .filtres-voix .puce { padding: 5px 11px; font-size: 12px; }
 
-/* ─── Couleur du projet, sujets en menu, barre repliable, renommer (0.5.5) ─── */
+/* ─── Couleur du projet (0.5.5) ─── */
 /* Le chat prend la couleur du projet, à peine : presque blanc, on sait où on est. */
 .colonne.teinte {
   background: color-mix(in srgb, var(--teinte, var(--card)) 7%, var(--card)); transition: background .4s;
@@ -613,36 +570,11 @@ header { position: relative; z-index: 16; }
 .colonne .modes { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); }
 .colonne .modes button:not(.on) { color: var(--soft); }
 .colonne .modes button:not(.on):hover { color: var(--ink); }
-.sujets:has(.choix-sujet) { overflow: visible; position: relative; z-index: 15; }
-.choix-sujet { position: relative; flex: 1; min-width: 0; }
-.choix-sujet-bouton {
-  width: 100%; display: flex; align-items: center; gap: 8px; border: 0; border-radius: 12px; padding: 6px 10px;
-  background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; text-align: left;
-}
-.choix-sujet-bouton:hover { box-shadow: inset 0 0 0 1px var(--soft); }
-.choix-sujet-bouton small { color: var(--soft); font-size: 11px; font-weight: 600; flex: none; }
-.choix-sujet-bouton > span:not(.fleche) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.choix-sujet-bouton em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--soft); background: var(--canvas); border-radius: 999px; padding: 0 7px; }
-.choix-sujet-bouton .fleche { color: var(--soft); font-size: 11px; }
-.menu-sujets {
-  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20; display: flex; flex-direction: column; padding: 5px; max-height: 320px; overflow-y: auto;
-  border-radius: 14px; background: var(--card); box-shadow: 0 0 0 1px var(--line-fort), 0 12px 28px -10px rgba(11,12,14,.3);
-  animation: monte .2s cubic-bezier(.25,1.3,.5,1) both;
-}
-.menu-sujets button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--ink); text-align: left; }
-.menu-sujets button span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.menu-sujets button:hover { background: var(--canvas); }
-.menu-sujets button.on { background: var(--sel); }
-.menu-sujets .coche { font-size: 12px; }
-.menu-sujets .nouveau-sujet { color: var(--soft); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 4px; }
-.menu-sujets .nouveau-sujet:hover { color: var(--ink); }
-.sujets .sujet-nom { flex: 1; width: auto; }
+
 .menu-entete button.danger { color: #C0392B; }
-.ligne-avec-pli { display: flex; align-items: center; gap: 2px; }
-.ligne-avec-pli .ligne-projet { flex: 1; }
+
 /* La flèche de repli se voyait à peine (audit du 18/11) : plus grande, cerclée. */
-.pli { flex: none; border: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; min-width: 26px; padding: 4px 6px; border-radius: 8px; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--line); }
-.pli:hover { background: var(--card); color: var(--ink); }
+
 .renommer {
   position: absolute; z-index: 20; left: 50%; top: 84px; translate: -50% 0; width: min(320px, calc(100% - 32px));
   background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
@@ -659,27 +591,18 @@ header { position: relative; z-index: 16; }
 .panneau.plein header { width: 100%; max-width: 820px; margin-inline: auto; padding-inline: 24px; }
 .icone.avec-texte { width: auto; display: flex; gap: 6px; padding: 0 10px; font-size: 13px; font-weight: 600; }
 .icone svg { width: 16px; height: 16px; }
-/* Le fil glisse sous la barre des sujets en fondu, plus de coupe nette. */
+/* Le fil glisse sous l'en-tête en fondu, plus de coupe nette. */
 .fil { mask-image: linear-gradient(to bottom, transparent 0, #000 14px); }
-/* Barre : sujet actif nettement surligné, Libre explicite, champ d'un nouveau sujet. */
-.ligne-projet.sujet-ligne.on { background: var(--sel); font-weight: 600; }
-.ligne-projet.sujet-ligne.ajouter { color: var(--soft); }
-.ligne-projet small { color: var(--soft); font-weight: 500; font-size: 11.5px; margin-left: 4px; }
-.sujet-ligne-champ { padding: 2px 8px 2px 43px; display: flex; }
-.sujet-ligne-champ .sujet-nom { flex: 1; width: auto; border-radius: 8px; }
-/* Direction UI (0.5.8) : barre du plein écran avec un peu de profondeur, chevron dessiné, pied de réponse sur une ligne. */
-.barre { box-shadow: inset -1px 0 0 var(--line); }
+/* Direction UI (0.5.8) : chevron dessiné, pied de réponse sur une ligne. */
+
 .chevron { display: flex; }
 .chevron svg { width: 14px; height: 14px; }
 .fait { font-size: 12.5px; }
 .fait-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.carte.on:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--lav-fort), 0 12px 24px -14px rgba(11,12,14,.35); }
-.fleche, .pli { display: inline-flex; align-items: center; gap: 2px; }
-.fleche svg, .pli svg { width: 13px; height: 13px; }
 
 /* ─── Accessibilité (audit du 18/11) ─── */
 /* Le badge Libre reste noir en sombre : lavande sur fond clair ne se lisait pas (1,9:1). */
-.tag.libre, .carte.libre .tag { background: #0B0C0E; }
+.tag.libre { background: #0B0C0E; }
 /* Rouge de suppression lisible dans les deux modes (7,5:1 et 8:1). */
 .menu-entete button.danger { color: var(--del-fg); }
 /* Les champs sans contour montrent où l'on tape, comme le champ du chat. */
@@ -703,5 +626,65 @@ header { position: relative; z-index: 16; }
 .menu-compte .qui-compte strong { font-size: 13px; font-weight: 600; }
 .menu-compte .qui-compte small { font-size: 11.5px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-compte .note { font-size: 11.5px; color: var(--soft); padding: 6px 10px 4px; border-top: 1px solid var(--line); margin-top: 4px; line-height: 1.35; }
-/* Barre du plein écran : le compte du projet en une pastille. */
-.ligne-projet .pastille.compte { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-left: -2px; box-shadow: inset 0 0 0 1px rgba(11,12,14,.25); }
+
+
+/* ─── Piste D (24/11) : rien à ranger à l'écran, les projets dans une palette ─── */
+.projet.on { background: var(--canvas); }
+.noms .sep { margin: 0 6px; color: var(--soft); font-weight: 500; }
+kbd.raccourci { margin-left: 2px; color: var(--soft); }
+.autres { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--soft); font: inherit; font-size: 12.5px; font-weight: 600; }
+.autres:hover { background: var(--canvas); color: var(--ink); }
+.autres.attend { color: var(--ink); }
+
+/* Accueil : la question et le champ au milieu, le poulpe qui monte du coin derrière. */
+.accueil h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.05; }
+.panneau.plein .accueil h1 { font-size: 36px; }
+.colonne.accueil-vide .fil { flex: 0 0 auto; margin-top: auto; overflow: visible; mask-image: none; }
+.panneau.plein .accueil-vide .fil, .panneau.plein .accueil-vide footer { max-width: 640px; }
+.accueil-vide .fil, .accueil-vide footer, .en-attente, .reprendre { position: relative; z-index: 1; }
+/* En petit, le bas reste au poulpe (sinon il passe sous le titre et les jauges) ; en plein écran, tout est centré. */
+.colonne.accueil-vide::after { content: ""; flex: 0 0 34%; }
+.panneau.plein .colonne.accueil-vide::after { flex: 0 0 auto; margin-top: auto; }
+.creature.coin { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+/* Nori et Momo (encore en 3D) : un médaillon dans le coin plutôt qu'une scène pleine page. */
+.creature.coin:not(.deux-d) { inset: auto 14px 14px auto; width: 200px; height: 200px; }
+.en-attente { display: flex; flex-direction: column; gap: 2px; width: calc(100% - 24px); max-width: 640px; margin: 0 auto; padding-bottom: 12px; }
+.en-attente .ligne { border: 0; background: transparent; padding: 7px 10px; border-radius: 12px; font: inherit; font-size: 13px; color: var(--ink); text-align: left; }
+.en-attente .ligne:hover { background: var(--canvas); }
+.en-attente .ou { color: var(--soft); }
+.en-attente .voir { margin-left: auto; font-weight: 700; color: var(--lav-fort); }
+.reprendre { margin: 0 auto; padding: 0 16px 14px; text-align: center; color: var(--soft); font-size: 12.5px; }
+.reprendre button { border: 0; background: transparent; padding: 0; font: inherit; color: var(--ink); font-weight: 600; }
+.reprendre button:hover { text-decoration: underline; }
+
+/* En conversation, la tête du poulpe dépasse du champ. */
+.champ-zone { position: relative; }
+.creature.guetteur { position: absolute; right: 70px; bottom: calc(100% - 10px); width: 120px; height: 96px; pointer-events: none; z-index: 0; }
+.champ-zone .saisie-bloc { z-index: 1; }
+
+/* Palette (⌘K ou clic sur le repère en haut) : en cours, récents, recherche. */
+.voile-palette { position: absolute; inset: 0; z-index: 30; background: rgba(11,12,14,.16); }
+.palette {
+  position: absolute; z-index: 31; top: 56px; left: 50%; translate: -50% 0; width: min(560px, calc(100% - 20px)); max-height: calc(100% - 72px);
+  display: flex; flex-direction: column; background: var(--card); border-radius: 18px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line-fort), 0 18px 40px -16px rgba(11,12,14,.45); animation: monte .25s cubic-bezier(.25,1.3,.5,1) both;
+}
+.palette > input { border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 15px; padding: 14px 16px; outline: none; user-select: text; }
+.palette > input::placeholder { color: var(--soft); }
+.liste-palette { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 1px; min-height: 0; }
+.liste-palette .section { padding: 8px 10px 4px; font-size: 11px; font-weight: 700; color: var(--soft); }
+.liste-palette button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 6px 10px; border-radius: 12px; text-align: left; color: var(--ink); font: inherit; }
+.liste-palette button.sel { background: var(--canvas); }
+.liste-palette .tag { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; }
+.liste-palette .tag.libre { font-size: 12px; }
+.liste-palette .nom { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
+.liste-palette .nom small { color: var(--soft); font-weight: 500; }
+.liste-palette .ici .nom { font-weight: 800; }
+.liste-palette .quand { flex: none; color: var(--soft); font-size: 11.5px; }
+.liste-palette .rien { margin: 0; padding: 14px 10px; color: var(--soft); font-size: 13px; }
+.pied-palette { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 8px; border-top: 1px solid var(--line); }
+.pied-palette .espace { flex: 1; }
+.pied-palette button { border: 0; background: transparent; color: var(--soft); font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 999px; }
+.pied-palette button:hover { background: var(--canvas); color: var(--ink); }
+.pied-palette button.fort { background: var(--lav); color: #0B0C0E; }
+.palette .nouveau { background: transparent; border-radius: 0; }

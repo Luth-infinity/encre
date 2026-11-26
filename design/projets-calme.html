@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Encre · piste D, le calme (maquette)</title>
+<style>
+  :root { --fond: #F6F5FA; --carte: #FFFFFF; --texte: #1B1530; --doux: #6E6A80; --ligne: #E6E3EF; --encre: #1E1236; --arc: #7C66D9; --lav: #B7A6F5;
+    --orange: #FF9A3C; --jaune: #FFC933; }
+  [data-theme=sombre] { --fond: #0E0C15; --carte: #17141F; --texte: #EEEAF8; --doux: #9C97B0; --ligne: #2A2536; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, "SF Pro Text", system-ui, sans-serif; background: var(--fond); color: var(--texte); }
+  .outils { position: sticky; top: 0; z-index: 9; display: flex; gap: 8px; align-items: center; padding: 14px 24px; background: color-mix(in srgb, var(--fond) 85%, transparent); backdrop-filter: blur(16px); }
+  .puce { border: 1px solid var(--ligne); background: var(--carte); color: var(--texte); border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
+  h2 { margin: 28px 24px 4px; font-size: 18px; } h2 span { color: var(--doux); font-weight: 400; }
+  .legende { color: var(--doux); margin: 0 24px 12px; max-width: 1100px; }
+  .rang { display: flex; gap: 24px; padding: 0 24px 8px; flex-wrap: wrap; align-items: flex-start; }
+  .ecran { width: 1100px; height: 640px; border-radius: 24px; background: var(--fond); border: 1px solid var(--ligne); overflow: hidden; display: flex; flex-direction: column; position: relative;
+    box-shadow: 0 40px 80px -40px rgba(40, 20, 90, .35); }
+  .petit { width: 420px; height: 640px; border-radius: 22px; background: var(--fond); border: 1px solid var(--ligne); position: relative; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 30px 60px -30px rgba(40, 20, 90, .35); }
+  .tag { width: 22px; height: 22px; border-radius: 7px; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; color: var(--encre); flex: none; }
+  .point { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .point.bosse { background: var(--orange); } .point.attend { background: var(--jaune); }
+  .doux { color: var(--doux); }
+  /* Le poulpe animé (poulpe-2d.js), toujours derrière le contenu. ?pose=coin|dessus|fond|centre : placements à comparer */
+  .poulpe { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; }
+  .guetteur { position: absolute; right: 90px; bottom: 60px; pointer-events: none; }
+  .petit .guetteur { right: 40px; }
+  [data-pose=dessus] .ecran .accueil { padding-top: 290px; }
+  [data-pose=dessus] .petit .accueil { padding-top: 250px; }
+  [data-pose=fond] .poulpe { opacity: .1; }
+  [data-pose=fond][data-theme=sombre] .poulpe { opacity: .4; }
+  .poses .puce[aria-pressed=true] { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+  .pied { position: relative; }
+  .pied .champ { position: relative; z-index: 1; }
+
+  .champ { display: flex; align-items: center; gap: 10px; padding: 14px 12px 14px 20px; border-radius: 999px; background: var(--carte); border: 1px solid var(--ligne);
+    box-shadow: 0 8px 30px -10px color-mix(in srgb, var(--lav) 70%, transparent); }
+  .champ input { flex: 1; border: 0; outline: 0; background: none; font: inherit; color: var(--texte); min-width: 0; }
+  .envoi { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--arc); color: #fff; flex: none; }
+  .champ-bloc { display: flex; flex-direction: column; gap: 8px; }
+  /* Où ira la demande : Tako le devine pendant qu'on écrit, un clic pour changer */
+  .cible { align-self: flex-start; margin-left: 18px; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--doux);
+    padding: 4px 10px 4px 6px; border-radius: 999px; border: 1px solid var(--ligne); background: var(--carte); }
+  .cible b { color: var(--texte); font-weight: 600; }
+
+  /* Accueil : Tako, le champ, et une ligne seulement si quelque chose se passe */
+  .accueil { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 20px; padding-top: 44px; }
+  .accueil h1 { margin: 0; font-weight: 400; font-size: 28px; letter-spacing: -.02em; }
+  .accueil .champ-bloc { width: 600px; }
+  .petit .accueil .champ-bloc { width: 360px; }
+  .petit .accueil { padding-top: 60px; }
+  .petit .accueil h1 { font-size: 22px; }
+  .vit { display: flex; flex-direction: column; gap: 6px; width: 600px; }
+  .petit .vit { width: 360px; }
+  .vit .l { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 14px; font-size: 13px; }
+  .vit .l:hover, .vit .l.survol { background: var(--carte); }
+  .vit .l .ou { color: var(--doux); }
+  .vit .l .act { margin-left: auto; color: var(--arc); font-weight: 550; }
+
+  /* En-tête : un seul repère, le fil d'Ariane, qui ouvre la palette */
+  .tete { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 14px 18px; }
+  .ariane { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 7px; border-radius: 12px; font-weight: 600; }
+  .ariane:hover, .ariane.ouvert { background: var(--carte); box-shadow: 0 0 0 1px var(--ligne); }
+  .ariane .sep { color: var(--doux); font-weight: 400; }
+  .ariane .k { color: var(--doux); font-weight: 400; font-size: 12px; margin-left: 4px; }
+  .tete .droite { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .tete .autres { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--doux); padding: 6px 10px; border-radius: 999px; }
+  .rond { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--doux); }
+
+  .fil { flex: 1; padding: 6px 28px; display: flex; flex-direction: column; gap: 12px; max-width: 760px; width: 100%; margin: 0 auto; }
+  .moi { align-self: flex-end; background: color-mix(in srgb, var(--lav) 30%, var(--carte)); padding: 9px 13px; border-radius: 16px; max-width: 80%; }
+  .etapes { align-self: flex-start; font-size: 13px; color: var(--doux); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--ligne); background: var(--carte); }
+  .pied { max-width: 760px; width: 100%; margin: 0 auto; padding: 8px 28px 22px; }
+  .petit .fil, .petit .pied { padding-left: 16px; padding-right: 16px; }
+
+  /* Palette (⌘K ou clic sur le fil d'Ariane) : le seul endroit où l'on voit les projets */
+  .voile { position: absolute; inset: 0; background: color-mix(in srgb, var(--encre) 22%, transparent); }
+  .palette { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); width: 560px; background: var(--carte); border: 1px solid var(--ligne); border-radius: 18px;
+    box-shadow: 0 30px 70px -20px rgba(40, 20, 90, .45); overflow: hidden; }
+  .petit .palette { width: auto; left: 10px; right: 10px; transform: none; top: 58px; }
+  .palette input { width: 100%; border: 0; border-bottom: 1px solid var(--ligne); padding: 16px 18px; font: inherit; font-size: 16px; background: none; color: var(--texte); outline: 0; }
+  .palette .liste { padding: 6px; display: flex; flex-direction: column; }
+  .palette small { color: var(--doux); padding: 8px 12px 4px; font-size: 12px; }
+  .palette .l { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; }
+  .palette .l.ici { background: color-mix(in srgb, var(--lav) 25%, transparent); }
+  .palette .l .sous { color: var(--doux); }
+  .palette .l .q { margin-left: auto; color: var(--doux); font-size: 12px; }
+  .palette .l .point + .q { margin-left: 8px; }
+  .palette .l .point { margin-left: auto; }
+  .palette .pied-p { display: flex; gap: 16px; padding: 10px 18px; border-top: 1px solid var(--ligne); font-size: 12px; color: var(--doux); }
+  .palette .pied-p b { color: var(--arc); font-weight: 550; }
+  kbd { font: 11px/1 -apple-system, system-ui, sans-serif; padding: 3px 5px; border-radius: 5px; border: 1px solid var(--ligne); color: var(--doux); }
+</style>
+</head>
+<body>
+<div class="outils"><b>Encre · piste D, le calme</b><span class="poses doux">Poulpe : <button class="puce" data-p="coin">Coin</button> <button class="puce" data-p="dessus">Dessus</button> <button class="puce" data-p="fond">Fond</button> <button class="puce" data-p="centre">Centre</button></span><button class="puce" id="theme">Thème sombre</button></div>
+
+<h2>D · Le calme <span>— rien à ranger à l'écran : tu écris, Momo range</span></h2>
+<p class="legende">Plus de barre, de rail ni de cartes. L'accueil, c'est le champ, avec Momo qui monte du coin en bas à droite, derrière (placement validé le 24/11 ; les boutons du haut gardent les autres pour comparer). Tu ne choisis pas de projet : Momo devine où va ta demande et l'affiche sous le champ (un clic pour changer). Les projets ne s'affichent que quand tu les cherches, dans une seule palette (⌘K ou clic sur le titre). Le petit panneau et le plein écran deviennent la même chose, seule la largeur change.</p>
+
+<h2>1 · Accueil, rien ne tourne</h2>
+<div class="rang">
+  <div class="ecran">
+    <canvas class="poulpe"></canvas>
+    <div class="tete"><span class="droite"><span class="rond" title="Réglages">⋯</span></span></div>
+    <div class="accueil">
+      <h1>Qu'est-ce qu'on fait ?</h1>
+      <div class="champ-bloc"><label class="champ"><span class="doux">＋</span><input placeholder="Demande à Momo…"><button class="envoi">↑</button></label></div>
+      <div class="doux" style="font-size:13px">Reprendre : <u>Rebranding</u> · <u>Page d'accueil</u> · <kbd>⌘K</kbd> tous les projets</div>
+    </div>
+  </div>
+</div>
+
+<h2>2 · Accueil, deux choses en cours, et tu écris</h2>
+<p class="legende">Ce qui t'attend tient en lignes simples, seulement s'il y en a. Pendant que tu écris, Momo indique le projet visé.</p>
+<div class="rang">
+  <div class="ecran">
+    <canvas class="poulpe"></canvas>
+    <div class="tete"><span class="droite"><span class="rond">⋯</span></span></div>
+    <div class="accueil">
+      <h1>Qu'est-ce qu'on fait ?</h1>
+      <div class="champ-bloc">
+        <label class="champ"><span class="doux">＋</span><input value="Les pastilles du plein écran doublonnent encore"><button class="envoi">↑</button></label>
+        <span class="cible"><span class="tag" style="background:#B7A6F5">EA</span>Dans <b>Encre · Avatars › Pastilles</b> <span>▾</span></span>
+      </div>
+      <div class="vit">
+        <div class="l survol"><i class="point attend"></i><b>Revue</b><span class="ou">Veille</span><span class="doux">attend ton accord</span><span class="act">Voir</span></div>
+        <div class="l"><i class="point bosse"></i><b>Pastilles</b><span class="ou">Encre · Avatars</span><span class="doux">travaille</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>3 · Dans une conversation</h2>
+<p class="legende">Rien à gauche : le fil prend toute la place. En haut, un seul repère (projet › sujet). Si un autre projet a besoin de toi, un point le dit.</p>
+<div class="rang">
+  <div class="ecran">
+    <div class="tete">
+      <span class="ariane"><span class="tag" style="background:#B7A6F5">EA</span>Encre · Avatars <span class="sep">›</span> Rebranding <span class="doux">▾</span><span class="k">⌘K</span></span>
+      <span class="droite"><span class="autres"><i class="point attend"></i>1 attend</span><span class="puce">＋ Nouvelle conversation</span><span class="rond">⋯</span></span>
+    </div>
+    <div class="fil">
+      <div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+      <div class="etapes">✓ 4 étapes · refonte-2d.html</div>
+      <div>Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins.</div>
+    </div>
+    <div class="pied"><canvas class="guetteur"></canvas><label class="champ"><span class="doux">＋</span><input placeholder="Réponds à Momo…"><button class="envoi">↑</button></label></div>
+  </div>
+</div>
+
+<h2>4 · La palette (⌘K ou clic sur le titre)</h2>
+<p class="legende">Projets et sujets mélangés, triés par activité. Sans rien taper : ce qui tourne, puis les récents. Avec 28 projets, on tape deux lettres. Épingler devient inutile : ce qu'on utilise remonte seul.</p>
+<div class="rang">
+  <div class="ecran">
+    <div class="tete">
+      <span class="ariane ouvert"><span class="tag" style="background:#B7A6F5">EA</span>Encre · Avatars <span class="sep">›</span> Rebranding <span class="doux">▾</span></span>
+      <span class="droite"><span class="autres"><i class="point attend"></i>1 attend</span><span class="puce">＋ Nouvelle conversation</span><span class="rond">⋯</span></span>
+    </div>
+    <div class="fil">
+      <div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+      <div class="etapes">✓ 4 étapes · refonte-2d.html</div>
+    </div>
+    <div class="voile"></div>
+    <div class="palette">
+      <input placeholder="Aller à un projet ou un sujet…">
+      <div class="liste">
+        <small>En cours</small>
+        <div class="l"><span class="tag" style="background:#FFD27A">VE</span>Revue <span class="sous">· Veille</span><i class="point attend"></i><span class="q">attend ton accord</span></div>
+        <div class="l"><span class="tag" style="background:#B7A6F5">EA</span>Pastilles <span class="sous">· Encre · Avatars</span><i class="point bosse"></i><span class="q">travaille</span></div>
+        <small>Récents</small>
+        <div class="l ici"><span class="tag" style="background:#B7A6F5">EA</span>Rebranding <span class="sous">· Encre · Avatars</span><span class="q">ici</span></div>
+        <div class="l"><span class="tag" style="background:#8FD3FF">CR</span>Page d'accueil <span class="sous">· Client · Refonte du site</span><span class="q">2 h</span></div>
+        <div class="l"><span class="tag" style="background:#C3B8FF">AP</span>App mobile<span class="q">hier</span></div>
+        <div class="l"><span class="tag" style="background:#9FE3B8">FA</span>Factures<span class="q">mardi</span></div>
+      </div>
+      <div class="pied-p"><span><kbd>↑</kbd> <kbd>↓</kbd> choisir</span><span><kbd>↵</kbd> ouvrir</span><span style="margin-left:auto"><b>＋ Nouveau projet</b></span></div>
+    </div>
+  </div>
+</div>
+
+<h2>5 · Petit panneau <span>— exactement la même chose, en plus étroit</span></h2>
+<div class="rang">
+  <div class="petit">
+    <canvas class="poulpe"></canvas>
+    <div class="tete"><span class="droite"><span class="rond">⋯</span></span></div>
+    <div class="accueil">
+      <h1>Qu'est-ce qu'on fait ?</h1>
+      <div class="champ-bloc"><label class="champ"><span class="doux">＋</span><input placeholder="Demande à Momo…"><button class="envoi">↑</button></label></div>
+      <div class="vit">
+        <div class="l"><i class="point attend"></i><b>Revue</b><span class="ou">Veille</span><span class="act">Voir</span></div>
+        <div class="l"><i class="point bosse"></i><b>Pastilles</b><span class="ou">Encre · Avatars</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="petit">
+    <div class="tete">
+      <span class="ariane"><span class="tag" style="background:#B7A6F5">EA</span>Rebranding <span class="doux">▾</span></span>
+      <span class="droite"><span class="autres"><i class="point attend"></i>1</span><span class="rond">＋</span><span class="rond">⋯</span></span>
+    </div>
+    <div class="fil">
+      <div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+      <div class="etapes">✓ 4 étapes · refonte-2d.html</div>
+      <div>Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins.</div>
+    </div>
+    <div class="pied"><canvas class="guetteur"></canvas><label class="champ"><span class="doux">＋</span><input placeholder="Réponds à Momo…"><button class="envoi">↑</button></label></div>
+  </div>
+  <div class="petit">
+    <div class="tete">
+      <span class="ariane ouvert"><span class="tag" style="background:#B7A6F5">EA</span>Rebranding <span class="doux">▾</span></span>
+      <span class="droite"><span class="autres"><i class="point attend"></i>1</span><span class="rond">＋</span><span class="rond">⋯</span></span>
+    </div>
+    <div class="fil"><div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div></div>
+    <div class="voile"></div>
+    <div class="palette">
+      <input placeholder="Aller à…">
+      <div class="liste">
+        <small>En cours</small>
+        <div class="l"><span class="tag" style="background:#FFD27A">VE</span>Revue<i class="point attend"></i></div>
+        <div class="l"><span class="tag" style="background:#B7A6F5">EA</span>Pastilles<i class="point bosse"></i></div>
+        <small>Récents</small>
+        <div class="l ici"><span class="tag" style="background:#B7A6F5">EA</span>Rebranding<span class="q">ici</span></div>
+        <div class="l"><span class="tag" style="background:#8FD3FF">CR</span>Page d'accueil<span class="q">2 h</span></div>
+        <div class="l"><span class="tag" style="background:#C3B8FF">AP</span>App mobile<span class="q">hier</span></div>
+      </div>
+      <div class="pied-p"><span style="margin-left:auto"><b>＋ Nouveau projet</b></span></div>
+    </div>
+  </div>
+</div>
+<div style="height:40px"></div>
+<script src="poulpe-2d.js"></script>
+<script>
+// Accueil centré : les 8 bras validés, posés en miroir (gauche = droite retournée) pour qu'ils s'étalent des deux côtés.
+// Du fond vers l'avant ; a : angle de départ, courbe : sens de l'enroulement (inversé côté gauche).
+const MOITIE = [
+  { lx: 70, a: Math.PI * .1,  L: 560, r: 26, courbe: -.8, ph: .4 },
+  { lx: 46, a: Math.PI * .26, L: 540, r: 30, courbe: -1.1, ph: 4.2 },
+  { lx: 22, a: Math.PI * .4,  L: 520, r: 32, courbe: -.5, ph: 3.4 },
+  { lx: 6,  a: Math.PI * .47, L: 520, r: 34, courbe: 2.4, ph: 1.3, amp: .45 },
+]
+const BRAS_C = MOITIE.flatMap(B => [B, { ...B, lx: -B.lx, a: Math.PI - B.a, courbe: -B.courbe, ph: B.ph + 2.3 }])
+// Placements à comparer. k : échelle (plein écran, petit panneau) ; ou(w, h) : centre de la tête en pixels ; long : longueur des bras.
+const POSES = {
+  coin:   { k: [.9, .5],   bras: BRAS,   incl: INCL, ou: (w, h, k) => [w - (640 - TX) * k, h - (640 - TY) * k] }, // celui de la refonte validée
+  dessus: { k: [.42, .32], bras: BRAS_C, incl: 0, long: .6, amp: .5, ou: (w, h, k, p) => [w / 2, p ? 100 : 110] },
+  fond:   { k: [1.1, .7],  bras: BRAS_C, incl: 0, ou: (w, h) => [w / 2, h * .38] },
+  centre: { k: [.62, .55], bras: BRAS_C, incl: 0, ou: (w, h, k, p) => [w / 2, p ? 440 : 450] },
+}
+const POSE = POSES[new URLSearchParams(location.search).get('pose')] ? new URLSearchParams(location.search).get('pose') : 'coin', PO = POSES[POSE]
+document.documentElement.dataset.pose = POSE
+document.querySelectorAll('.poses .puce').forEach(b => { b.setAttribute('aria-pressed', b.dataset.p === POSE); b.onclick = () => { const u = new URLSearchParams(location.search); u.set('pose', b.dataset.p); location.search = u } })
+// Une seule ondulation pour tous les poulpes de la page. La toile couvre l'écran.
+const grands = [...document.querySelectorAll('canvas.poulpe')].map(cv => {
+  const P = cv.parentElement, w = P.clientWidth, h = P.clientHeight, petit = P.classList.contains('petit'), k = PO.k[petit ? 1 : 0]
+  const c = toile(cv, w, h); c.scale(k, k)
+  const [x, y] = PO.ou(w, h, k, petit)
+  return { c, W: w / k, H: h / k, hx: x / k, hy: y / k }
+})
+const guets = [...document.querySelectorAll('canvas.guetteur')].map(cv => toile(cv, 150, 120))
+let avant = performance.now(), phase = +(new URLSearchParams(location.search).get('phase') || 0)
+if (fige) { pal = cible; Object.assign(vis, VISAGES[humeur]) }
+function image(now) {
+  const dt = Math.min(.05, (now - avant) / 1000); avant = now
+  const t = reduit ? 0 : now / 1000
+  pal = pal.map((c, i) => mel(c, cible[i], .06))
+  if (reduit) Object.assign(vis, VISAGES[humeur]); else ressorts(dt)
+  ouvert = reduit || fige ? 1 : paupiere(t)
+  if (!reduit && !fige) phase += dt * 1.1
+  const fond = nuit ? css(pal[0]) : getComputedStyle(document.body).getPropertyValue('--fond').trim()
+  if (pret(TETE)) teinte(fond)
+  const incl = PO.incl + Math.sin(t * .9) * .03, cs = Math.cos(incl), sn = Math.sin(incl), flotte = Math.sin(t * 1.2) * 5, ly = 90
+  for (const { c, W, H, hx, hy: y0 } of grands) {
+    const hy = y0 + flotte
+    c.clearRect(0, 0, W, H)
+    if (pret(TETE)) anneau(c, hx, hy, TW, incl, ETIRE)
+    PO.bras.forEach(B => dessineBras(c, membre({ ...B, a: B.a + incl * .5, L: B.L * (PO.long ?? 1) }, phase, .3 * (PO.amp ?? 1) * (B.amp ?? 1), hx + B.lx * cs - ly * sn, hy + B.lx * sn + ly * cs), B, fond))
+    tete(c, c.canvas, hx, hy, TW, incl, ETIRE, 1, 0)
+  }
+  const gy = 62 + Math.sin(t * 1.2) * 3
+  for (const c of guets) {
+    c.clearRect(0, 0, 150, 120)
+    if (nuit && pret(TETE)) anneau(c, 75, gy, 110, -.12, 1.1)
+    tete(c, c.canvas, 75, gy, 110, -.12, 1.1, 1.5, 0)
+  }
+  requestAnimationFrame(image)
+}
+requestAnimationFrame(image)
+const sombre = () => location.hash === '#sombre'
+const applique = () => { nuit = sombre(); document.documentElement.dataset.theme = sombre() ? 'sombre' : ''; theme.textContent = sombre() ? 'Thème clair' : 'Thème sombre' }
+theme.onclick = () => { location.hash = sombre() ? '' : 'sombre' }
+addEventListener('hashchange', applique); applique()
+</script>
+</body>
+</html>

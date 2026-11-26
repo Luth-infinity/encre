@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Encre · pistes pour les projets (maquette)</title>
+<style>
+  :root { --fond: #F6F5FA; --carte: #FFFFFF; --texte: #1B1530; --doux: #6E6A80; --ligne: #E6E3EF; --encre: #1E1236; --arc: #7C66D9; --lav: #B7A6F5;
+    --orange: #FF9A3C; --jaune: #FFC933; }
+  [data-theme=sombre] { --fond: #0E0C15; --carte: #17141F; --texte: #EEEAF8; --doux: #9C97B0; --ligne: #2A2536; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, "SF Pro Text", system-ui, sans-serif; background: var(--fond); color: var(--texte); }
+  .outils { position: sticky; top: 0; z-index: 9; display: flex; gap: 8px; align-items: center; padding: 14px 24px; background: color-mix(in srgb, var(--fond) 85%, transparent); backdrop-filter: blur(16px); }
+  .puce { border: 1px solid var(--ligne); background: var(--carte); color: var(--texte); border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
+  .puce.on { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+  h2 { margin: 28px 24px 4px; font-size: 18px; } h2 span { color: var(--doux); font-weight: 400; }
+  .legende { color: var(--doux); margin: 0 24px 12px; max-width: 1100px; }
+  .rang { display: flex; gap: 24px; padding: 0 24px 8px; flex-wrap: wrap; align-items: flex-start; }
+  .ecran { width: 1100px; height: 640px; border-radius: 24px; background: var(--fond); border: 1px solid var(--ligne); overflow: hidden; display: flex; position: relative;
+    box-shadow: 0 40px 80px -40px rgba(40, 20, 90, .35); }
+  .tag { width: 22px; height: 22px; border-radius: 7px; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; color: var(--encre); flex: none; }
+  .point { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .point.bosse { background: var(--orange); } .point.attend { background: var(--jaune); }
+  .champ { display: flex; align-items: center; gap: 10px; padding: 14px 12px 14px 20px; border-radius: 999px; background: var(--carte); border: 1px solid var(--ligne);
+    box-shadow: 0 8px 30px -10px color-mix(in srgb, var(--lav) 70%, transparent); }
+  .champ input { flex: 1; border: 0; outline: 0; background: none; font: inherit; color: var(--texte); }
+  .envoi { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--arc); color: #fff; }
+  .doux { color: var(--doux); }
+  .momo { width: 34px; height: 34px; border-radius: 50%; background: var(--encre); box-shadow: 0 0 0 3px var(--lav); position: relative; flex: none; }
+  .momo::before, .momo::after { content: ''; position: absolute; top: 13px; width: 5px; height: 7px; border-radius: 50%; background: #fff; }
+  .momo::before { left: 11px; } .momo::after { right: 11px; }
+
+  /* Fil commun aux pistes B et C */
+  .conv { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .conv header { display: flex; align-items: center; gap: 8px; padding: 18px 28px 10px; }
+  .conv header b { font-weight: 600; }
+  .fil { flex: 1; padding: 6px 28px; display: flex; flex-direction: column; gap: 12px; max-width: 700px; width: 100%; margin: 0 auto; }
+  .moi { align-self: flex-end; background: color-mix(in srgb, var(--lav) 30%, var(--carte)); padding: 9px 13px; border-radius: 16px; max-width: 80%; }
+  .etapes { align-self: flex-start; font-size: 13px; color: var(--doux); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--ligne); background: var(--carte); }
+  .conv .pied { max-width: 700px; width: 100%; margin: 0 auto; padding: 8px 28px 20px; }
+
+  /* ── A · Accueil ── */
+  .a { flex-direction: column; overflow: auto; }
+  .a .haut { padding: 40px 0 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .a .haut h1 { margin: 0; font-weight: 400; font-size: 30px; letter-spacing: -.02em; display: flex; align-items: center; gap: 12px; }
+  .a .haut .champ { width: 600px; }
+  .a .maintenant { display: flex; gap: 8px; justify-content: center; }
+  .a .maintenant .puce { display: inline-flex; align-items: center; gap: 7px; }
+  .a .grille { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 8px 48px 40px; }
+  .a .carte { background: var(--carte); border: 1px solid var(--ligne); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .a .carte .titre { display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .a .carte .dossier { font-size: 12px; color: var(--doux); margin: -2px 0 4px 31px; }
+  .a .sujet { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; background: color-mix(in srgb, var(--texte) 4%, transparent); }
+  .a .sujet .quand { margin-left: auto; font-size: 12px; color: var(--doux); }
+  .a .ajout { color: var(--doux); font-size: 13px; padding: 4px 8px; }
+  .a .carte.nouveau { border-style: dashed; align-items: center; justify-content: center; color: var(--doux); min-height: 150px; }
+  .a2 .barre-haut { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--ligne); }
+  .selecteur { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 12px; border: 1px solid var(--ligne); background: var(--carte); font-weight: 600; }
+  .menu-sel { position: absolute; top: 58px; left: 108px; width: 300px; background: var(--carte); border: 1px solid var(--ligne); border-radius: 14px; padding: 8px;
+    box-shadow: 0 20px 50px -20px rgba(40, 20, 90, .35); display: flex; flex-direction: column; gap: 2px; z-index: 2; }
+  .menu-sel input { border: 1px solid var(--ligne); border-radius: 9px; padding: 8px 10px; font: inherit; background: var(--fond); color: var(--texte); margin-bottom: 4px; }
+  .menu-sel .l { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; }
+  .menu-sel .l.ici { background: color-mix(in srgb, var(--lav) 25%, transparent); }
+  .menu-sel small { color: var(--doux); padding: 6px 8px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+
+  /* ── B · Boîte de fils ── */
+  .b .liste { width: 340px; flex: none; border-right: 1px solid var(--ligne); background: var(--carte); display: flex; flex-direction: column; }
+  .b .liste .tete { padding: 16px 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .b .liste .tete .ligne1 { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+  .b .liste .tete .ligne1 .puce { margin-left: auto; }
+  .b .filtres { display: flex; gap: 6px; overflow: hidden; }
+  .b .filtres .puce { padding: 4px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .b .filtres .puce i { width: 8px; height: 8px; border-radius: 3px; }
+  .b .groupe { color: var(--doux); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px 4px; display: flex; align-items: center; gap: 6px; }
+  .b .fil-l { display: flex; gap: 10px; padding: 9px 16px; align-items: flex-start; }
+  .b .fil-l.ici { background: color-mix(in srgb, var(--lav) 22%, transparent); }
+  .b .fil-l .corps { flex: 1; min-width: 0; }
+  .b .fil-l .corps b { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .b .fil-l .corps b span { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--doux); }
+  .b .fil-l .corps p { margin: 2px 0 0; color: var(--doux); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b .fil-l .projet { font-size: 12px; color: var(--doux); }
+  .b .attend-carte { margin: 2px 12px 4px; padding: 10px; border-radius: 12px; background: color-mix(in srgb, var(--jaune) 16%, var(--carte)); border: 1px solid color-mix(in srgb, var(--jaune) 50%, var(--ligne)); }
+  .b .attend-carte .btns { display: flex; gap: 6px; margin-top: 8px; }
+  .b .attend-carte .btns .puce { padding: 4px 10px; font-size: 13px; }
+
+  /* ── C · Espaces ── */
+  .c .rail { width: 72px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0; border-right: 1px solid var(--ligne); }
+  .c .rail .esp { position: relative; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: var(--encre); transition: border-radius .2s; }
+  .c .rail .esp.ici { border-radius: 12px; box-shadow: 0 0 0 2px var(--fond), 0 0 0 4px var(--arc); }
+  .c .rail .esp .point { position: absolute; right: -2px; top: -2px; box-shadow: 0 0 0 2px var(--fond); }
+  .c .rail .sep { width: 28px; height: 1.5px; background: var(--ligne); }
+  .c .rail .esp.libre { background: var(--encre); color: #fff; font-size: 18px; }
+  .c .rail .esp.plus { border: 1.5px dashed var(--ligne); color: var(--doux); font-weight: 400; font-size: 20px; }
+  .c .rail .bas { margin-top: auto; color: var(--doux); }
+  .c .sujets { width: 230px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; background: var(--carte); border-right: 1px solid var(--ligne); }
+  .c .sujets .nom { font-weight: 650; padding: 2px 8px; font-size: 15px; }
+  .c .sujets .dossier { color: var(--doux); font-size: 12px; padding: 0 8px 12px; }
+  .c .sujets .s { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; color: var(--doux); }
+  .c .sujets .s.ici { background: var(--texte); color: var(--fond); }
+  .c .sujets .s .point { margin-left: auto; }
+  .c .sujets .s.ajout { font-size: 13px; }
+  .c .sujets small { color: var(--doux); padding: 14px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+
+  /* ── A + C, pensé pour beaucoup de projets ── */
+  .rail .titre-rail { font-size: 9px; color: var(--doux); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+  .rail .esp.tous { background: var(--carte); border: 1.5px solid var(--ligne); color: var(--doux); font-size: 11px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+  .rail .esp.tous b { font-size: 15px; }
+  .acc { flex-direction: column; overflow: hidden; }
+  .acc .haut { padding: 26px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .acc .haut h1 { margin: 0; font-weight: 400; font-size: 26px; display: flex; align-items: center; gap: 12px; }
+  .acc .haut .champ { width: 560px; padding: 12px 12px 12px 18px; }
+  .acc .corps { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding: 8px 40px; }
+  .acc h3 { margin: 6px 0 8px; font-size: 11px; color: var(--doux); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .acc h3 .compte { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .mini { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mini .c2 { background: var(--carte); border: 1px solid var(--ligne); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  .mini .c2 .t { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+  .mini .c2 .t .point { margin-left: auto; }
+  .mini .c2 .d { color: var(--doux); }
+  .tous-l { background: var(--carte); border: 1px solid var(--ligne); border-radius: 14px; overflow: hidden; }
+  .tous-l .cherche { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid var(--ligne); }
+  .tous-l .cherche input { flex: 1; border: 1px solid var(--ligne); border-radius: 9px; padding: 7px 10px; font: inherit; background: var(--fond); color: var(--texte); }
+  .tous-l .r { display: flex; align-items: center; gap: 10px; padding: 7px 12px; font-size: 13px; border-bottom: 1px solid color-mix(in srgb, var(--ligne) 60%, transparent); }
+  .tous-l .r .n { flex: 1; font-weight: 550; }
+  .tous-l .r .q { color: var(--doux); width: 64px; text-align: right; }
+  .tous-l .r .pin { color: var(--doux); width: 16px; text-align: center; }
+  .tous-l .r .pin.on { color: var(--arc); }
+  .tous-l .r.dort { color: var(--doux); justify-content: center; border-bottom: 0; }
+  .petit { width: 420px; height: 640px; border-radius: 22px; background: var(--carte); border: 1px solid var(--ligne); position: relative; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 30px 60px -30px rgba(40, 20, 90, .35); }
+  .petit .haut-p { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--ligne); }
+  .petit .menu-sel { position: static; width: auto; margin: 10px; }
+  .petit .menu-sel .tout { color: var(--arc); font-weight: 550; justify-content: center; border-top: 1px solid var(--ligne); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="outils"><b>Encre · où ranger les projets ?</b><button class="puce" id="theme">Thème sombre</button></div>
+
+<h2>A · Accueil <span>— le chat global en haut, les projets en cartes dessous</span></h2>
+<p class="legende">Plus de barre à gauche. L'accueil est un tableau : on pose une question tout de suite (sans projet), ou on reprend un sujet d'un clic. En conversation, un seul sélecteur en haut (avec recherche) pour sauter ailleurs : le fil prend toute la largeur.</p>
+<div class="rang">
+  <div class="ecran a">
+    <div class="haut">
+      <h1><span class="momo"></span>Qu'est-ce qu'on fait ?</h1>
+      <label class="champ"><span class="doux">＋</span><input placeholder="Demande à Momo… (ou tape @ pour choisir un projet)"><button class="envoi">↑</button></label>
+      <div class="maintenant">
+        <span class="puce"><i class="point bosse"></i>Pastilles travaille</span>
+        <span class="puce"><i class="point attend"></i>Veille attend ton accord</span>
+      </div>
+    </div>
+    <div class="grille">
+      <div class="carte">
+        <div class="titre"><span class="tag" style="background:#B7A6F5">EA</span>Encre · Avatars</div>
+        <div class="dossier">Documents/Encre/Projets</div>
+        <div class="sujet">Rebranding<span class="quand">à l'instant</span></div>
+        <div class="sujet"><i class="point bosse"></i>Pastilles<span class="quand">en cours</span></div>
+        <div class="sujet">Général<span class="quand">hier</span></div>
+        <div class="ajout">＋ Nouveau sujet</div>
+      </div>
+      <div class="carte">
+        <div class="titre"><span class="tag" style="background:#8FD3FF">CR</span>Client · Refonte du site</div>
+        <div class="dossier">Documents/Clients/Refonte</div>
+        <div class="sujet">Page d'accueil<span class="quand">2 h</span></div>
+        <div class="sujet">Formulaire de contact<span class="quand">lundi</span></div>
+        <div class="ajout">＋ Nouveau sujet · voir les 3</div>
+      </div>
+      <div class="carte">
+        <div class="titre"><span class="tag" style="background:#FFD27A">VE</span>Veille</div>
+        <div class="dossier">Documents/Veille</div>
+        <div class="sujet"><i class="point attend"></i>Revue de la semaine<span class="quand">attend</span></div>
+        <div class="ajout">＋ Nouveau sujet</div>
+      </div>
+      <div class="carte nouveau">＋ Nouveau projet ou lier un dossier</div>
+    </div>
+  </div>
+  <div class="ecran a2" style="flex-direction:column">
+    <div class="barre-haut">
+      <span class="puce">← Accueil</span>
+      <span class="selecteur"><span class="tag" style="background:#B7A6F5">EA</span>Encre · Avatars <span class="doux">›</span> Rebranding <span class="doux">▾</span></span>
+      <span style="margin-left:auto" class="puce">＋ Nouvelle conversation</span><span class="puce">⋯</span>
+    </div>
+    <div class="menu-sel">
+      <input placeholder="Aller à un projet ou un sujet…">
+      <small>Encre · Avatars</small>
+      <div class="l">Général</div><div class="l ici">Rebranding</div><div class="l">Pastilles<i class="point bosse" style="margin-left:auto"></i></div>
+      <small>Autres projets</small>
+      <div class="l"><span class="tag" style="background:#8FD3FF">CR</span>Client · Refonte du site</div>
+      <div class="l"><span class="tag" style="background:#FFD27A">VE</span>Veille<i class="point attend" style="margin-left:auto"></i></div>
+    </div>
+    <div class="conv">
+      <div class="fil" style="padding-top:20px">
+        <div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+        <div class="etapes">✓ 4 étapes · refonte-2d.html</div>
+        <div>Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins.</div>
+      </div>
+      <div class="pied"><label class="champ"><span class="doux">＋</span><input placeholder="Réponds à Momo…"><button class="envoi">↑</button></label></div>
+    </div>
+  </div>
+</div>
+
+<h2>B · Boîte de fils <span>— une seule liste, triée par ce qui se passe</span></h2>
+<p class="legende">On ne range plus par dossier : on voit ce qui demande ton attention d'abord (une autorisation se donne depuis la liste), puis ce qui tourne, puis le récent. Le projet devient une étiquette de couleur et un filtre en haut. Libre n'est plus un endroit : une question sans projet est juste un fil sans étiquette.</p>
+<div class="rang">
+  <div class="ecran b">
+    <div class="liste">
+      <div class="tete">
+        <div class="ligne1"><span class="momo" style="width:24px;height:24px;box-shadow:0 0 0 2px var(--lav)"></span>Fils<span class="puce">＋ Nouveau</span></div>
+        <div class="filtres"><span class="puce on">Tous</span><span class="puce"><i style="background:#B7A6F5"></i>Encre</span><span class="puce"><i style="background:#8FD3FF"></i>Client</span><span class="puce"><i style="background:#FFD27A"></i>Veille</span></div>
+      </div>
+      <div class="groupe"><i class="point attend"></i>Attend ton accord</div>
+      <div class="attend-carte"><b>Revue de la semaine</b> <span class="projet">· Veille</span><div class="doux" style="font-size:13px;margin-top:2px">Momo veut lancer une recherche web.</div><div class="btns"><span class="puce on">Autoriser</span><span class="puce">Voir</span></div></div>
+      <div class="groupe"><i class="point bosse"></i>En cours</div>
+      <div class="fil-l"><span class="tag" style="background:#B7A6F5">EA</span><div class="corps"><b>Pastilles<span>…</span></b><p>Lance le build et vérifie la barre…</p></div></div>
+      <div class="groupe">Aujourd'hui</div>
+      <div class="fil-l ici"><span class="tag" style="background:#B7A6F5">EA</span><div class="corps"><b>Rebranding<span>16:42</span></b><p>Oui, il n'en avait que 5. J'en ai ajouté…</p></div></div>
+      <div class="fil-l"><span class="tag" style="background:var(--ligne)">✦</span><div class="corps"><b>Convertir 3 h en minutes<span>11:05</span></b><p>Ça fait 180 minutes.</p></div></div>
+      <div class="fil-l"><span class="tag" style="background:#8FD3FF">CR</span><div class="corps"><b>Page d'accueil<span>09:30</span></b><p>J'ai repris la grille du héros…</p></div></div>
+    </div>
+    <div class="conv">
+      <header><span class="tag" style="background:#B7A6F5">EA</span><b>Rebranding</b><span class="doux">· Encre · Avatars</span><span style="margin-left:auto" class="puce">⋯</span></header>
+      <div class="fil">
+        <div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+        <div class="etapes">✓ 4 étapes · refonte-2d.html</div>
+        <div>Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins.</div>
+      </div>
+      <div class="pied"><label class="champ"><span class="doux">＋</span><input placeholder="Réponds à Momo…"><button class="envoi">↑</button></label></div>
+    </div>
+  </div>
+</div>
+
+<h2>C · Espaces <span>— un rail de projets, puis les sujets du projet choisi</span></h2>
+<p class="legende">Deux niveaux qui ne se mélangent jamais : à gauche, un rail d'icônes (Libre en haut, puis un carré par projet, son point d'activité dessus) ; à côté, seulement les sujets du projet ouvert. Plus d'arbre à déplier : changer de projet, c'est un clic sur une icône. Le nom s'affiche au survol.</p>
+<div class="rang">
+  <div class="ecran c">
+    <div class="rail">
+      <div class="esp libre" title="Libre">✦</div>
+      <div class="sep"></div>
+      <div class="esp ici" style="background:#B7A6F5" title="Encre · Avatars">EA<i class="point bosse"></i></div>
+      <div class="esp" style="background:#8FD3FF" title="Client · Refonte du site">CR</div>
+      <div class="esp" style="background:#FFD27A" title="Veille">VE<i class="point attend"></i></div>
+      <div class="esp plus" title="Nouveau projet ou lier un dossier">＋</div>
+      <div class="bas">⚙</div>
+    </div>
+    <div class="sujets">
+      <div class="nom">Encre · Avatars</div>
+      <div class="dossier">Documents/Encre/Projets</div>
+      <div class="s">Général</div>
+      <div class="s ici">Rebranding</div>
+      <div class="s">Pastilles<i class="point bosse"></i></div>
+      <div class="s ajout">＋ Nouveau sujet</div>
+      <small>Outils du projet</small>
+      <div class="s">Figma · 1 compte</div>
+      <div class="s">Notion</div>
+    </div>
+    <div class="conv">
+      <header><b>Rebranding</b><span style="margin-left:auto" class="puce">＋ Nouvelle conversation</span><span class="puce">⋯</span></header>
+      <div class="fil">
+        <div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+        <div class="etapes">✓ 4 étapes · refonte-2d.html</div>
+        <div>Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins.</div>
+      </div>
+      <div class="pied"><label class="champ"><span class="doux">＋</span><input placeholder="Réponds à Momo…"><button class="envoi">↑</button></label></div>
+    </div>
+  </div>
+</div>
+
+<h2>A + C · beaucoup de projets <span>— rien ne déborde, même avec 28 projets</span></h2>
+<p class="legende">Le rail ne défile jamais : il montre tes projets <b>épinglés</b>, puis ceux qui <b>travaillent ou attendent</b> (ils y montent tout seuls), puis les <b>récents</b> jusqu'à la place qu'il reste. Le reste est derrière ⊞ (le nombre dit combien). ✦ ouvre l'accueil : chat global, ce qui tourne, les épinglés, puis la liste de tous les projets avec une recherche ; ceux qui dorment depuis un mois sont repliés. Le petit panneau garde un seul sélecteur, recherche en premier.</p>
+<div class="rang">
+  <div class="ecran c">
+    <div class="rail"><div class="esp libre" title="Accueil : chat global et tous les projets">✦</div><div class="sep"></div><span class="titre-rail">Épinglés</span><div class="esp ici" style="background:#B7A6F5" title="Encre · Avatars">EA<i class="point bosse"></i></div><div class="esp " style="background:#8FD3FF" title="Client · Refonte du site">CR</div><span class="titre-rail">Actifs</span><div class="esp " style="background:#FFD27A" title="Veille">VE<i class="point attend"></i></div><span class="titre-rail">Récents</span><div class="esp " style="background:#9FE3B8" title="Factures">FA</div><div class="esp " style="background:#FFB3D9" title="Blog perso">BL</div><div class="esp tous" title="Tous les projets"><b>⊞</b>28</div><div class="bas">⚙</div></div>
+    <div class="sujets">
+      <div class="nom">Encre · Avatars</div><div class="dossier">Documents/Encre/Projets</div>
+      <div class="s">Général</div><div class="s ici">Rebranding</div><div class="s">Pastilles<i class="point bosse"></i></div><div class="s ajout">＋ Nouveau sujet</div>
+      <small>Outils du projet</small><div class="s">Figma · 1 compte</div><div class="s">Notion</div>
+    </div>
+    <div class="conv">
+      <header><b>Rebranding</b><span style="margin-left:auto" class="puce">＋ Nouvelle conversation</span><span class="puce">⋯</span></header>
+      <div class="fil"><div class="moi">Il faut 8 bras, un poulpe en a huit non ?</div><div class="etapes">✓ 4 étapes · refonte-2d.html</div><div>Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins.</div></div>
+      <div class="pied"><label class="champ"><span class="doux">＋</span><input placeholder="Réponds à Momo…"><button class="envoi">↑</button></label></div>
+    </div>
+  </div>
+</div>
+<div class="rang" style="margin-top:20px">
+  <div class="ecran acc">
+    <div class="c" style="display:flex;flex:1;min-height:0">
+      <div class="rail"><div class="esp libre ici" title="Accueil : chat global et tous les projets">✦</div><div class="sep"></div><span class="titre-rail">Épinglés</span><div class="esp" style="background:#B7A6F5" title="Encre · Avatars">EA<i class="point bosse"></i></div><div class="esp " style="background:#8FD3FF" title="Client · Refonte du site">CR</div><span class="titre-rail">Actifs</span><div class="esp " style="background:#FFD27A" title="Veille">VE<i class="point attend"></i></div><span class="titre-rail">Récents</span><div class="esp " style="background:#9FE3B8" title="Factures">FA</div><div class="esp " style="background:#FFB3D9" title="Blog perso">BL</div><div class="esp tous" title="Tous les projets"><b>⊞</b>28</div><div class="bas">⚙</div></div>
+      <div style="flex:1;overflow:hidden">
+        <div class="haut"><h1><span class="momo"></span>Qu'est-ce qu'on fait ?</h1>
+          <label class="champ"><span class="doux">＋</span><input placeholder="Demande à Momo… (@ pour viser un projet)"><button class="envoi">↑</button></label></div>
+        <div class="corps">
+          <div>
+            <h3><i class="point bosse"></i>En ce moment</h3>
+            <div class="mini">
+              <div class="c2"><div class="t"><span class="tag" style="background:#B7A6F5">EA</span>Pastilles<i class="point bosse"></i></div><span class="d">Encre · Avatars · travaille</span></div>
+              <div class="c2"><div class="t"><span class="tag" style="background:#FFD27A">VE</span>Revue<i class="point attend"></i></div><span class="d">Veille · attend ton accord</span></div>
+            </div>
+          </div>
+          <div>
+            <h3>Tous les projets <span class="compte">28 · par activité ▾</span></h3>
+            <div class="tous-l"><div class="cherche"><input placeholder="Chercher parmi 28 projets…"><span class="puce">＋ Nouveau</span></div><div class="r"><span class="tag" style="background:#B7A6F5">EA</span><span class="n">Encre · Avatars</span><span class="doux">3 sujets</span><span class="q">à l'instant</span><span class="pin on" title="Épingler">★</span></div><div class="r"><span class="tag" style="background:#C3B8FF">AP</span><span class="n">App mobile</span><span class="doux">1 sujet</span><span class="q">hier</span><span class="pin " title="Épingler">☆</span></div><div class="r"><span class="tag" style="background:#8FD3FF">CR</span><span class="n">Client · Refonte du site</span><span class="doux">3 sujets</span><span class="q">2 h</span><span class="pin on" title="Épingler">★</span></div><div class="r"><span class="tag" style="background:#A8E6FF">DS</span><span class="n">Design system</span><span class="doux">2 sujets</span><span class="q">lundi</span><span class="pin " title="Épingler">☆</span></div><div class="r"><span class="tag" style="background:#9FE3B8">FA</span><span class="n">Factures</span><span class="doux">1 sujet</span><span class="q">mardi</span><span class="pin " title="Épingler">☆</span></div><div class="r"><span class="tag" style="background:#FFD0A6">LA</span><span class="n">Landing produit</span><span class="doux">1 sujet</span><span class="q">12 nov.</span><span class="pin " title="Épingler">☆</span></div><div class="r dort">Endormis depuis un mois · 14 ▸</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="petit">
+    <div class="haut-p"><span class="selecteur"><span class="tag" style="background:#B7A6F5">EA</span>Encre · Avatars <span class="doux">›</span> Rebranding <span class="doux">▴</span></span><span style="margin-left:auto" class="puce">⋯</span></div>
+    <div class="menu-sel">
+      <input placeholder="Chercher un projet ou un sujet…">
+      <div class="l">✦ Accueil<span class="doux" style="margin-left:auto;font-size:12px">chat global</span></div>
+      <small>Encre · Avatars</small>
+      <div class="l">Général</div><div class="l ici">Rebranding</div><div class="l">Pastilles<i class="point bosse" style="margin-left:auto"></i></div>
+      <small>Épinglés et actifs</small>
+      <div class="l"><span class="tag" style="background:#8FD3FF">CR</span>Client · Refonte du site</div>
+      <div class="l"><span class="tag" style="background:#FFD27A">VE</span>Veille<i class="point attend" style="margin-left:auto"></i></div>
+      <small>Récents</small>
+      <div class="l"><span class="tag" style="background:#9FE3B8">FA</span>Factures</div>
+      <div class="l tout">Voir les 28 projets</div>
+    </div>
+  </div>
+</div>
+<div style="height:40px"></div>
+<script>
+const sombre = () => location.hash === '#sombre'
+const applique = () => { document.documentElement.dataset.theme = sombre() ? 'sombre' : ''; theme.textContent = sombre() ? 'Thème clair' : 'Thème sombre' }
+theme.onclick = () => { location.hash = sombre() ? '' : 'sombre' }
+addEventListener('hashchange', applique); applique()
+</script>
+</body>
+</html>

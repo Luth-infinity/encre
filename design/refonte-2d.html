@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Encre · refonte 2D (maquette)</title>
+<style>
+  :root {
+    --fond: #F6F5FA; --carte: #FFFFFF; --texte: #1B1530; --doux: #6E6A80; --ligne: #E6E3EF;
+    --halo: #C9BCFF; --encre: #1B1530;
+    --c1: #B7A6F5; --c2: #FF9ED8; --c3: #8FD3FF; --arc: #7C66D9;
+  }
+  [data-theme=sombre] {
+    --fond: #0E0C15; --carte: #17141F; --texte: #EEEAF8; --doux: #9C97B0; --ligne: #2A2536; --halo: #4B3A9A;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, "SF Pro Text", system-ui, sans-serif; background: var(--fond); color: var(--texte); transition: background .4s, color .4s; }
+  .outils { position: sticky; top: 0; z-index: 9; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 14px 24px; background: color-mix(in srgb, var(--fond) 80%, transparent); backdrop-filter: blur(16px); }
+  .outils b { margin-right: 8px; }
+  .puce { border: 1px solid var(--ligne); background: var(--carte); color: var(--texte); border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; transition: transform .2s cubic-bezier(.3,1.6,.5,1), background .2s; }
+  .puce:hover { transform: translateY(-1px); }
+  .puce[aria-pressed=true] { background: var(--texte); color: var(--fond); }
+  .scene { display: flex; gap: 40px; padding: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .legende { color: var(--doux); font-size: 12px; margin: 10px 2px 0; }
+
+  /* Couleurs des persos : on fond la transition pour que l'humeur coule d'une teinte à l'autre */
+  .c1 { fill: var(--c1); } .c2 { fill: var(--c2); } .c3 { fill: var(--c3); }
+  .c1, .c2, .c3 { transition: fill .8s; }
+  .tache { transform-box: fill-box; transform-origin: center; animation: derive 9s ease-in-out infinite alternate; }
+  .tache.b { animation-duration: 12s; animation-delay: -4s; }
+  .tache.c { animation-duration: 7s; animation-delay: -2s; }
+  @keyframes derive {
+    0% { transform: translate(-18%, -10%) scale(1); }
+    50% { transform: translate(14%, 12%) scale(1.25); }
+    100% { transform: translate(-6%, 18%) scale(.9); }
+  }
+
+  /* ── Bulle ── */
+  .bureau { width: 260px; height: 260px; border-radius: 22px; display: grid; place-items: center;
+    background: radial-gradient(circle at 30% 20%, #6E8F7E, #2E4A40); }
+  .bulle { position: relative; width: 120px; height: 120px; cursor: pointer; filter: drop-shadow(0 8px 16px rgba(20, 10, 50, .3));
+    transition: transform .35s cubic-bezier(.3,1.6,.5,1); }
+  .bulle:hover { transform: scale(1.06); }
+  .bulle:active { transform: scale(.92); }
+  .bulle > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+  [data-humeur=ecoute] .bulle { animation: respire 1.6s ease-in-out infinite; }
+  [data-humeur=accord] .bulle { animation: ping .9s cubic-bezier(.3,1.6,.5,1) infinite; }
+  [data-humeur=fini] .bulle { animation: saut .8s cubic-bezier(.3,1.6,.5,1) 2; }
+  @keyframes tourne { to { transform: rotate(360deg); } }
+  @keyframes respire { 50% { transform: scale(1.05); } }
+  @keyframes ping { 50% { transform: scale(1.1) rotate(-4deg); } }
+  @keyframes saut { 40% { transform: translateY(-18px) scale(.95, 1.06); } 70% { transform: translateY(0) scale(1.08, .92); } }
+
+  /* ── Petit panneau ── */
+  .panneau { width: 360px; height: 520px; border-radius: 22px; background: var(--carte); border: 1px solid var(--ligne);
+    display: flex; flex-direction: column; overflow: hidden; position: relative; box-shadow: 0 30px 60px -30px rgba(40, 20, 90, .35); }
+  .panneau header { display: flex; align-items: center; gap: 8px; padding: 14px 16px; font-weight: 600; }
+  .panneau header span { color: var(--doux); font-weight: 400; }
+  .fil { flex: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 82%; padding: 9px 13px; border-radius: 16px; animation: entre .5s cubic-bezier(.2,1.2,.4,1) both; }
+  .msg.moi { align-self: flex-end; background: color-mix(in srgb, var(--c1) 28%, var(--carte)); }
+  .msg.lui { background: color-mix(in srgb, var(--texte) 5%, var(--carte)); }
+  .msg:nth-child(2) { animation-delay: .15s; } .msg:nth-child(3) { animation-delay: .3s; }
+  @keyframes entre { from { opacity: 0; transform: translateY(10px) scale(.97); filter: blur(4px); } }
+  .pied { position: relative; padding: 0 12px 12px; }
+  .curieux { position: absolute; right: 34px; top: -54px; transition: transform .5s cubic-bezier(.3,1.6,.5,1); }
+  .pied:focus-within .curieux { transform: translateY(-8px) rotate(-6deg); }
+  .champ { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-radius: 999px;
+    background: var(--carte); border: 1px solid var(--ligne); box-shadow: 0 8px 30px -10px color-mix(in srgb, var(--halo) 70%, transparent); }
+  .champ input { flex: 1; border: 0; outline: 0; background: none; font: inherit; color: var(--texte); }
+  .envoi { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--arc); color: #fff; font-size: 15px; cursor: pointer; transition: background .8s; }
+
+  /* ── Plein écran ── */
+  .grand { width: 1100px; height: 640px; border-radius: 24px; background: var(--fond); border: 1px solid var(--ligne);
+    position: relative; overflow: hidden; display: flex; box-shadow: 0 40px 80px -40px rgba(40, 20, 90, .4); }
+  .halo { display: none; position: absolute; left: 50%; top: 52%; width: 760px; height: 460px; translate: -50% -50%; border-radius: 50%;
+    background: radial-gradient(closest-side, var(--halo), transparent); opacity: .55; filter: blur(30px); animation: halo 6s ease-in-out infinite; pointer-events: none; transition: background .8s; }
+  [data-humeur=bosse] .halo { animation-duration: 1.6s; }
+  @keyframes halo { 50% { transform: scale(1.12); opacity: .8; } }
+  .menu { position: relative; margin: 14px; width: 210px; border-radius: 18px; background: color-mix(in srgb, var(--carte) 75%, transparent);
+    backdrop-filter: blur(20px); border: 1px solid var(--ligne); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .menu .ligne { padding: 8px 10px; border-radius: 10px; color: var(--doux); display: flex; align-items: center; gap: 8px; }
+  .menu .ligne.ici { background: var(--texte); color: var(--fond); }
+  .menu .ligne i { width: 7px; height: 7px; border-radius: 50%; background: var(--arc); margin-left: auto; animation: respire 1.2s infinite; }
+  .menu small { color: var(--doux); padding: 14px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .centre { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding-right: 300px; }
+  .centre h1 { margin: 0; font-weight: 400; font-size: 32px; letter-spacing: -.02em; }
+  .centre h1 span { display: inline-block; animation: lettre .7s cubic-bezier(.2,1.3,.4,1) both; }
+  @keyframes lettre { from { opacity: 0; transform: translateY(14px); filter: blur(6px); } }
+  .centre .champ { width: 480px; padding: 14px 12px 14px 20px; }
+  .centre .puces { display: flex; gap: 8px; }
+  .poulpe { position: absolute; right: 0; bottom: 0; width: 640px; height: 640px; pointer-events: none; }
+
+
+  /* ── Barre : Libre en haut (le chat global), puis les projets en arbre, leurs sujets dedans ── */
+  .barre { position: relative; z-index: 1; margin: 14px; width: 252px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px;
+    border-radius: 18px; background: var(--carte); border: 1px solid var(--ligne); }
+  .barre .marque { display: flex; align-items: center; gap: 8px; padding: 2px 8px 12px; font-weight: 650; }
+  .barre .marque i { width: 18px; height: 18px; border-radius: 50%; background: var(--encre); box-shadow: 0 0 0 2px var(--c1); }
+  .libre { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; border: 1px solid var(--ligne);
+    background: color-mix(in srgb, #B7A6F5 14%, var(--carte)); } /* lavande fixe : Libre est un lieu, pas une humeur */
+  .libre .ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: var(--encre); color: #fff; flex: none; }
+  .libre b { display: block; font-weight: 600; }
+  .libre small { color: var(--doux); font-size: 12px; }
+  .libre.ici { border-color: var(--arc); box-shadow: 0 0 0 1px var(--arc); }
+  .rubrique { display: flex; align-items: center; justify-content: space-between; color: var(--doux); padding: 16px 8px 6px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .rubrique b { font-size: 16px; font-weight: 400; color: var(--doux); text-transform: none; cursor: pointer; padding: 0 4px; border-radius: 6px; }
+  .projet-ligne { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 10px; font-weight: 550; }
+  .projet-ligne:hover, .sujet:hover { background: color-mix(in srgb, var(--texte) 5%, transparent); }
+  .projet-ligne .tag { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 9px; font-weight: 700; color: var(--encre); flex: none; }
+  .projet-ligne .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .projet-ligne .chev { color: var(--doux); font-size: 11px; width: 14px; text-align: center; }
+  .projet-ligne .nb { color: var(--doux); font-size: 12px; font-weight: 400; }
+  .sujets { margin: 2px 0 6px 18px; padding-left: 10px; border-left: 1.5px solid var(--ligne); display: flex; flex-direction: column; gap: 1px; }
+  .sujet { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; color: var(--doux); }
+  .sujet.ici { background: var(--texte); color: var(--fond); }
+  .sujet.ajout { color: var(--doux); opacity: .8; font-size: 13px; }
+  .point { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; flex: none; animation: respire 1.2s infinite; }
+  .point.bosse { background: #FF9A3C; } .point.attend { background: #FFC933; }
+  .barre .pied-barre { margin-top: auto; padding: 8px; color: var(--doux); font-size: 13px; }
+
+  /* ── Plein écran en conversation : le fil prend la place, le poulpe guette depuis le coin ── */
+  .conv { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .conv header { display: flex; align-items: center; gap: 8px; padding: 22px 32px 10px; color: var(--doux); }
+  .conv header b { color: var(--texte); font-weight: 600; }
+  .conv header .act { margin-left: auto; display: flex; gap: 6px; }
+  .conv .fil { padding: 8px 32px; gap: 14px; max-width: 720px; width: 100%; margin: 0 auto; overflow: hidden; }
+  .conv .msg { max-width: 88%; }
+  .conv .msg.lui { background: none; padding: 0; max-width: 100%; }
+  .etapes { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--doux); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--ligne); background: var(--carte); }
+  .fait { font-size: 12px; color: var(--doux); }
+  .suites { display: flex; gap: 8px; flex-wrap: wrap; }
+  .conv .pied { max-width: 720px; width: 100%; margin: 0 auto; padding: 8px 32px 22px; }
+  .conv .champ { padding: 14px 12px 14px 20px; }
+  /* Même geste que dans le petit panneau : la tête dépasse au-dessus du bout du champ, qui la coupe. */
+  .conv .pied { position: relative; }
+  .conv .champ { z-index: 1; }
+  .guetteur { position: absolute; right: 90px; bottom: 68px; pointer-events: none; }
+
+    body.fige, .fige *, .fige *::before, .fige *::after { transition: none !important; animation-delay: 0s !important; animation-duration: .001s !important; animation-iteration-count: 1 !important; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body data-humeur="repos">
+<div class="outils">
+  <b>Encre · refonte 2D</b>
+  <span id="humeurs"></span>
+  <button class="puce" id="theme">Thème sombre</button>
+  <button class="puce" id="rejouer">Rejouer l'arrivée</button>
+</div>
+
+<div class="scene">
+  <div>
+    <div class="bureau"><div class="bulle" id="bulle" aria-label="Momo, ouvrir le chat" role="button"><canvas></canvas></div></div>
+    <p class="legende">Bulle : la tête seule, qui remplit le rond. La couleur du rond et ses yeux disent l'humeur.</p>
+  </div>
+  <div>
+    <div class="panneau">
+      <header>Momo <span>· Rebranding</span></header>
+      <div class="fil">
+        <div class="msg moi">Tu peux refaire la bulle en 2D ?</div>
+        <div class="msg lui">Carrément. Je pars sur la tête seule, et trois bouts de bras dessous.</div>
+        <div class="msg moi">Et des animes de fou 🔥</div>
+      </div>
+      <div class="pied">
+        <canvas class="curieux" id="curieux"></canvas>
+        <label class="champ"><input placeholder="Écris à Momo…"><button class="envoi" aria-label="Envoyer">↑</button></label>
+      </div>
+    </div>
+    <p class="legende">Petit panneau : il passe la tête au-dessus du champ et se penche quand tu écris.</p>
+  </div>
+</div>
+
+<div class="scene">
+  <div>
+    <div class="grand">
+      <div class="halo"></div>
+<nav class="barre">
+        <div class="marque"><i></i>Encre</div>
+        <div class="libre ici"><span class="ico">✦</span><span><b>Libre</b><small>Une question, sans projet</small></span></div>
+        <div class="rubrique">Projets <b title="Nouveau projet ou lier un dossier">＋</b></div>
+        <div class="projet-ligne"><span class="tag" style="background:#B7A6F5">EA</span><span class="nom">Encre · Avatars</span><span class="chev">▾</span></div>
+        <div class="sujets"><div class="sujet">Général</div><div class="sujet">Rebranding</div><div class="sujet">Pastilles<i class="point bosse" title="Travaille"></i></div><div class="sujet ajout">＋ Nouveau sujet</div></div>
+        <div class="projet-ligne"><span class="tag" style="background:#8FD3FF">CR</span><span class="nom">Client · Refonte du site</span><span class="nb">3</span><span class="chev">▸</span></div>
+        <div class="projet-ligne"><span class="tag" style="background:#FFD27A">VE</span><span class="nom">Veille</span><i class="point attend" title="Attend ton accord"></i><span class="chev">▸</span></div>
+        <div class="pied-barre">⚙ Réglages</div>
+      </nav>
+      <div class="centre">
+        <h1 id="titre">Prêt quand tu l'es</h1>
+        <label class="champ"><span style="color:var(--doux)">＋</span><input placeholder="Demande à Momo…"><button class="envoi" aria-label="Envoyer">↑</button></label>
+        <div class="puces"><button class="puce">Relire le code</button><button class="puce">Maquette Figma</button><button class="puce">Veille</button></div>
+      </div>
+      <canvas class="poulpe" id="poulpe"></canvas>
+    </div>
+    <p class="legende">Plein écran : il passe la tête dans la fenêtre, ses bras sortent du cadre. Leur rythme suit l'humeur.</p>
+  </div>
+</div>
+
+<div class="scene">
+  <div>
+    <div class="grand">
+      <nav class="barre">
+        <div class="marque"><i></i>Encre</div>
+        <div class="libre"><span class="ico">✦</span><span><b>Libre</b><small>Une question, sans projet</small></span></div>
+        <div class="rubrique">Projets <b title="Nouveau projet ou lier un dossier">＋</b></div>
+        <div class="projet-ligne"><span class="tag" style="background:#B7A6F5">EA</span><span class="nom">Encre · Avatars</span><span class="chev">▾</span></div>
+        <div class="sujets"><div class="sujet">Général</div><div class="sujet ici">Rebranding</div><div class="sujet">Pastilles<i class="point bosse" title="Travaille"></i></div><div class="sujet ajout">＋ Nouveau sujet</div></div>
+        <div class="projet-ligne"><span class="tag" style="background:#8FD3FF">CR</span><span class="nom">Client · Refonte du site</span><span class="nb">3</span><span class="chev">▸</span></div>
+        <div class="projet-ligne"><span class="tag" style="background:#FFD27A">VE</span><span class="nom">Veille</span><i class="point attend" title="Attend ton accord"></i><span class="chev">▸</span></div>
+        <div class="pied-barre">⚙ Réglages</div>
+      </nav>
+      <div class="conv">
+        <header><span>Encre · Avatars</span>›<b>Rebranding</b><span class="act"><button class="puce">＋ Nouvelle conversation</button><button class="puce" aria-label="Plus d'actions">⋯</button></span></header>
+        <div class="fil">
+          <div class="msg moi">Il faut 8 bras, un poulpe en a huit non ?</div>
+          <div class="msg lui"><span class="etapes">✓ 4 étapes · refonte-2d.html</span></div>
+          <div class="msg lui">Oui, il n'en avait que 5. J'en ai ajouté trois à l'arrière, plus fins, qui partent vers la droite et vers le bas : le champ et les suggestions restent dégagés.</div>
+          <div class="fait">Fait en 42 s · Opus 5.5</div>
+          <div class="suites"><button class="puce">Écarte les bras du fond</button><button class="puce">Vérifie en sombre</button><button class="puce">Ouvre la maquette</button></div>
+        </div>
+        <div class="pied"><canvas class="guetteur" id="guetteur"></canvas><label class="champ"><span style="color:var(--doux)">＋</span><input placeholder="Réponds à Momo…"><button class="envoi" aria-label="Envoyer">↑</button></label></div>
+      </div>
+    </div>
+    <p class="legende">Plein écran en conversation : le fil prend la place, Momo guette depuis le coin. La barre : Libre en haut, puis chaque projet avec ses sujets dedans ; le point dit où ça travaille (orange) ou attend ton accord (jaune).</p>
+  </div>
+</div>
+
+<script src="poulpe-2d.js"></script>
+<script>
+const cBulle = toile(bulle.querySelector('canvas'), 120, 120)
+const cCurieux = toile(curieux, 56, 56), cGuet = toile(guetteur, 150, 120)
+const cPoulpe = toile(poulpe, 640, 640)
+
+let debut = performance.now(), avant = performance.now(), phase = +(new URLSearchParams(location.search).get('phase') || 0), // ?fige&phase=… : un instant de l'ondulation
+   vS = 1.2, aS = .25
+const ressort = u => u >= 1 ? 1 : 1 + 2.2 * Math.pow(u - 1, 3) + 1.2 * Math.pow(u - 1, 2) // dépasse un peu puis revient
+function image(now) {
+  const dt = Math.min(.05, (now - avant) / 1000); avant = now
+  const t = reduit ? 0 : now / 1000, e = (now - debut) / 1000
+  pal = pal.map((c, i) => mel(c, cible[i], .06))
+  if (reduit) Object.assign(vis, VISAGES[humeur]); else ressorts(dt)
+  ouvert = reduit || fige ? 1 : paupiere(t)
+  // Vitesse et ampleur des bras glissent vers celles de l'humeur ; la phase avance sans à-coup.
+  const v = { repos: 1.1, ecoute: 1.4, reflechit: 1.2, bosse: 3, accord: 2, fini: 1.8 }[humeur]
+  const amp = { repos: .3, ecoute: .26, reflechit: .32, bosse: .42, accord: .36, fini: .34 }[humeur]
+  const k = 1 - Math.exp(-dt * 2.5); vS += (v - vS) * k; aS += (amp - aS) * k
+  if (!reduit && !fige) phase += dt * vS
+  // Le liseré prend la couleur du fond (il sépare les bras) ; en sombre, la couleur d'humeur, pour détacher le poulpe.
+  const fond = nuit ? css(pal[0]) : getComputedStyle(document.body).getPropertyValue('--fond').trim()
+  if (pret(TETE)) teinte(fond)
+
+  // Bulle : la tête seule, qui remplit le rond.
+  const b = cBulle
+  b.clearRect(0, 0, 120, 120); b.save()
+  b.beginPath(); b.arc(60, 60, 54, 0, Math.PI * 2); b.fillStyle = css(pal[0]); b.fill()
+  // Un anneau de la couleur d'humeur : il dit l'état d'un coup d'œil. La tête remplit le rond intérieur.
+  b.beginPath(); b.arc(60, 60, 48, 0, Math.PI * 2); b.clip()
+  // La tête déborde du rond : le cercle la recadre, il ne reste que le poulpe et son visage.
+  tete(b, b.canvas, 60 + Math.sin(t * 1.3) * 1, 38 + Math.sin(t * 1.5) * 1.5, 160, Math.sin(t * .9) * .03, 1.05, 1.15, 0)
+  b.restore()
+  cCurieux.clearRect(0, 0, 56, 56); if (nuit && pret(TETE)) anneau(cCurieux, 28, 30, 48, -.05, 1.05); tete(cCurieux, cCurieux.canvas, 28, 30, 48, -.05, 1.05, 1.6, 0)
+
+  // Conversation : la tête dépasse du bas, à côté du champ (les bras couvriraient le fil).
+  const gy = 62 + Math.sin(t * 1.2) * 3
+  cGuet.clearRect(0, 0, 150, 120); if (nuit && pret(TETE)) anneau(cGuet, 75, gy, 110, -.12, 1.1)
+  tete(cGuet, cGuet.canvas, 75, gy, 110, -.12, 1.1, 1.5, 0)
+  // Plein écran : il monte du coin, puis flotte et respire. « Fini » : petits sauts de joie, avec le sourire.
+  const s = reduit ? 1 : Math.max(0, ressort(Math.min(1, e / .9)))
+  const flotte = Math.sin(t * 1.2) * 5 - lim(vis.joie) * Math.abs(Math.sin(t * 5)) * 16
+  const incl = INCL + Math.sin(t * .9) * .03, hx = TX, hy = TY + flotte + (1 - s) * 420
+  const c = cPoulpe
+  c.clearRect(0, 0, 640, 640)
+  const cs = Math.cos(incl), sn = Math.sin(incl), ly = 90
+  const membres = BRAS.map(B => [B, membre({ ...B, a: B.a + incl * .5 }, phase, aS * (B.amp ?? 1), hx + B.lx * cs - ly * sn, hy + B.lx * sn + ly * cs)])
+  anneau(c, hx, hy, TW, incl, ETIRE)
+  membres.forEach(([B, pts]) => dessineBras(c, pts, B, fond))
+  tete(c, poulpe, hx, hy, TW, incl, ETIRE, 1)
+  requestAnimationFrame(image)
+}
+requestAnimationFrame(image)
+
+function choisir(h) {
+  humeur = h; document.body.dataset.humeur = h
+  const H = HUMEURS[h], s = document.documentElement.style
+  cible = H.c.map(rgb)
+  s.setProperty('--c1', H.c[0]); s.setProperty('--c2', H.c[1]); s.setProperty('--c3', H.c[2]); s.setProperty('--arc', H.arc); s.setProperty('--halo', H.halo)
+  document.querySelectorAll('#humeurs .puce').forEach(p => p.setAttribute('aria-pressed', p.dataset.h === h))
+}
+humeurs.innerHTML = Object.entries(HUMEURS).map(([k, H]) => `<button class="puce" data-h="${k}">${H.nom}</button> `).join('')
+humeurs.onclick = ev => ev.target.dataset.h && choisir(ev.target.dataset.h)
+choisir(new URLSearchParams(location.search).get('humeur') || 'repos')
+
+theme.onclick = () => {
+  const sombre = document.body.dataset.theme !== 'sombre'
+  nuit = sombre
+  document.body.dataset.theme = sombre ? 'sombre' : ''
+  if (!sombre) document.body.removeAttribute('data-theme')
+  theme.textContent = sombre ? 'Thème clair' : 'Thème sombre'
+  if (sombre) document.documentElement.style.setProperty('--halo', '#4B3A9A'); else choisir(humeur)
+}
+if (location.hash === '#sombre') theme.onclick()
+if (fige) { document.body.classList.add('fige'); debut = -1e6; pal = cible; Object.assign(vis, VISAGES[humeur]) }
+
+function titre() {
+  const h = document.getElementById('titre'), mots = "Prêt quand tu l'es"
+  h.innerHTML = [...mots].map((c, i) => `<span style="animation-delay:${.6 + i * .03}s">${c === ' ' ? '&nbsp;' : c}</span>`).join('')
+}
+titre()
+rejouer.onclick = () => { debut = performance.now(); titre() }
+bulle.onclick = rejouer.onclick
+</script>
+</body>
+</html>

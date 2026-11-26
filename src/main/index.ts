@@ -1,5 +1,5 @@
 import './avant'
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, shell, Tray } from 'electron'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { VOIX, VOIX_GEMINI, type Etat, type Cite, type Evenement, type Humeur, type Mode, type PieceJointe, type Reglages, type Reponse, type VoixEleven } from '@shared/types'
@@ -774,6 +774,8 @@ async function icone(sortie: string): Promise<void> {
  */
 async function verifier(dossier: string): Promise<void> {
   const sortie = process.env.ENCRE_VERIF_SORTIE ?? dossier
+  // ENCRE_VERIF_THEME=dark|light : captures dans l'autre thème sans toucher au réglage du système.
+  if (process.env.ENCRE_VERIF_THEME) nativeTheme.themeSource = process.env.ENCRE_VERIF_THEME as 'dark' | 'light'
   const attendre = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
   const { writeFileSync } = await import('fs')
   const capturer = async (nom: string): Promise<void> => {
@@ -915,6 +917,16 @@ async function verifier(dossier: string): Promise<void> {
   await attendre(400)
   await capturer('1b-limites')
   await js(`document.querySelector('.jauges')?.classList.remove('montre')`)
+  // Libre : l'accueil propose de reprendre les derniers projets. Puis retour au projet de test.
+  const allerA = async (nom: string): Promise<void> => {
+    await js(`document.querySelector('.projet')?.click()`)
+    await attendre(500)
+    await js(`[...document.querySelectorAll('.liste-palette button')].find((b) => b.querySelector('.nom')?.firstChild?.textContent === ${JSON.stringify(nom)})?.click()`)
+    await attendre(1500)
+  }
+  await allerA('Libre')
+  await capturer('1c-libre')
+  await allerA(p.nom)
   // Les vues ajoutées : réglages, outils, commandes.
   // Le menu ⋯ de l'en-tête.
   await js(`document.querySelector('.plus')?.click()`)

@@ -1,53 +1,76 @@
 import { useEffect, useRef } from 'react'
-import type { Avatar, Humeur, Projet } from '@shared/types'
-import { creerPoulpe, type Poulpe } from './poulpe'
+import type { Avatar, Etat, Humeur, Projet } from '@shared/types'
+import { creerPoulpe } from './poulpe'
+import { creerPoulpe2D, type Pose } from './poulpe2d'
 
-/** Des idées pour démarrer, selon qu'on est en Libre ou dans un projet. */
-function suggestions(projet: Projet): string[] {
-  if (projet.libre) {
-    return [
-      'Crée-moi un projet pour un nouveau client',
-      'Aide-moi à rédiger un mail clair',
-      'Explique-moi un sujet en cinq minutes'
-    ]
-  }
-  return [
-    'Fais le point : où en est ce projet ?',
-    'Lis le CLAUDE.md et propose les prochaines étapes',
-    'Range et résume ce qu’il y a dans le dossier'
-  ]
+/**
+ * Le fil vide (piste D, validée le 24/11) : une question et le champ, rien à ranger.
+ * Dans Libre, on écrit et Tako range la demande dans le bon projet.
+ */
+export default function Accueil({ projet, racine }: { projet: Projet; racine: Projet }): JSX.Element {
+  const ou = projet.libre ? null : projet.parent ? `${racine.nom} › ${projet.nom}` : projet.nom
+  return (
+    <div className="accueil">
+      <h1>Qu’est-ce qu’on fait ?</h1>
+      {ou && <p>{projet.session ? `On reprend « ${ou} » là où on l’avait laissé.` : `Dans « ${ou} ».`}</p>}
+    </div>
+  )
 }
 
 /**
- * Le fil vide : Tako en grand qui dit bonjour, d'où on part, et trois idées
- * pour démarrer d'un clic.
+ * Sous le champ : ce qui t'attend ailleurs (une ligne par projet), seulement s'il y en a.
+ * Sinon, dans Libre, de quoi reprendre les deux derniers projets d'un clic.
  */
-export default function Accueil({ projet, avatar, humeur, touche, envoyer }: { projet: Projet; avatar: Avatar; humeur: Humeur; touche: string; envoyer: (texte: string) => void }): JSX.Element {
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const poulpe = useRef<Poulpe | null>(null)
-  useEffect(() => {
-    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.86, espece: avatar.espece, peau: avatar.peau, motif: avatar.motif })
-    return () => poulpe.current?.detruire()
-  }, [avatar])
-  useEffect(() => poulpe.current?.humeur(humeur), [humeur, avatar])
-
-  const contexte = projet.libre
-    ? 'Ici, pas de projet : pose-moi n’importe quelle question. Pour un client ou un sujet suivi, dis-le et je crée le projet.'
-    : projet.session
-      ? `On reprend « ${projet.nom} » là où on l’avait laissé.`
-      : projet.parent ? `Nouveau sujet : « ${projet.nom} ». Dis-moi par où commencer.` : `Je travaille dans le dossier de « ${projet.nom} ».`
-
-  return (
-    <div className="accueil">
-      <canvas ref={canvas} className="tako-grand" />
-      <h3>Salut, moi c’est {avatar.nom}.</h3>
-      <p>{contexte}</p>
-      <div className="idees">
-        {suggestions(projet).map((s) => (
-          <button key={s} type="button" onClick={() => envoyer(s)}>{s}</button>
-        ))}
+export function EnAttente({ etat, projet, ouvrir, palette, raccourci }: { etat: Etat; projet: Projet; ouvrir: (id: string) => void; palette: () => void; raccourci: string }): JSX.Element | null {
+  const nomDe = (p: Projet): string => (p.libre ? 'Libre' : p.nom)
+  const racineDe = (p: Projet): Projet | undefined => (p.parent ? etat.projets.find((x) => x.id === p.parent) : undefined)
+  const vivants = etat.projets.filter((p) => p.id !== projet.id && (etat.attend.includes(p.id) || etat.enCours.includes(p.id)))
+  if (vivants.length) {
+    return (
+      <div className="en-attente">
+        {vivants.map((p) => {
+          const attend = etat.attend.includes(p.id)
+          return (
+            <button key={p.id} type="button" className="ligne" onClick={() => ouvrir(p.id)}>
+              <i className={`activite ${attend ? 'attend' : 'travaille'}`} />
+              <b>{nomDe(p)}</b>
+              {racineDe(p) && <span className="ou">{racineDe(p)!.nom}</span>}
+              <span className="ou">{attend ? 'attend ton accord' : 'travaille'}</span>
+              {attend && <span className="voir">Voir</span>}
+            </button>
+          )
+        })}
       </div>
-      {touche !== 'aucun' && <p className="astuce">Ou appuie sur <kbd>{touche}</kbd> et parle-moi, de n’importe où.</p>}
-    </div>
+    )
+  }
+  if (!projet.libre) return null
+  const recents = etat.projets.filter((p) => !p.libre).sort((a, b) => b.derniere - a.derniere).slice(0, 2)
+  return (
+    <p className="reprendre">
+      {recents.length > 0 && <>Reprendre : {recents.map((p, i) => <span key={p.id}>{i > 0 && ' · '}<button type="button" onClick={() => ouvrir(p.id)}>{p.nom}</button></span>)} · </>}
+      <button type="button" onClick={palette}><kbd>{raccourci}</kbd> tous les projets</button>
+    </p>
   )
+}
+
+/**
+ * Le compagnon derrière le contenu. Le poulpe est en 2D (forme noire, visage cartoon) :
+ * « coin », il monte du coin bas droit de l'accueil ; « guetteur », sa tête dépasse du champ.
+ * Les autres avatars (Nori, Momo) gardent leur rendu 3D en attendant leur version 2D.
+ */
+export function Creature({ avatar, humeur, pose }: { avatar: Avatar; humeur: Humeur; pose: Pose }): JSX.Element | null {
+  const cv = useRef<HTMLCanvasElement>(null)
+  const vivant = useRef<{ humeur(h: Humeur): void; detruire(): void } | null>(null)
+  const deuxD = avatar.espece === 'poulpe'
+  useEffect(() => {
+    if (!cv.current) return
+    vivant.current = deuxD
+      ? creerPoulpe2D(cv.current, pose, humeur)
+      : creerPoulpe(cv.current, { remplir: 0.86, espece: avatar.espece, peau: avatar.peau, motif: avatar.motif })
+    return () => vivant.current?.detruire()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatar, pose])
+  useEffect(() => vivant.current?.humeur(humeur), [humeur, avatar, pose])
+  if (!deuxD && pose === 'guetteur') return null
+  return <canvas ref={cv} className={`creature ${pose} ${deuxD ? 'deux-d' : ''}`} aria-hidden />
 }
