@@ -688,3 +688,57 @@ kbd.raccourci { margin-left: 2px; color: var(--soft); }
 .pied-palette button:hover { background: var(--canvas); color: var(--ink); }
 .pied-palette button.fort { background: var(--lav); color: #0B0C0E; }
 .palette .nouveau { background: transparent; border-radius: 0; }
+
+/* ─── Rebranding (26/11) : les couleurs, le titre et le champ de design/projets-calme.html ───
+   La 0.7.0 avait gardé l'ancien habillage (fond teinté par projet, champ carré, modes et jauges
+   sous le champ, ✕) autour de la nouvelle organisation : « un mix qui n'a pas de sens ». */
+:root { --fond: #F6F5FA; --card: #FFFFFF; --ink: #1B1530; --soft: #6E6A80; --line: #E6E3EF; --line-fort: #D3CEE3; --canvas: #EEEBF6; --arc: #7C66D9; --bord-champ: #E6E3EF; }
+@media (prefers-color-scheme: dark) {
+  :root { --fond: #0E0C15; --card: #17141F; --ink: #EEEAF8; --soft: #9C97B0; --line: #2A2536; --line-fort: #3D3650; --canvas: #221D2E; --bord-champ: #2A2536; }
+}
+.panneau, .colonne.teinte { background: var(--fond); }
+.colonne.teinte { --canvas: #EEEBF6; --line: #E6E3EF; --line-fort: #D3CEE3; --soft: #6E6A80; }
+@media (prefers-color-scheme: dark) { .colonne.teinte { --canvas: #221D2E; --line: #2A2536; --line-fort: #3D3650; --soft: #9C97B0; } }
+
+/* Titre léger, comme la maquette (le gras était l'ancien accueil). */
+.accueil h1 { font-weight: 400; letter-spacing: -0.02em; font-size: 22px; }
+.panneau.plein .accueil h1 { font-size: 28px; }
+
+/* Le champ : une pilule blanche avec une ombre lavande, ＋ à gauche, rond violet à droite. */
+.colonne .saisie { background: var(--card); border-radius: 28px; padding: 10px 10px 10px 12px; align-items: center;
+  box-shadow: 0 0 0 1px var(--line), 0 8px 30px -10px color-mix(in srgb, var(--lav) 70%, transparent); }
+.colonne .saisie:focus-within { box-shadow: 0 0 0 1.5px var(--lav-fort), 0 8px 30px -10px color-mix(in srgb, var(--lav) 70%, transparent); }
+.saisie .joindre { width: 30px; height: 30px; font-size: 16px; }
+.envoi { width: 32px; height: 32px; background: var(--arc); color: #fff; }
+.envoi.parler { background: var(--arc); color: #fff; }
+
+/* Où va la demande : la puce sous le champ, un clic ouvre la palette. */
+.cible { align-self: flex-start; margin-left: 18px; display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px; color: var(--soft);
+  padding: 4px 10px 4px 5px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); position: relative; z-index: 1; }
+.cible b { color: var(--ink); font-weight: 600; }
+.cible .tag { width: 22px; height: 22px; border-radius: 7px; font-size: 9px; rotate: none; }
+.cible svg { width: 10px; height: 10px; }
+.cible:hover { border-color: var(--line-fort); }
+
+/* En-tête : le repère sur une ligne, « + Nouvelle conversation » en pilule cerclée. */
+header .actions { margin-left: auto; }
+.icone.nouvelle { font-size: 17px; }
+.icone.nouvelle.avec-texte { width: auto; padding: 0 14px; border-radius: 999px; background: var(--card); color: var(--ink); font-size: 13px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+.projet .tag { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; rotate: none; }
+
+/* Modes et limites dans le ⋯ */
+.menu-entete .modes { margin: 2px 6px 6px; align-self: stretch; justify-content: space-between; background: var(--canvas); box-shadow: none; }
+.menu-entete:has(.modes) { min-width: 300px; max-width: 320px; }
+.menu-entete .modes button { flex: 1; padding: 5px 6px; white-space: nowrap; }
+.menu-entete .jauge small { white-space: nowrap; }
+.menu-entete .pied { padding: 4px 10px 6px; }
+.menu-entete .fiche-limites { bottom: auto; top: calc(100% + 6px); }
+
+/* En conversation, le fil passe devant la tête du poulpe et garde sa place en bas :
+   elle couvrait la dernière réponse et les réponses proposées, impossibles à cliquer (26/11). */
+.fil { position: relative; z-index: 2; }
+.panneau.plein .colonne:not(.accueil-vide) .fil { padding-bottom: 90px; }
+/* Segment actif blanc façon macOS : le lavande sur fond sombre ne se lisait plus dans le ⋯. */
+.menu-entete .modes button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(11,12,14,.18), 0 0 0 .5px var(--line-fort); }
+/* À l'accueil en plein écran, le ⋯ va dans le coin (maquette), pas au bord de la colonne de 820 px. */
+.panneau.plein .accueil-vide header { max-width: none; }

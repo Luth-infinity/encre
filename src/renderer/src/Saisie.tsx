@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { Cite, Commande, PieceJointe } from '@shared/types'
-import { Micro, Trombone } from './icones'
+import { Micro } from './icones'
 
 /** Les images partent telles quelles à Claude ; au-delà, mieux vaut le chemin. */
 const IMAGES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -36,6 +36,8 @@ export async function versPiece(f: File): Promise<PieceJointe | null> {
 export type SaisieRef = { ajouter: (p: PieceJointe[]) => void; focus: () => void; citer: (c: Cite, n?: number) => void }
 
 type Props = {
+  /** Le texte du champ vide : « Demande à Tako… » à l'accueil, « Réponds à Tako… » ensuite. */
+  invite: string
   enCours: boolean
   /** Pendant un tour aussi : le message rejoint le travail en cours. */
   envoyer: (texte: string, pieces: PieceJointe[], citations?: Cite[]) => void
@@ -52,7 +54,7 @@ type Props = {
  * La zone de saisie : texte, pièces jointes (glisser, coller, trombone) et
  * menu des commandes `/` dès qu'on tape une barre oblique en début de message.
  */
-export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, envoyer, arreter, parler, projet, corriger }, ref) {
+export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ invite, enCours, envoyer, arreter, parler, projet, corriger }, ref) {
   const [texte, setTexte] = useState('')
   const [pieces, setPieces] = useState<PieceJointe[]>([])
   const [commandes, setCommandes] = useState<Commande[] | null>(null)
@@ -178,7 +180,7 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
       )}
       <div className="saisie">
         <button type="button" className="joindre" title="Joindre un fichier" onClick={() => fichier.current?.click()}>
-          <Trombone />
+          ＋
         </button>
         <input
           ref={fichier}
@@ -195,7 +197,7 @@ export const Saisie = forwardRef<SaisieRef, Props>(function Saisie({ enCours, en
           ref={zone}
           rows={1}
           value={texte}
-          placeholder={citations.length ? 'Autre chose à dire ? (facultatif)' : enCours ? 'Une autre idée ? Tako la prend en route…' : 'Écris à Claude, / pour les commandes…'}
+          placeholder={citations.length ? 'Autre chose à dire ? (facultatif)' : enCours ? 'Une autre idée ? Tako la prend en route…' : invite}
           onChange={(e) => setTexte(e.target.value)}
           onKeyDown={touche}
           onPaste={(e) => void coller(e)}

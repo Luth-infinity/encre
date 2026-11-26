@@ -21,6 +21,18 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.1',
+    date: '2026-11-26',
+    titre: 'Le nouveau Tako partout, et rien qui gêne',
+    texte: 'La 0.7.0 gardait l’ancien habillage autour du nouvel écran. Tout suit maintenant le même dessin, de la bulle au champ.',
+    points: [
+      'La bulle montre Tako en 2D, dans son anneau de couleur d’humeur.',
+      'Un fond neutre partout, un champ en pilule, et sous le champ le projet où ira ta demande (un clic pour changer).',
+      'Les autorisations et les limites passent dans le menu ⋯. Les limites reviennent sous le champ quand elles approchent.',
+      'Dans le petit panneau, Tako ne cache plus la fin de la conversation : on clique enfin les réponses proposées.',
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-11-26',
     titre: 'Un écran calme, et Tako en vrai poulpe',

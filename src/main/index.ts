@@ -862,7 +862,7 @@ async function verifier(dossier: string): Promise<void> {
   ouvrirPanneau()
   publierEtat()
   await attendre(1500)
-  await js(`document.querySelector('.projet')?.click()`)
+  await js(`dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }))`)
   await attendre(900)
   await capturer('0-hub')
   // La croix en plein écran doit ramener la bulle.
@@ -884,7 +884,7 @@ async function verifier(dossier: string): Promise<void> {
   }
   // Les animations, image par image : l'encre qui s'étale, puis le clic sur la bulle.
   if (process.env.ENCRE_VERIF_ANIM) {
-    await js(`document.querySelector('.projet')?.click()`)
+    await js(`dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }))`)
     await attendre(500)
     fermerPanneau()
     await attendre(120)
@@ -909,7 +909,7 @@ async function verifier(dossier: string): Promise<void> {
   await capturer('0b-nouveau')
   await js(`document.querySelector('.nouveau .btn:not(.pri)')?.click()`)
   await attendre(300)
-  await js(`document.querySelector('.projet')?.click()`)
+  await js(`dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }))`)
   await attendre(500)
   await capturer('1-vide')
   // La fiche des limites, comme au survol (pas de souris ici).
@@ -919,7 +919,7 @@ async function verifier(dossier: string): Promise<void> {
   await js(`document.querySelector('.jauges')?.classList.remove('montre')`)
   // Libre : l'accueil propose de reprendre les derniers projets. Puis retour au projet de test.
   const allerA = async (nom: string): Promise<void> => {
-    await js(`document.querySelector('.projet')?.click()`)
+    await js(`dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }))`)
     await attendre(500)
     await js(`[...document.querySelectorAll('.liste-palette button')].find((b) => b.querySelector('.nom')?.firstChild?.textContent === ${JSON.stringify(nom)})?.click()`)
     await attendre(1500)

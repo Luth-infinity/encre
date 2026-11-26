@@ -3,7 +3,7 @@ import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type F
 import Accueil, { Creature, EnAttente } from './Accueil'
 import Appel from './Appel'
 import tako from './assets/tako.png'
-import { Agrandir, Chevron, Crayon, Micro, Prise, Reduire, Roue } from './icones'
+import { Agrandir, Chevron, Micro, Prise, Reduire, Roue } from './icones'
 import type { Veille } from './lib/veille'
 import { useParole } from './lib/parole'
 import { Markdown } from './markdown'
@@ -373,6 +373,11 @@ function Jauges({ limites, compte }: { limites: Limites | null; compte?: string 
   )
 }
 
+/** Une limite à 80 % ou plus : de quoi la montrer sous le champ. */
+function limiteHaute(l: Limites | null): boolean {
+  return !!l && FENETRES.some((x) => (l[x.cle]?.pourcent ?? 0) >= 80)
+}
+
 /** La limite pleine qui bloque, et quand elle se libère. */
 function limitePleine(l: Limites | null): string | null {
   if (!l) return null
@@ -616,7 +621,7 @@ export default function Panneau(): JSX.Element {
   else {
     corps = (
       <div className="fil" onMouseUp={() => setTimeout(regarderSelection, 0)} onScroll={() => selection && setSelection(null)}>
-        {fil.length === 0 && <Accueil projet={projet} racine={racine ?? projet} />}
+        {fil.length === 0 && <Accueil />}
         {morceaux(fil).map((m, n, tous) => {
           if (m.type === 'qui') return <div key={m.i} className="qui">{avatar.espece === 'poulpe' ? <img src={tako} alt="" /> : <i className="pastille" style={{ background: avatar.peau }} />}{avatar.nom}</div>
           if (m.type === 'etapes') return <Etapes key={m.i} outils={m.outils} enCours={enCours && n === tous.length - 1} />
@@ -674,11 +679,13 @@ export default function Panneau(): JSX.Element {
   const titre = titres[vue]
   /** Le fil vide : la question au centre, le champ dessous, le poulpe dans le coin. */
   const accueil = vue === 'chat' && !!projet && fil.length === 0 && !!etat?.claude.installe
+  const compte = etat?.comptes.find((c) => c.actif)
+  const compteActif = (etat?.comptes.length ?? 0) > 1 ? compte?.email ?? compte?.nom : null
 
   return (
     <div
       className={`panneau ${plein ? 'plein' : ''} ${anim.etat}`}
-      style={{ '--teinte': racine && !racine.libre ? racine.couleur : 'var(--card)', '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
+      style={{ '--mood': COULEURS[parole.actif && parole.phase === 'ecoute' ? 'ecoute' : humeur], '--ox': `${anim.x - 10}px`, '--oy': `${anim.y - 10}px`, '--r': `${rayonEncre(anim.x - 10, anim.y - 10)}px` } as React.CSSProperties}
       // Le cercle d'encre restait figé une fois l'ouverture finie : calculé pour le
       // petit panneau, il coupait le coin opposé en plein écran (bord en biais, 10/11).
       onAnimationEnd={(e) => { if (e.target === e.currentTarget && e.animationName === 'encre-ouvre') setAnim((a) => (a.etat === 'entre' ? { ...a, etat: '' } : a)) }}
@@ -690,7 +697,7 @@ export default function Panneau(): JSX.Element {
       <div className={`colonne ${vue === 'chat' ? 'teinte' : ''} ${accueil ? 'accueil-vide' : ''}`}>
       {accueil && <Creature avatar={avatar} humeur={humeur} pose="coin" />}
       <header>
-        <button type="button" className={`projet ${palette ? 'on' : ''}`} onClick={() => setPalette((x) => !x)} aria-haspopup="dialog" aria-expanded={palette}
+        {!accueil && <button type="button" className={`projet ${palette ? 'on' : ''}`} onClick={() => setPalette((x) => !x)} aria-haspopup="dialog" aria-expanded={palette}
           title={`Aller à un projet ou un sujet (${RACCOURCI})${projet?.dossier ? ` · ${projet.dossier}` : ''}`}>
           {/* Hors du chat, l'en-tête dit seulement où l'on est : pas de pastille du projet. */}
           {!titre && (
@@ -703,14 +710,14 @@ export default function Panneau(): JSX.Element {
             <strong>
               {titre?.[0] ?? (projet?.libre ? 'Libre' : projet?.parent ? (plein ? <>{racine?.nom}<span className="sep">›</span>{projet.nom}</> : projet.nom) : racine?.nom ?? 'Aucun projet')}
             </strong>
-            {(titre || projet?.libre || (projet?.parent && !plein)) && <small>{titre?.[1] ?? (projet?.libre ? 'Une question, sans projet' : racine?.nom)}</small>}
+            {titre && <small>{titre[1]}</small>}
           </span>
           <span className="chevron"><Chevron haut={palette} /></span>
           {plein && !titre && <kbd className="raccourci">{RACCOURCI}</kbd>}
-        </button>
-        {vue === 'chat' && etat && <SelecteurCompte etat={etat} projet={projet} />}
+        </button>}
+        {vue === 'chat' && !accueil && etat && <SelecteurCompte etat={etat} projet={projet} />}
         <div className="actions">
-          {ailleurs.length > 0 && (
+          {ailleurs.length > 0 && !accueil && (
             <button type="button" className={`autres ${attendent ? 'attend' : ''}`} onClick={() => setPalette(true)}
               title={`Tako travaille aussi sur ${ailleurs.map((p) => (p.libre ? 'Libre' : p.nom)).join(', ')}`}>
               <i className={`activite ${attendent ? 'attend' : 'travaille'}`} />
@@ -719,9 +726,8 @@ export default function Panneau(): JSX.Element {
           )}
           {vue === 'outils' || vue === 'reglages'
             ? <button type="button" className="icone" title="Revenir à la conversation" onClick={() => setVue('chat')}>←</button>
-            : vue === 'chat' && <button type="button" className={`icone ${plein ? 'avec-texte' : ''}`} title="Nouvelle conversation (repart de zéro dans ce sujet)" onClick={nouvelle} disabled={enCours || !projet}><Crayon />{plein && 'Nouvelle conversation'}</button>}
+            : vue === 'chat' && !accueil && <button type="button" className={`icone nouvelle ${plein ? 'avec-texte' : ''}`} title="Nouvelle conversation (repart de zéro dans ce sujet)" onClick={nouvelle} disabled={enCours || !projet}>＋{plein && ' Nouvelle conversation'}</button>}
           <button type="button" className={`icone plus ${menu || vue === 'outils' || vue === 'reglages' ? 'on' : ''}`} title="Plus" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>⋯</button>
-          <button type="button" className="icone" title={plein ? 'Revenir à la bulle (Échap)' : 'Fermer (Échap)'} onClick={() => window.api.fermer()}>✕</button>
           {/* Toujours dans la page (caché fermé) : la vérification sans écran clique ces boutons. */}
           <div className={`menu-entete ${menu ? 'ouvert' : ''}`} role="menu">
             {/* Un seul ⋯ : le sujet (ou le projet) ouvert, puis Encre. Supprimer un projet reste au clic droit, avec confirmation. */}
@@ -748,6 +754,20 @@ export default function Panneau(): JSX.Element {
             <button type="button" role="menuitem" data-vue="reglages" className={vue === 'reglages' ? 'on' : ''} onClick={() => choisir(() => basculer('reglages'))}>
               <Roue />Réglages
             </button>
+            {projet && etat && vue === 'chat' && (
+              <>
+                <small className="section">Ce que {avatar.nom} peut faire seul</small>
+                <div className="modes" role="radiogroup" aria-label="Autorisations">
+                  {MODES.map((m) => (
+                    <button key={m.id} type="button" role="radio" aria-checked={projet.mode === m.id} title={m.aide}
+                      className={projet.mode === m.id ? 'on' : ''} onClick={() => window.api.mode(m.id)}>
+                      {m.nom}
+                    </button>
+                  ))}
+                </div>
+                <div className="pied"><Jauges limites={etat.limites} compte={compteActif} /></div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -806,29 +826,20 @@ export default function Panneau(): JSX.Element {
             ? <Appel parole={parole} avatar={avatar} humeur={humeur} grand={plein} touche={etat.toucheParler} />
             : (
               <div className="champ-zone">
-                {!accueil && <Creature avatar={avatar} humeur={humeur} pose="guetteur" />}
-                <Saisie ref={saisie} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id}
+                {/* La tête qui guette : en plein écran seulement, en petit elle couvrait le fil (26/11). */}
+                {!accueil && plein && <Creature avatar={avatar} humeur={humeur} pose="guetteur" />}
+                <Saisie ref={saisie} invite={`${accueil ? 'Demande' : 'Réponds'} à ${avatar.nom}…`} enCours={enCours} envoyer={envoyer} arreter={() => window.api.arreter()} parler={() => parole.basculer()} projet={projet.id}
                   corriger={(c, n, cadre) => setBrouillon({ passage: c.passage, reponse: c.reponse ?? '', x: cadre.left + cadre.width / 2, y: cadre.top, bas: cadre.bottom, n })} />
               </div>
             )}
-          <div className="pied">
-          <div className="modes" role="radiogroup" aria-label="Autorisations">
-            {MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                role="radio"
-                aria-checked={projet.mode === m.id}
-                title={m.aide}
-                className={projet.mode === m.id ? 'on' : ''}
-                onClick={() => window.api.mode(m.id)}
-              >
-                {m.nom}
-              </button>
-            ))}
-          </div>
-          <Jauges limites={etat.limites} compte={etat.comptes.length > 1 ? etat.comptes.find((c) => c.actif)?.email ?? etat.comptes.find((c) => c.actif)?.nom : null} />
-          </div>
+          {accueil && !projet.libre && (
+            <button type="button" className="cible" onClick={() => setPalette(true)} title={`Changer de projet (${RACCOURCI})`}>
+              <span className="tag" style={{ background: racine?.couleur }}>{initiales(racine?.nom ?? projet.nom)}</span>
+              Dans <b>{projet.parent ? `${racine?.nom} › ${projet.nom}` : projet.nom}</b> <Chevron />
+            </button>
+          )}
+          {/* Les limites ne remontent sous le champ que quand elles approchent (80 %) : sinon elles sont dans le ⋯. */}
+          {limiteHaute(etat.limites) && <div className="pied"><Jauges limites={etat.limites} compte={compteActif} /></div>}
         </footer>
       )}
       {accueil && etat && projet && <EnAttente etat={etat} projet={projet} ouvrir={ouvrirProjet} palette={() => setPalette(true)} raccourci={RACCOURCI} />}

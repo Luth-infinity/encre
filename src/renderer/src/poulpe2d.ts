@@ -7,8 +7,9 @@ import teteSrc from './assets/tete.png'
  * une forme noire pleine et un visage, 8 bras qui ondulent, rien d'autre.
  * « coin » : il monte du coin bas droit de l'accueil, derrière le contenu, ses bras sortent du cadre.
  * « guetteur » : en conversation, la tête seule dépasse au-dessus du bout du champ.
+ * « bulle » : la tête remplit le rond de la bulle (l'anneau d'humeur est en CSS autour).
  */
-export type Pose = 'coin' | 'guetteur'
+export type Pose = 'coin' | 'guetteur' | 'bulle'
 export interface Poulpe2D { humeur(h: Humeur): void; detruire(): void }
 
 const ENCRE = [30, 18, 54]
@@ -198,6 +199,14 @@ export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur 
     const fond = nuit ? css(pal) : getComputedStyle(cv.parentElement ?? cv).backgroundColor || '#fff'
     if (pret()) teinte(fond === 'rgba(0, 0, 0, 0)' ? '#fff' : fond)
     c.clearRect(0, 0, w, h)
+    if (pose === 'bulle') {
+      // Repris de refonte-2d.html (rond intérieur de 48) : la tête déborde, le cercle la recadre.
+      const f = w / 96
+      c.save(); c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.clip()
+      tete(c, cv, s, w / 2 + Math.sin(t * 1.3) * f, h / 2 + (-22 + Math.sin(t * 1.5) * 1.5) * f, 160 * f, Math.sin(t * 0.9) * 0.03, 1.05, 1.15, 0)
+      c.restore()
+      return
+    }
     if (pose === 'guetteur') {
       const gy = h * 0.52 + Math.sin(t * 1.2) * 3, W = Math.min(w, h) * 0.92
       if (nuit && pret()) anneau(c, w / 2, gy, W, -0.12, 1.1)

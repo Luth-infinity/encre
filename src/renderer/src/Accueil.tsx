@@ -7,12 +7,11 @@ import { creerPoulpe2D, type Pose } from './poulpe2d'
  * Le fil vide (piste D, validée le 24/11) : une question et le champ, rien à ranger.
  * Dans Libre, on écrit et Tako range la demande dans le bon projet.
  */
-export default function Accueil({ projet, racine }: { projet: Projet; racine: Projet }): JSX.Element {
-  const ou = projet.libre ? null : projet.parent ? `${racine.nom} › ${projet.nom}` : projet.nom
+export default function Accueil(): JSX.Element {
+  // Le projet visé s'affiche sous le champ (puce « Dans … », Panneau.tsx), pas sous le titre.
   return (
     <div className="accueil">
       <h1>Qu’est-ce qu’on fait ?</h1>
-      {ou && <p>{projet.session ? `On reprend « ${ou} » là où on l’avait laissé.` : `Dans « ${ou} ».`}</p>}
     </div>
   )
 }
