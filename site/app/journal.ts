@@ -21,6 +21,19 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.3',
+    date: '2026-11-26',
+    titre: 'Plusieurs sujets en parallèle, et un Momo dessiné à la main',
+    texte: 'Tu peux de nouveau passer d’un sujet à l’autre sans rien perdre et voir tous tes projets d’un coup. Et Momo a enfin son vrai dessin, fait à la main.',
+    points: [
+      'La palette montre tous tes projets, chacun avec ses sujets, du plus récent au plus ancien.',
+      '« Nouveau sujet » te dit dans quel projet il part, et tu peux en choisir un autre.',
+      '« ← Sujet » te ramène au fil que tu viens de quitter, et Ctrl+Tab bascule entre tes derniers fils.',
+      'Tu peux demander à l’avatar d’ouvrir un nouveau sujet dans un autre projet.',
+      'Momo est dessiné à la main : il respire, agite ses branchies et cligne des yeux, et dans la bulle il passe la tête et le bras par-dessus le bord.',
+    ],
+  },
+  {
     version: '0.7.2',
     date: '2026-11-26',
     titre: 'Changer de compte ne fige plus la bulle',
