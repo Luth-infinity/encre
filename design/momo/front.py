@@ -1,7 +1,7 @@
 from PIL import Image
 import numpy as np, cv2
-def load(f): return np.array(Image.open('/Users/luth/Downloads/LANDrop/'+f).convert('RGB').rotate(-90,expand=True)).astype(np.float32)
-avec=load('1000020575.png'); sans=load('1000020574.png')
+def load(f): return np.array(Image.open(f).convert('RGB').rotate(-90,expand=True)).astype(np.float32)
+avec=load('bulle-face-visage.png'); sans=load('bulle-face-sans-visage.png')
 H,W=avec.shape[:2]
 def charmask(a):
     mx=a.max(2); mn=a.min(2)

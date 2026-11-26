@@ -1,6 +1,6 @@
 from PIL import Image
 import numpy as np, cv2, json
-f=np.array(Image.open('/Users/luth/Downloads/LANDrop/1000020563.png').convert('RGBA'))
+f=np.array(Image.open('dessin-visage.png').convert('RGBA'))
 lab=np.load('facelab.npy')
 man=json.load(open('out/momo.json'))
 S=0.5

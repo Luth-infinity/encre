@@ -1,6 +1,6 @@
 from PIL import Image
 import numpy as np, cv2, json
-f=np.array(Image.open('/Users/luth/Downloads/LANDrop/1000020563.png').convert('RGB')).astype(int)
+f=np.array(Image.open('dessin-visage.png').convert('RGB')).astype(int)
 g=np.array(Image.open('src.png').convert('RGB')).astype(int)
 d=np.abs(f-g).sum(2)>40
 d=cv2.dilate(d.astype(np.uint8),np.ones((5,5),np.uint8))>0
