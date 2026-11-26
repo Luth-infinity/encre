@@ -21,6 +21,19 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.0',
+    date: '2026-11-26',
+    titre: 'Un écran calme, et Tako en vrai poulpe',
+    texte: 'Plus de barre ni de cartes de projets : à l’ouverture, une question et le champ. Les projets se retrouvent d’un raccourci, et Tako, redessiné en 2D, monte du coin de l’écran.',
+    points: [
+      'L’accueil : « Qu’est-ce qu’on fait ? », le champ, et seulement ce qui t’attend ailleurs. Dans Libre, de quoi reprendre tes derniers projets d’un clic.',
+      'Les projets et sujets sont dans une palette : ⌘K (Ctrl+K sur Windows) ou un clic sur le nom en haut. En cours, récents, recherche, nouveau sujet ou projet.',
+      'En haut, un seul repère (projet › sujet) et « 1 attend » quand un autre projet a besoin de toi.',
+      'Tako en 2D : forme noire, grands yeux de cartoon, huit bras. En conversation, sa tête dépasse du champ.',
+    ],
+    majeure: true,
+  },
+  {
     version: '0.6.1',
     date: '2026-11-19',
     titre: 'Un compte Claude par projet',
