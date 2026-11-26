@@ -96,20 +96,6 @@ function activite(etat: Etat, id: string, seul = false): 'attend' | 'travaille' 
   return ids.some((x) => etat.enCours.includes(x)) ? 'travaille' : null
 }
 
-/** Le nom d'un nouveau sujet, tapé sur place (Entrée crée, Échap annule). */
-function ChampSujet({ nom, setNom, creer }: { nom: string; setNom: (n: string | null) => void; creer: () => void }): JSX.Element {
-  return (
-    <input
-      className="sujet-nom"
-      autoFocus
-      placeholder="Ticket 142, page tarifs…"
-      value={nom}
-      onChange={(e) => setNom(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter') creer(); if (e.key === 'Escape') { e.stopPropagation(); setNom(null) } }}
-      onBlur={creer}
-    />
-  )
-}
 /** Le compte Claude qui travaille sur ce projet, et le moyen d'en changer : un clic sur la pastille, un clic sur le compte. */
 function SelecteurCompte({ etat, projet }: { etat: Etat; projet: Projet | null }): JSX.Element | null {
   const [ouvert, setOuvert] = useState(false)
@@ -196,32 +182,58 @@ const plat = (t: string): string => t.normalize('NFD').replace(/\p{M}/gu, '').to
 /** ⌘K sur Mac, Ctrl+K ailleurs. */
 const RACCOURCI = navigator.platform.startsWith('Mac') ? '⌘K' : 'Ctrl+K'
 
+/** Une ligne de la palette ou de la bascule : la pastille du projet, le nom, ce que Tako y fait. */
+function LigneFil({ etat, p, sel, sous, survol, ouvrir }: { etat: Etat; p: Projet; sel: boolean; sous?: boolean; survol: () => void; ouvrir: (id: string) => void }): JSX.Element {
+  const r = (p.parent && etat.projets.find((x) => x.id === p.parent)) || p
+  const a = activite(etat, p.id, true)
+  return (
+    <button type="button" role="option" aria-selected={sel} className={`${sel ? 'sel' : ''} ${p.id === etat.actif ? 'ici' : ''} ${sous ? 'sous' : ''}`}
+      onMouseMove={survol} onClick={() => ouvrir(p.id)} title={r.dossier}
+      onContextMenu={(e) => { e.preventDefault(); if (!p.libre) window.api.menuCarte(p.id) }}>
+      {sous ? <span className="tag trait" /> : <span className={`tag ${p.libre ? 'libre' : ''}`} style={p.libre ? undefined : { background: r.couleur }}>{p.libre ? '✦' : initiales(r.nom)}</span>}
+      <span className="nom">{p.libre ? 'Libre' : p.nom}<small>{p.libre ? ' · une question, sans projet' : p.parent && !sous ? ` · ${r.nom}` : ''}</small></span>
+      {a && <i className={`activite ${a}`} />}
+      <small className="quand">{a === 'attend' ? 'attend ton accord' : a ? 'travaille' : p.id === etat.actif ? 'ici' : p.libre ? '' : ilYa(p.derniere)}</small>
+    </button>
+  )
+}
+
 /**
  * La palette (⌘K ou clic sur le titre) : le seul endroit où l'on voit les projets
- * (piste D, validée le 24/11 ; la barre, le hub et le menu des sujets faisaient doublon).
- * Sans rien taper : ce qui tourne, puis les récents. On tape pour chercher parmi tous,
- * projets et sujets mélangés, pour aller droit au bon fil. Pas d'épinglage : ce qui sert remonte seul.
+ * (piste D, validée le 24/11 : pas de barre ni de hub, l'écran reste calme).
+ * Sans rien taper : ce qui tourne, puis TOUS les projets, chacun suivi de ses sujets
+ * (26/11 : avec seulement 7 récents, Lucas ne retrouvait plus ses sujets).
+ * On tape pour chercher parmi tous, projets et sujets mélangés.
  */
 function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) => void; fermer: () => void }): JSX.Element {
   const [q, setQ] = useState('')
   const [n, setN] = useState(0)
   const [cree, setCree] = useState(false)
-  const [nom, setNom] = useState<string | null>(null)
   const actif = etat.projets.find((p) => p.id === etat.actif)
   const racineDe = (p: Projet): Projet => (p.parent && etat.projets.find((x) => x.id === p.parent)) || p
-  const racineActive = actif && !actif.libre ? racineDe(actif) : null
-  const tous = [...etat.projets].sort((a, b) => b.derniere - a.derniere)
-  const vivants = tous.filter((p) => activite(etat, p.id, true))
-  const libre = tous.find((p) => p.libre)
-  const groupes: [string, Projet[]][] = q.trim()
-    ? [['', tous.filter((p) => plat(`${p.libre ? 'Libre' : p.nom} ${racineDe(p).nom}`).includes(plat(q.trim())))]]
-    : [['En cours', vivants], ['Récents', [...(libre && !vivants.includes(libre) ? [libre] : []), ...tous.filter((p) => !p.libre && !vivants.includes(p)).slice(0, 7)]]]
+  const racines = etat.projets.filter((p) => !p.parent && !p.libre)
+  const sujetsDe = (id: string): Projet[] => etat.projets.filter((p) => p.parent === id).sort((a, b) => b.derniere - a.derniere)
+  // Un projet remonte quand l'un de ses sujets a servi.
+  const recence = (p: Projet): number => Math.max(p.derniere, ...sujetsDe(p.id).map((x) => x.derniere))
+  racines.sort((a, b) => recence(b) - recence(a))
+  /** Le sujet neuf : dans quel projet il part, dit et modifiable (Lucas l'a créé dans le mauvais, 26/11). */
+  const [sujet, setSujet] = useState<{ nom: string; dans: string } | null>(null)
+  const libre = etat.projets.find((p) => p.libre)
+  const vivants = [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => activite(etat, p.id, true))
+  type Rang = { p: Projet; sous?: boolean }
+  const groupes: [string, Rang[]][] = q.trim()
+    ? [['', [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => plat(`${p.libre ? 'Libre' : p.nom} ${racineDe(p).nom}`).includes(plat(q.trim()))).map((p) => ({ p }))]]
+    : [
+        ['En cours', vivants.map((p) => ({ p }))],
+        ['Projets', [...(libre ? [{ p: libre }] : []), ...racines.flatMap((r) => [{ p: r }, ...sujetsDe(r.id).map((x) => ({ p: x, sous: true }))])]]
+      ]
   const liste = groupes.flatMap(([, l]) => l)
   useEffect(() => setN(0), [q])
   const creer = (): void => {
-    const x = nom?.trim()
-    setNom(null)
-    if (x && racineActive) void window.api.creerSujet(racineActive.id, x).then((id) => id && ouvrir(id))
+    const x = sujet?.nom.trim()
+    const dans = sujet?.dans
+    setSujet(null)
+    if (x && dans) void window.api.creerSujet(dans, x).then((id) => id && ouvrir(id))
   }
   let rang = -1
   return (
@@ -241,7 +253,7 @@ function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) =>
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowDown') { e.preventDefault(); setN((x) => Math.min(x + 1, liste.length - 1)) }
                   if (e.key === 'ArrowUp') { e.preventDefault(); setN((x) => Math.max(x - 1, 0)) }
-                  if (e.key === 'Enter' && liste[n]) ouvrir(liste[n].id)
+                  if (e.key === 'Enter' && liste[n]) ouvrir(liste[n].p.id)
                   if (e.key === 'Escape') { e.stopPropagation(); fermer() }
                 }}
               />
@@ -249,34 +261,78 @@ function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) =>
                 {groupes.map(([titre, l]) => l.length > 0 && (
                   <Fragment key={titre || 'trouves'}>
                     {titre && <small className="section">{titre}</small>}
-                    {l.map((p) => {
-                      rang++
-                      const r = racineDe(p), a = activite(etat, p.id, true), ici = rang
-                      return (
-                        <button key={p.id} type="button" role="option" aria-selected={ici === n} className={`${ici === n ? 'sel' : ''} ${p.id === etat.actif ? 'ici' : ''}`}
-                          onMouseEnter={() => setN(ici)} onClick={() => ouvrir(p.id)} title={r.dossier}
-                          onContextMenu={(e) => { e.preventDefault(); if (!p.libre) window.api.menuCarte(p.id) }}>
-                          <span className={`tag ${p.libre ? 'libre' : ''}`} style={p.libre ? undefined : { background: r.couleur }}>{p.libre ? '✦' : initiales(r.nom)}</span>
-                          <span className="nom">{p.libre ? 'Libre' : p.nom}<small>{p.libre ? ' · une question, sans projet' : p.parent ? ` · ${r.nom}` : ''}</small></span>
-                          {a && <i className={`activite ${a}`} />}
-                          <small className="quand">{a === 'attend' ? 'attend ton accord' : a ? 'travaille' : p.id === etat.actif ? 'ici' : p.libre ? '' : ilYa(p.derniere)}</small>
-                        </button>
-                      )
+                    {l.map(({ p, sous }) => {
+                      const ici = ++rang
+                      return <LigneFil key={`${titre}${p.id}`} etat={etat} p={p} sous={sous} sel={ici === n} survol={() => setN(ici)} ouvrir={ouvrir} />
                     })}
                   </Fragment>
                 ))}
                 {!liste.length && <p className="rien">Aucun projet ne s’appelle comme ça. Dis-le dans le chat, Tako le crée.</p>}
               </div>
-              <div className="pied-palette">
-                {racineActive && (nom === null
-                  ? <button type="button" onClick={() => setNom('')} title={`Une conversation à part dans « ${racineActive.nom} » : Tako relit moins, tu dépenses moins`}>＋ Nouveau sujet</button>
-                  : <ChampSujet nom={nom} setNom={setNom} creer={creer} />)}
-                <span className="espace" />
-                <button type="button" onClick={() => { fermer(); window.api.ajouterProjet() }}>Lier un dossier</button>
-                <button type="button" className="fort" data-action="nouveau" onClick={() => setCree(true)}>＋ Nouveau projet</button>
-              </div>
+              {sujet
+                ? (
+                  <form className="pied-palette sujet-neuf" onSubmit={(e) => { e.preventDefault(); creer() }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setSujet(null) } }}>
+                    <span>Nouveau sujet dans</span>
+                    {/* Chevron maison : celui du système collait au nom (26/11). */}
+                    <span className="choix-projet">
+                      <select value={sujet.dans} onChange={(e) => setSujet({ ...sujet, dans: e.target.value })} aria-label="Projet du sujet">
+                        {racines.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
+                      </select>
+                      <Chevron />
+                    </span>
+                    <input className="sujet-nom" autoFocus placeholder="Ticket 142, page tarifs…" value={sujet.nom} onChange={(e) => setSujet({ ...sujet, nom: e.target.value })} />
+                    <button type="submit" className="fort" disabled={!sujet.nom.trim()}>Créer</button>
+                  </form>
+                )
+                : (
+                  <div className="pied-palette">
+                    {racines.length > 0 && (
+                      <button type="button" onClick={() => setSujet({ nom: '', dans: (actif && !actif.libre ? racineDe(actif) : racines[0]).id })}
+                        title="Une conversation à part dans un projet : Tako relit moins, tu dépenses moins">＋ Nouveau sujet</button>
+                    )}
+                    <span className="espace" />
+                    <button type="button" onClick={() => { fermer(); window.api.ajouterProjet() }}>Lier un dossier</button>
+                    <button type="button" className="fort" data-action="nouveau" onClick={() => setCree(true)}>＋ Nouveau projet</button>
+                  </div>
+                )}
             </>
           )}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Ctrl+Tab, comme Cmd+Tab entre les apps : les derniers fils, du plus récent au plus ancien.
+ * Ctrl tenu, Tab avance (Maj+Tab recule), Ctrl relâché ouvre. Rien à l'écran le reste du temps
+ * (option C du 26/11 : revenir vite sur un sujet sans rouvrir de barre).
+ */
+function Bascule({ etat, vus, ouvrir, fermer }: { etat: Etat; vus: string[]; ouvrir: (id: string) => void; fermer: () => void }): JSX.Element {
+  const parId = new Map(etat.projets.map((p) => [p.id, p]))
+  const autres = [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => !vus.includes(p.id))
+  const liste = [...vus.map((id) => parId.get(id)).filter((p): p is Projet => !!p), ...autres].slice(0, 7)
+  const [n, setN] = useState(Math.min(1, liste.length - 1))
+  const choix = useRef(n)
+  choix.current = n
+  useEffect(() => {
+    const bas = (e: KeyboardEvent): void => {
+      if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); setN((x) => (x + (e.shiftKey ? -1 : 1) + liste.length) % liste.length) }
+      if (e.key === 'Escape') { e.stopPropagation(); fermer() }
+    }
+    const haut = (e: KeyboardEvent): void => { if (e.key === 'Control' && liste[choix.current]) ouvrir(liste[choix.current].id) }
+    addEventListener('keydown', bas, true)
+    addEventListener('keyup', haut, true)
+    return () => { removeEventListener('keydown', bas, true); removeEventListener('keyup', haut, true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <>
+      <div className="voile-palette" onMouseDown={fermer} />
+      <div className="palette derniers" role="dialog" aria-label="Derniers fils">
+        <div className="liste-palette" role="listbox">
+          {liste.map((p, i) => <LigneFil key={p.id} etat={etat} p={p} sel={i === n} survol={() => setN(i)} ouvrir={ouvrir} />)}
+        </div>
       </div>
     </>
   )
@@ -398,6 +454,12 @@ export default function Panneau(): JSX.Element {
   const actif = useRef<string | null>(null)
   const [vue, setVue] = useState<Vue>('chat')
   const [palette, setPalette] = useState(false)
+  const [bascule, setBascule] = useState(false)
+  const basculeOuverte = useRef(false)
+  basculeOuverte.current = bascule
+  /** Les fils ouverts pendant la session, le plus récent d'abord (Ctrl+Tab et ←). */
+  const vus = useRef<string[]>([])
+  const [precedent, setPrecedent] = useState<string | null>(null)
   const [glisse, setGlisse] = useState(false)
   const saisie = useRef<SaisieRef>(null)
   const bas = useRef<HTMLDivElement>(null)
@@ -477,6 +539,7 @@ export default function Panneau(): JSX.Element {
     }
     const allerA = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((x) => !x) }
+      if (e.ctrlKey && e.key === 'Tab' && !basculeOuverte.current) { e.preventDefault(); setPalette(false); setBascule(true) }
     }
     addEventListener('keydown', echap)
     addEventListener('keydown', allerA)
@@ -522,7 +585,16 @@ export default function Panneau(): JSX.Element {
 
   useEffect(() => bas.current?.scrollIntoView({ block: 'end' }), [fil, vue])
 
+  // Quel que soit le chemin (palette, Ctrl+Tab, Tako qui ouvre un sujet), le fil quitté devient « ← ».
+  const actifId = etat?.actif
+  useEffect(() => {
+    if (!actifId || vus.current[0] === actifId) return
+    if (vus.current[0]) setPrecedent(vus.current[0])
+    vus.current = [actifId, ...vus.current.filter((x) => x !== actifId)]
+  }, [actifId])
+
   const projet = etat?.projets.find((p) => p.id === etat.actif) ?? null
+  const avant = (precedent && precedent !== projet?.id && etat?.projets.find((p) => p.id === precedent)) || null
   const racine = (projet?.parent && etat?.projets.find((p) => p.id === projet.parent)) || projet
   const avatar = avatarDe(etat?.comptes.find((c) => c.actif)?.avatar)
   actif.current = etat?.actif ?? null
@@ -585,6 +657,7 @@ export default function Panneau(): JSX.Element {
     window.api.choisirProjet(id)
     setVue('chat')
     setPalette(false)
+    setBascule(false)
   }
 
   // Glisser des fichiers n'importe où sur le panneau.
@@ -724,6 +797,11 @@ export default function Panneau(): JSX.Element {
               {plein ? (attendent ? `${attendent} attend${attendent > 1 ? 'ent' : ''}` : `${ailleurs.length} en cours`) : attendent || ailleurs.length}
             </button>
           )}
+          {avant && vue === 'chat' && (
+            <button type="button" className="retour" onClick={() => ouvrirProjet(avant.id)} title={`Revenir à ${avant.libre ? 'Libre' : avant.nom} (Ctrl+Tab pour les autres)`}>
+              ← <span>{avant.libre ? 'Libre' : avant.nom}</span>
+            </button>
+          )}
           {vue === 'outils' || vue === 'reglages'
             ? <button type="button" className="icone" title="Revenir à la conversation" onClick={() => setVue('chat')}>←</button>
             : vue === 'chat' && !accueil && <button type="button" className={`icone nouvelle ${plein ? 'avec-texte' : ''}`} title="Nouvelle conversation (repart de zéro dans ce sujet)" onClick={nouvelle} disabled={enCours || !projet}>＋{plein && ' Nouvelle conversation'}</button>}
@@ -844,6 +922,7 @@ export default function Panneau(): JSX.Element {
       )}
       {accueil && etat && projet && <EnAttente etat={etat} projet={projet} ouvrir={ouvrirProjet} palette={() => setPalette(true)} raccourci={RACCOURCI} />}
       {palette && etat && <Palette etat={etat} ouvrir={ouvrirProjet} fermer={() => setPalette(false)} />}
+      {bascule && etat && <Bascule etat={etat} vus={vus.current} ouvrir={ouvrirProjet} fermer={() => setBascule(false)} />}
       </div>
     </div>
   )

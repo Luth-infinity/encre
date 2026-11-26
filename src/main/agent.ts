@@ -84,10 +84,15 @@ function outilsEncre(sortie: Sortie, projetDuTour?: string): ReturnType<typeof c
       ),
       tool(
         'creer_sujet',
-        'Ouvre un nouveau sujet dans le projet en cours : même dossier et mêmes outils, mais une conversation neuve. À utiliser quand l’utilisateur passe à un autre ticket ou un autre chantier, pour ne pas empiler (chaque action relit toute la conversation). Encre y relance sa demande aussitôt.',
-        { nom: z.string().describe('Nom court, par exemple « Ticket 142 » ou « Page tarifs »') },
-        async ({ nom }) => {
-          const actuel = projets.trouver(projetDuTour ?? '') ?? projets.actif()
+        'Ouvre un nouveau sujet : même dossier et mêmes outils que son projet, mais une conversation neuve. À utiliser quand l’utilisateur passe à un autre ticket ou un autre chantier, pour ne pas empiler (chaque action relit toute la conversation). Par défaut dans le projet en cours ; si l’utilisateur nomme un autre projet (« nouveau sujet dans X »), passe son id (lister_projets). Encre y relance sa demande aussitôt.',
+        {
+          nom: z.string().describe('Nom court, par exemple « Ticket 142 » ou « Page tarifs »'),
+          projet: z.string().optional().describe('Id du projet où ouvrir le sujet, s’il n’est pas celui en cours')
+        },
+        async ({ nom, projet }) => {
+          // Lucas a demandé un sujet dans un autre projet que l'ouvert, et Tako l'a posé au mauvais endroit (26/11).
+          const actuel = (projet && projets.trouver(projet)) || projets.trouver(projetDuTour ?? '') || projets.actif()
+          if (projet && !projets.trouver(projet)) return texte('Projet introuvable : regarde lister_projets.')
           if (!actuel || actuel.libre) return texte('Pas de sujet dans Libre : crée ou ouvre d’abord un projet.')
           const s = projets.creerSujet(actuel.id, nom)
           if (!s) return texte('Impossible de créer ce sujet.')

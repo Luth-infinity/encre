@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { avatarDe, type Humeur } from '@shared/types'
+import { avatarDe, type Espece, type Humeur } from '@shared/types'
 import { COULEURS } from './poulpe'
-import { creerPoulpe2D, type Poulpe2D } from './poulpe2d'
+import { creerPoulpe2D, momoBulleSrc, type Poulpe2D } from './poulpe2d'
 
 const NOMS: Record<Humeur, string> = {
   repos: 'Au repos', ecoute: 'Écoute', reflechit: 'Réfléchit', bosse: 'Bosse', accord: 'Attend ton accord', fini: 'Fini', note: 'Écrit ses notes'
@@ -21,6 +21,7 @@ export default function Bulle(): JSX.Element {
   const [clic, setClic] = useState(0)
   const [change, setChange] = useState(false)
   const [rebond, setRebond] = useState(false)
+  const [espece, setEspece] = useState<Espece | null>(null)
 
   useEffect(() => {
     // L'avatar du compte en cours ; le main recharge la bulle quand il change.
@@ -28,9 +29,11 @@ export default function Bulle(): JSX.Element {
       const a = avatarDe(e.comptes.find((c) => c.actif)?.avatar)
       const h = await window.api.humeur()
       // Tout en 2D : un avatar en 3D (WebGL) dans la bulle figeait la bulle au changement de compte (0.7.1).
-      poulpe.current = creerPoulpe2D(canvas.current!, 'bulle', h, a.espece)
+      // Momo est une vidéo qui déborde du rond (son dessin) : pas de canvas pour lui.
+      setEspece(a.espece)
+      if (a.espece !== 'axolotl') poulpe.current = creerPoulpe2D(canvas.current!, 'bulle', h, a.espece)
       setHumeur(h)
-      poulpe.current.humeur(h)
+      poulpe.current?.humeur(h)
     })
     const off = window.api.surHumeur((h) => {
       setHumeur(h)
@@ -93,6 +96,7 @@ export default function Bulle(): JSX.Element {
       onContextMenu={(e) => { e.preventDefault(); window.api.bulleMenu() }}
     >
       <canvas ref={canvas} />
+      {espece === 'axolotl' && <video className="debord" src={momoBulleSrc} muted loop autoPlay playsInline />}
       {clic > 0 && (
         // La clé change à chaque clic : l'onde et les gouttes repartent de zéro (le canvas, lui, ne bouge pas).
         <span key={clic} className="eclat">

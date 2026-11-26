@@ -265,7 +265,9 @@ function envoyer(texte: string, pieces: PieceJointe[], voix: boolean, relance?: 
       // Tako a ouvert un sujet pour cette demande : l'ancien fil reste à sa
       // place, la demande repart dans le sujet neuf (session vierge, fil léger).
       const sujet = ouvert && ouvert !== p.id ? projets.trouver(ouvert) : null
-      if (!p.libre && !relance && sujet && projets.racineDe(sujet).id === projets.racineDe(p).id) {
+      // Un sujet neuf ouvert dans un autre projet (« nouveau sujet dans X ») suit le même chemin.
+      const neuf = !!sujet?.parent && fils.fil(sujet.id).every((b) => b.type === 'info')
+      if (!p.libre && !relance && sujet && (neuf || projets.racineDe(sujet).id === projets.racineDe(p).id)) {
         vocaux.delete(p.id)
         diffuser(sujet.id, moi())
         publierEtat()
@@ -856,6 +858,47 @@ async function verifier(dossier: string): Promise<void> {
     await js(`document.querySelector('[data-action=plein]')?.click()`)
     await attendre(2000)
     await capturer('8-markdown-plein')
+    return app.quit()
+  }
+  // ENCRE_VERIF_SUJETS=1 : palette (tous les projets et leurs sujets), « ← » après un changement, Ctrl+Tab, sujet neuf, halo du texte en plein écran.
+  if (process.env.ENCRE_VERIF_SUJETS) {
+    const t142 = projets.creerSujet(p.id, 'Ticket 142')!
+    const tarifs = projets.creerSujet(p.id, 'Page tarifs')!
+    fils.noter(tarifs.id, { type: 'moi', texte: 'Où en est la page tarifs ?' } as Evenement)
+    fils.noter(tarifs.id, { type: 'texte', texte: Array.from({ length: 40 }, (_, i) => `Ligne ${i + 1} : les trois formules sont en place, il reste à vérifier les marges, les états de survol et les boutons, sur les 6 écrans.`).join('\n\n') } as Evenement)
+    fils.noter(tarifs.id, { type: 'fin', duree: 6000 } as Evenement)
+    projets.choisir(tarifs.id)
+    await attendre(2500)
+    ouvrirPanneau()
+    publierEtat()
+    await attendre(2000)
+    const cle = (type: string, o: string): Promise<unknown> | undefined => js(`dispatchEvent(new KeyboardEvent('${type}', ${o}))`)
+    await cle('keydown', `{ key: 'k', metaKey: true, ctrlKey: true }`)
+    await attendre(600)
+    await capturer('s1-palette')
+    await js(`[...document.querySelectorAll('.liste-palette button')].find((b) => b.querySelector('.nom')?.firstChild?.textContent === 'Ticket 142')?.click()`)
+    await attendre(1500)
+    await capturer('s2-retour')
+    journal(`verif sujets : actif ${projets.actifId() === t142.id ? 'Ticket 142' : projets.actifId()}`)
+    await cle('keydown', `{ key: 'Tab', ctrlKey: true }`)
+    await attendre(500)
+    await capturer('s3-bascule')
+    await cle('keyup', `{ key: 'Control' }`)
+    await attendre(1500)
+    journal(`verif sujets : après Ctrl+Tab, actif ${projets.actifId() === tarifs.id ? 'Page tarifs' : projets.actifId()}`)
+    await cle('keydown', `{ key: 'k', metaKey: true, ctrlKey: true }`)
+    await attendre(500)
+    await js(`[...document.querySelectorAll('.pied-palette button')].find((b) => b.textContent.includes('Nouveau sujet'))?.click()`)
+    await attendre(500)
+    await capturer('s4-sujet-neuf')
+    await js(`document.querySelector('.voile-palette')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
+    await attendre(300)
+    await js(`document.querySelector('[data-action=plein]')?.click()`)
+    await attendre(1500)
+    await js(`(() => { const f = document.querySelector('.fil'); f.scrollTo(0, f.scrollHeight - f.clientHeight - 130) })()`)
+    await attendre(800)
+    await capturer('s5-plein-halo')
+    journal('verif terminée (sujets)')
     return app.quit()
   }
   await attendre(2500)
