@@ -21,6 +21,18 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.2',
+    date: '2026-11-26',
+    titre: 'Changer de compte ne fige plus la bulle',
+    texte: 'Passer sur un compte qui a un autre avatar laissait la bulle bloquée, impossible à cliquer. Et Nori et Momo passent eux aussi en 2D, chacun avec sa tête.',
+    points: [
+      'La bulle reste cliquable quand tu changes de compte.',
+      'Nori et Momo ont leur version 2D, avec leur visage et leur couleur : on les reconnaît dans la bulle, sur l’accueil et dans l’appel vocal.',
+      'Dans Réglages → Comptes, tu choisis l’avatar d’un compte d’après son visage, plus d’après son nom.',
+      'Le visage de l’avatar apparaît aussi dans le fil et dans le choix du compte, en haut du panneau.',
+    ],
+  },
+  {
     version: '0.7.1',
     date: '2026-11-26',
     titre: 'Le nouveau Tako partout, et rien qui gêne',

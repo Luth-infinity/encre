@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Avatar, Humeur } from '@shared/types'
 import type { Parole } from './lib/parole'
-import { creerPoulpe, type Poulpe } from './poulpe'
+import { creerPoulpe2D, type Poulpe2D } from './poulpe2d'
 
 const textes = (t: string): Record<Parole['phase'], [string, string]> => ({
   ecoute: ['Je t’écoute', `${t} pour envoyer · Échap pour annuler`],
@@ -18,11 +18,11 @@ const textes = (t: string): Record<Parole['phase'], [string, string]> => ({
  */
 export default function Appel({ parole, avatar, humeur, grand, touche }: { parole: Parole; avatar: Avatar; humeur: Humeur; grand: boolean; touche: string }): JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const poulpe = useRef<Poulpe | null>(null)
+  const poulpe = useRef<Poulpe2D | null>(null)
   const boite = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    poulpe.current = creerPoulpe(canvas.current!, { remplir: 0.78, espece: avatar.espece, peau: avatar.peau, motif: avatar.motif })
+    poulpe.current = creerPoulpe2D(canvas.current!, 'bulle', humeur, avatar.espece)
     return () => poulpe.current?.detruire()
   }, [avatar])
   useEffect(() => poulpe.current?.humeur(parole.phase === 'ecoute' ? 'ecoute' : humeur), [humeur, parole.phase, avatar])

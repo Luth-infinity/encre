@@ -12,6 +12,7 @@ import Bulle from './Bulle'
 import Panneau from './Panneau'
 import { avatarDe, type Humeur } from '@shared/types'
 import { creerPoulpe } from './poulpe'
+import { dessinsPrets } from './poulpe2d'
 
 /** L'icône de l'app (`ENCRE_ICONE`) : le poulpe de la bulle, en 512 px. `?avatar=` dessine un autre avatar. */
 function Icone(): JSX.Element {
@@ -30,6 +31,7 @@ function Icone(): JSX.Element {
 const vue = new URLSearchParams(location.search).get('vue')
 document.documentElement.dataset.vue = vue ?? 'panneau'
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+// Quelques millisecondes : les dessins des avatars d'abord, sinon un portrait pouvait rester noir.
+void dessinsPrets.then(() => ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>{vue === 'bulle' ? <Bulle /> : vue === 'icone' ? <Icone /> : <Panneau />}</React.StrictMode>
-)
+))

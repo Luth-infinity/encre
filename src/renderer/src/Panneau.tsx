@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, Fragment } from 'react'
 import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil, { Creature, EnAttente } from './Accueil'
 import Appel from './Appel'
-import tako from './assets/tako.png'
 import { Agrandir, Chevron, Micro, Prise, Reduire, Roue } from './icones'
 import type { Veille } from './lib/veille'
 import { useParole } from './lib/parole'
 import { Markdown } from './markdown'
 import OutilsProjet from './OutilsProjet'
 import { COULEURS } from './poulpe'
+import { portrait } from './poulpe2d'
 import Reglages from './Reglages'
 import { Saisie, versPiece, type SaisieRef } from './Saisie'
 
@@ -128,7 +128,7 @@ function SelecteurCompte({ etat, projet }: { etat: Etat; projet: Projet | null }
     <div className="compte-choix">
       <button type="button" className={`compte-puce ${ouvert ? 'on' : ''}`} aria-haspopup="menu" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
         title={`Compte Claude de ce projet : ${actuel.nom}. Cliquer pour changer.`}>
-        <i className="pastille" style={{ background: avatarDe(actuel.avatar).peau }} />
+        <img className="pastille" src={portrait(avatarDe(actuel.avatar).espece)} alt="" />
         <span>{actuel.nom}</span><Chevron haut={ouvert} />
       </button>
       <div className={`menu-compte ${ouvert ? 'ouvert' : ''}`} role="menu">
@@ -136,7 +136,7 @@ function SelecteurCompte({ etat, projet }: { etat: Etat; projet: Projet | null }
         {etat.comptes.map((c) => (
           <button key={c.id} type="button" role="menuitemradio" aria-checked={c.actif} disabled={!c.connecte}
             className={c.actif ? 'on' : ''} onClick={() => { setOuvert(false); if (!c.actif) window.api.choisirCompte(c.id) }}>
-            <i className="pastille" style={{ background: avatarDe(c.avatar).peau }} />
+            <img className="pastille" src={portrait(avatarDe(c.avatar).espece)} alt="" />
             <span className="qui-compte"><strong>{c.nom}</strong><small>{c.connecte ? c.offre ?? c.email ?? '' : 'À connecter dans Réglages'}</small></span>
             {c.actif && <span className="coche" aria-hidden>✓</span>}
           </button>
@@ -623,7 +623,7 @@ export default function Panneau(): JSX.Element {
       <div className="fil" onMouseUp={() => setTimeout(regarderSelection, 0)} onScroll={() => selection && setSelection(null)}>
         {fil.length === 0 && <Accueil />}
         {morceaux(fil).map((m, n, tous) => {
-          if (m.type === 'qui') return <div key={m.i} className="qui">{avatar.espece === 'poulpe' ? <img src={tako} alt="" /> : <i className="pastille" style={{ background: avatar.peau }} />}{avatar.nom}</div>
+          if (m.type === 'qui') return <div key={m.i} className="qui"><img src={portrait(avatar.espece)} alt="" />{avatar.nom}</div>
           if (m.type === 'etapes') return <Etapes key={m.i} outils={m.outils} enCours={enCours && n === tous.length - 1} />
           const { bloc: x, i } = m
           if (x.type === 'moi') {

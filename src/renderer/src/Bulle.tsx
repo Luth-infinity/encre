@@ -1,52 +1,45 @@
 import { useEffect, useRef, useState } from 'react'
 import { avatarDe, type Humeur } from '@shared/types'
-import { COULEURS, creerPoulpe, type Poulpe } from './poulpe'
-import { creerPoulpe2D } from './poulpe2d'
+import { COULEURS } from './poulpe'
+import { creerPoulpe2D, type Poulpe2D } from './poulpe2d'
 
 const NOMS: Record<Humeur, string> = {
   repos: 'Au repos', ecoute: 'Écoute', reflechit: 'Réfléchit', bosse: 'Bosse', accord: 'Attend ton accord', fini: 'Fini', note: 'Écrit ses notes'
 }
 
 /**
- * La bulle : la tête du poulpe 2D (validée le 24/11) qui remplit un disque noir, entouré d'un anneau à la couleur
+ * La bulle : la tête de l'avatar en 2D (validée le 24/11) qui remplit un disque noir, entouré d'un anneau à la couleur
  * de son humeur. Clic = panneau, glisser = déplacer (on suit le pointeur à la
  * main : une zone `drag` d'Electron mangerait le clic), clic droit = menu.
  */
 export default function Bulle(): JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
-  // Le poulpe 2D n'a pas de gestes : seuls Nori et Momo (encore en 3D) sautent ou font coucou.
-  const poulpe = useRef<Pick<Poulpe, 'humeur' | 'detruire'> & { geste?: Poulpe['geste'] } | null>(null)
+  const poulpe = useRef<Poulpe2D | null>(null)
   const [humeur, setHumeur] = useState<Humeur>('repos')
   const [presse, setPresse] = useState(false)
   /** Chaque clic relance l'onde, les gouttes et le rebond (la clé change). */
   const [clic, setClic] = useState(0)
   const [change, setChange] = useState(false)
   const [rebond, setRebond] = useState(false)
-  const dernierCoucou = useRef(0)
 
   useEffect(() => {
     // L'avatar du compte en cours ; le main recharge la bulle quand il change.
     void window.api.etat().then(async (e) => {
       const a = avatarDe(e.comptes.find((c) => c.actif)?.avatar)
       const h = await window.api.humeur()
-      poulpe.current = a.espece === 'poulpe'
-        ? creerPoulpe2D(canvas.current!, 'bulle', h)
-        : creerPoulpe(canvas.current!, { remplir: 0.8, espece: a.espece, peau: a.peau, motif: a.motif })
+      // Tout en 2D : un avatar en 3D (WebGL) dans la bulle figeait la bulle au changement de compte (0.7.1).
+      poulpe.current = creerPoulpe2D(canvas.current!, 'bulle', h, a.espece)
       setHumeur(h)
       poulpe.current.humeur(h)
     })
     const off = window.api.surHumeur((h) => {
       setHumeur(h)
       poulpe.current?.humeur(h)
-      // L'anneau pulse à chaque changement d'humeur ; Tako saute de joie quand c'est fini.
+      // L'anneau pulse à chaque changement d'humeur.
       setChange(false)
       requestAnimationFrame(() => setChange(true))
-      if (h === 'fini') poulpe.current?.geste?.('saut')
     })
-    // Contexte 3D perdu (veille, GPU relancé) : le poulpe ne se dessine plus, la bulle semble partie.
-    const perdu = (): void => location.reload()
-    canvas.current?.addEventListener('webglcontextlost', perdu)
-    return () => { off(); canvas.current?.removeEventListener('webglcontextlost', perdu); poulpe.current?.detruire() }
+    return () => { off(); poulpe.current?.detruire() }
   }, [])
 
   const glisse = useRef<{ x: number; y: number; bouge: boolean } | null>(null)
@@ -80,14 +73,8 @@ export default function Bulle(): JSX.Element {
       setClic((n) => n + 1)
       setRebond(false)
       requestAnimationFrame(() => setRebond(true))
-      poulpe.current?.geste?.('saut')
       window.api.bulleClic()
     }
-  }
-  const survol = (): void => {
-    if (Date.now() - dernierCoucou.current < 5000) return
-    dernierCoucou.current = Date.now()
-    poulpe.current?.geste?.('coucou')
   }
 
   return (
@@ -99,7 +86,6 @@ export default function Bulle(): JSX.Element {
       onPointerMove={bouge}
       onPointerUp={haut}
       onPointerCancel={() => { glisse.current = null; setPresse(false) }}
-      onPointerEnter={survol}
       onAnimationEnd={(e) => {
         if (e.animationName === 'change') setChange(false)
         if (e.animationName === 'rebond') setRebond(false)

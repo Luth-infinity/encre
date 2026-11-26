@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import type { Avatar, Etat, Humeur, Projet } from '@shared/types'
-import { creerPoulpe } from './poulpe'
 import { creerPoulpe2D, type Pose } from './poulpe2d'
 
 /**
@@ -55,21 +54,17 @@ export function EnAttente({ etat, projet, ouvrir, palette, raccourci }: { etat: 
 /**
  * Le compagnon derrière le contenu. Le poulpe est en 2D (forme noire, visage cartoon) :
  * « coin », il monte du coin bas droit de l'accueil ; « guetteur », sa tête dépasse du champ.
- * Les autres avatars (Nori, Momo) gardent leur rendu 3D en attendant leur version 2D.
+ * Nori et Momo aussi, chacun avec sa silhouette.
  */
 export function Creature({ avatar, humeur, pose }: { avatar: Avatar; humeur: Humeur; pose: Pose }): JSX.Element | null {
   const cv = useRef<HTMLCanvasElement>(null)
   const vivant = useRef<{ humeur(h: Humeur): void; detruire(): void } | null>(null)
-  const deuxD = avatar.espece === 'poulpe'
   useEffect(() => {
     if (!cv.current) return
-    vivant.current = deuxD
-      ? creerPoulpe2D(cv.current, pose, humeur)
-      : creerPoulpe(cv.current, { remplir: 0.86, espece: avatar.espece, peau: avatar.peau, motif: avatar.motif })
+    vivant.current = creerPoulpe2D(cv.current, pose, humeur, avatar.espece)
     return () => vivant.current?.detruire()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avatar, pose])
   useEffect(() => vivant.current?.humeur(humeur), [humeur, avatar, pose])
-  if (!deuxD && pose === 'guetteur') return null
-  return <canvas ref={cv} className={`creature ${pose} ${deuxD ? 'deux-d' : ''}`} aria-hidden />
+  return <canvas ref={cv} className={`creature ${pose}`} aria-hidden />
 }

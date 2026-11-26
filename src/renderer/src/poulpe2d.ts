@@ -1,6 +1,9 @@
-import type { Humeur } from '@shared/types'
+import { AVATARS, type Espece, type Humeur } from '@shared/types'
 import { COULEURS } from './poulpe'
 import teteSrc from './assets/tete.png'
+import takoSrc from './assets/tako.png'
+import momoTeteSrc from './assets/momo-tete.png'
+import momoSrc from './assets/momo.png'
 
 /**
  * Le poulpe 2D validé par Lucas le 24/11 (design/refonte-2d.html, design/projets-calme.html) :
@@ -8,6 +11,7 @@ import teteSrc from './assets/tete.png'
  * « coin » : il monte du coin bas droit de l'accueil, derrière le contenu, ses bras sortent du cadre.
  * « guetteur » : en conversation, la tête seule dépasse au-dessus du bout du champ.
  * « bulle » : la tête remplit le rond de la bulle (l'anneau d'humeur est en CSS autour).
+ * Nori (méduse) et Momo (axolotl) reprennent la même encre et le même visage, avec leur silhouette.
  */
 export type Pose = 'coin' | 'guetteur' | 'bulle'
 export interface Poulpe2D { humeur(h: Humeur): void; detruire(): void }
@@ -18,13 +22,53 @@ const css = (c: number[], al = 1): string => `rgba(${c.map(Math.round).join(',')
 const lim = (v: number, a = 0, b = 1): number => Math.min(b, Math.max(a, v))
 
 const TETE = Object.assign(new Image(), { src: teteSrc }) // la tête dessinée par Lucas, détourée
-const pret = (): boolean => TETE.complete && TETE.naturalWidth > 0
+type Forme = HTMLImageElement | HTMLCanvasElement
+const prete = (f: Forme): boolean => !(f instanceof HTMLImageElement) || (f.complete && f.naturalWidth > 0)
+
+/**
+ * Les silhouettes de Nori et Momo, dessinées dans le cadre de la tête de Tako (579 × 592,
+ * dôme centré en 290, 250) : tout le reste (contour, aplat, visage, bulle) les traite pareil.
+ */
+function silhouette(espece: 'meduse'): HTMLCanvasElement {
+  const cv = Object.assign(document.createElement('canvas'), { width: 579, height: 592 }), c = cv.getContext('2d')!
+  c.fillStyle = c.strokeStyle = '#000'
+  if (espece === 'meduse') { // (seule silhouette encore dessinée en code)
+    // Cloche : un dôme, bord festonné.
+    const r = 560 / 12
+    c.beginPath(); c.ellipse(290, 420, 280, 390, 0, Math.PI, 0)
+    for (let i = 0; i < 6; i++) c.arc(570 - r - i * 2 * r, 420, r, 0, Math.PI)
+    c.fill()
+  }
+  return cv
+}
+
+/**
+ * Ce qui distingue chacun, au-delà de la silhouette : l'écart et la taille des yeux, la bouche,
+ * la paupière au repos, et sa couleur (`AVATARS`) là où elle aide à le reconnaître.
+ * Tako : le visage de référence. Nori, calme : yeux rapprochés mi-clos, petite bouche.
+ * Momo, énergique : petits yeux très écartés, grand sourire, joues et branchies roses.
+ */
+type Trait = { ecart: number; k: number; bouche: number; sourire: number; paup: number; joues?: string }
+const TRAITS: Record<Espece, Trait> = {
+  poulpe: { ecart: 2.6, k: 1, bouche: 1, sourire: 0, paup: 0 },
+  meduse: { ecart: 2.2, k: 0.9, bouche: 0.55, sourire: 0, paup: 0.32 },
+  axolotl: { ecart: 3.4, k: 0.85, bouche: 1.8, sourire: 0.25, paup: 0, joues: '#F2558C' }
+}
+const PEAU: Record<Espece, string> = Object.fromEntries(AVATARS.map((a) => [a.espece, a.peau])) as Record<Espece, string>
+
+// Momo : dessin généré (Gemini, 26/11), détouré et recalé dans le cadre de la tête de Tako
+// (tête centrée en 290, 330), branchies roses comprises : on le pose tel quel, sans le repeindre.
+const MOMO_TETE = Object.assign(new Image(), { src: momoTeteSrc })
+const MOMO = Object.assign(new Image(), { src: momoSrc })
+const FORMES: Record<Espece, Forme> = { poulpe: TETE, meduse: silhouette('meduse'), axolotl: MOMO_TETE }
+/** Les dessins chargés : le portrait se fige au premier appel, il ne doit pas partir d'une image vide. */
+export const dessinsPrets = Promise.all([TETE, MOMO_TETE, MOMO].map((i) => i.decode().catch(() => undefined)))
 
 // Contour : la silhouette de la tête teintée, posée en couronne derrière elle.
 const lis = document.createElement('canvas'), cLis = lis.getContext('2d')!
-function teinte(col: string): void {
-  if (lis.width !== TETE.width) { lis.width = TETE.width; lis.height = TETE.height }
-  cLis.globalCompositeOperation = 'copy'; cLis.drawImage(TETE, 0, 0)
+function teinte(f: Forme, col: string): void {
+  if (lis.width !== f.width) { lis.width = f.width; lis.height = f.height }
+  cLis.globalCompositeOperation = 'copy'; cLis.drawImage(f, 0, 0)
   cLis.globalCompositeOperation = 'source-in'; cLis.fillStyle = col; cLis.fillRect(0, 0, lis.width, lis.height)
 }
 // Repère de la tête : origine au centre du dôme ; W = largeur, etire = allongement, incl = penché.
@@ -38,20 +82,25 @@ function anneau(c: CanvasRenderingContext2D, x: number, y: number, W: number, in
   c.restore()
 }
 // Silhouette pleine : la forme du dessin, sans ses reflets.
-const plein = document.createElement('canvas')
-function tete(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, x: number, y: number, W: number, incl: number, etire: number, fs: number, fx = -0.1): void {
-  if (!pret()) return
+const pleins = new Map<Forme, HTMLCanvasElement>()
+function tete(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: Espece, x: number, y: number, W: number, incl: number, etire: number, fs: number, fx = -0.1): void {
+  const f = FORMES[e]
+  if (!prete(f)) return
   c.save(); repere(c, x, y, W, incl, etire)
-  if (plein.width !== TETE.width) {
-    plein.width = TETE.width; plein.height = TETE.height; const p = plein.getContext('2d')!
-    p.drawImage(TETE, 0, 0); p.globalCompositeOperation = 'source-in'; p.fillStyle = css(ENCRE); p.fillRect(0, 0, plein.width, plein.height)
+  if (e === 'axolotl') { c.drawImage(f, -290, -250); c.restore() } else {
+  let plein = pleins.get(f)
+  if (!plein) {
+    plein = Object.assign(document.createElement('canvas'), { width: f.width, height: f.height }); const p = plein.getContext('2d')!
+    p.drawImage(f, 0, 0); p.globalCompositeOperation = 'source-in'; p.fillStyle = css(ENCRE); p.fillRect(0, 0, plein.width, plein.height)
+    pleins.set(f, plein)
   }
   c.drawImage(plein, -290, -250)
   c.restore()
+  }
   // Le visage n'est pas étiré avec le crâne : il reste rond.
   c.save(); c.translate(x, y); c.rotate(incl * 0.6)
   c.translate(W * fx, W * 0.2 * etire)
-  yeux(c, cv, s, W * 0.036 * fs)
+  yeux(c, cv, s, W * 0.036 * fs, TRAITS[e])
   c.restore()
 }
 
@@ -77,8 +126,8 @@ interface Etat { vis: Visage; vit: Visage; regard: [number, number] | null; ouve
 let souris: [number, number] = [innerWidth / 2, innerHeight / 2]
 addEventListener('pointermove', (e) => { souris = [e.clientX, e.clientY] })
 
-function yeux(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: number): void {
-  const V = s.vis
+function yeux(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: number, T: Trait): void {
+  const V = { ...s.vis, k: s.vis.k * T.k, paup: Math.max(s.vis.paup, T.paup * (1 - lim(s.vis.joie))), bw: s.vis.bw * T.bouche, bc: s.vis.bc + T.sourire }
   // Regard : vers la souris ou vers un point fixe selon l'humeur, toujours amorti.
   const r = cv.getBoundingClientRect(), dx = souris[0] - (r.left + r.width / 2), dy = souris[1] - (r.top + r.height / 2), n = Math.hypot(dx, dy) || 1
   const sv = lim(V.suit), cx = (dx / n) * sv + V.gx * (1 - sv), cy = (dy / n) * sv + V.gy * (1 - sv)
@@ -88,7 +137,8 @@ function yeux(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: nu
   c.lineCap = c.lineJoin = 'round'
   for (const sd of [-1, 1]) {
     const w = e * 0.78 * V.k * 1.45, hp = e * 1.3 * V.k * 1.45, h = hp * Math.max(0.04, ouv)
-    c.save(); c.translate(sd * e * 2.6, -e * 0.5)
+    if (T.joues) { c.fillStyle = T.joues; c.globalAlpha = 0.75; c.beginPath(); c.ellipse(sd * e * T.ecart * 1.05, e * 1.5, e * 0.9, e * 0.55, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1 }
+    c.save(); c.translate(sd * e * T.ecart, -e * 0.5)
     if (joie > 0.02) { // yeux de joie : un arc qui monte à mesure que l'œil se ferme
       c.strokeStyle = `rgba(255,255,255,${joie})`; c.lineWidth = Math.max(1.3, e * 0.45)
       c.beginPath(); c.arc(0, e * 0.5, w * 1.2, Math.PI * 1.15, Math.PI * 1.85); c.stroke()
@@ -161,10 +211,73 @@ const BRAS: Bras[] = [
   { lx: -32, a: Math.PI * 0.56, L: 520, r: 33, courbe: 0.5, ph: 2.1 },
   { lx: 4, a: Math.PI * 0.5, L: 520, r: 34, courbe: -0.1, ph: 5.1 }
 ]
+// Nori : de longs filaments fins. Momo a sa propre scène (`momoCoin`).
+const MEMBRES: Record<Espece, Bras[]> = {
+  poulpe: BRAS,
+  meduse: BRAS.map((b) => ({ ...b, r: b.r * 0.35, L: b.L * 1.1 })),
+  axolotl: []
+}
+/**
+ * La bulle (rond noir, repris de refonte-2d.html) : chacun doit s'y reconnaître d'un coup d'œil.
+ * Tako : sa tête remplit le rond. Nori : la cloche entière, cernée de son bleu.
+ * Momo : la tête en bas du rond, les branchies roses qui en dépassent.
+ */
+function bulle(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: Espece, w: number, h: number, t: number): void {
+  const f = w / 96, dx = Math.sin(t * 1.3) * f, dy = Math.sin(t * 1.5) * 1.5 * f, incl = Math.sin(t * 0.9) * 0.03
+  c.save(); c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.clip()
+  if (e === 'poulpe') tete(c, cv, s, e, w / 2 + dx, h / 2 - 22 * f + dy, 160 * f, incl, 1.05, 1.15, 0)
+  else if (e === 'meduse') {
+    const x = w / 2 + dx, y = h / 2 - 8 * f + dy, W = 82 * f
+    if (prete(FORMES.meduse)) { teinte(FORMES.meduse, PEAU.meduse); anneau(c, x, y, W, incl, 1) }
+    tete(c, cv, s, e, x, y, W, incl, 1, 1.15, 0)
+  } else {
+    // Momo cerné de rose pâle, comme Nori de son bleu : l'encre seule disparaît sur le rond noir.
+    const x = w / 2 + dx, y = h / 2 - 16 * f + dy, W = 104 * f
+    if (prete(FORMES.axolotl)) { teinte(FORMES.axolotl, PEAU.axolotl); anneau(c, x, y, W, incl, 1) }
+    tete(c, cv, s, e, x, y, W, incl, 1, 1.15, 0)
+  }
+  c.restore()
+}
+
+/** Un portrait fixe de l'avatar dans son rond (fil, choix du compte) : Tako a le sien, dessiné à la main. */
+const portraits = new Map<Espece, string>()
+export function portrait(e: Espece): string {
+  if (e === 'poulpe') return takoSrc
+  let url = portraits.get(e)
+  if (!url) {
+    const cv = Object.assign(document.createElement('canvas'), { width: 96, height: 96 }), c = cv.getContext('2d')!
+    c.fillStyle = '#0B0C0E'; c.beginPath(); c.arc(48, 48, 48, 0, Math.PI * 2); c.fill()
+    bulle(c, cv, { vis: { ...VISAGES.repos, suit: 0, gx: 0, gy: 0 }, vit: { ...VISAGES.repos }, regard: [0, 0], ouvert: 1 }, e, 96, 96, 0)
+    portraits.set(e, (url = cv.toDataURL()))
+  }
+  return url
+}
+
+/**
+ * Momo dans le coin : le dessin entier (Gemini, 26/11), posé en bas à droite. Il se balance
+ * doucement sur ses pattes et respire ; le visage, animé, est posé sur sa tête.
+ * Repères mesurés sur momo.png (852 × 687) : tête centrée en (539, 206), large de 390.
+ */
+function momoCoin(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, t: number, flotte: number, contour: string | null): void {
+  if (!prete(MOMO)) return
+  const k = 470 / 687, L = 852 * k, H = 687 * k, x0 = 630 - L, y0 = 640 - H
+  const pied: [number, number] = [x0 + 560 * k, 640], bal = Math.sin(t * 0.9) * 0.025, souffle = 1 + Math.sin(t * 1.6) * 0.012
+  c.save(); c.translate(pied[0], pied[1] + flotte * 0.4); c.rotate(bal); c.scale(1, souffle); c.translate(-pied[0], -pied[1])
+  if (contour) { // en sombre, un liseré de la couleur d'humeur détache l'encre du fond
+    teinte(MOMO, contour)
+    for (let i = 0; i < 8; i++) { const an = (i * Math.PI) / 4; c.drawImage(lis, x0 + Math.cos(an) * 2.5, y0 + Math.sin(an) * 2.5, L, H) }
+  }
+  c.drawImage(MOMO, x0, y0, L, H)
+  c.translate(x0 + 539 * k, y0 + (206 + 40) * k)
+  yeux(c, cv, s, 390 * k * 0.05, TRAITS.axolotl)
+  c.restore()
+}
+
 // La scène du coin est pensée dans un carré de 640 : tête en (465, 250), large de 236, penchée.
 const TX = 465, TY = 250, TW = 236, ETIRE = 1.22, INCL = 0.2
 
-export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur = 'repos'): Poulpe2D {
+export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur = 'repos', espece: Espece = 'poulpe'): Poulpe2D {
+  const forme = FORMES[espece]
   const reduit = matchMedia('(prefers-reduced-motion: reduce)').matches
   const sombre = matchMedia('(prefers-color-scheme: dark)')
   let humeur = depart
@@ -197,20 +310,13 @@ export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur 
     // Le liseré prend la couleur du fond (il sépare les bras) ; en sombre, la couleur d'humeur, pour détacher le poulpe.
     const nuit = sombre.matches
     const fond = nuit ? css(pal) : getComputedStyle(cv.parentElement ?? cv).backgroundColor || '#fff'
-    if (pret()) teinte(fond === 'rgba(0, 0, 0, 0)' ? '#fff' : fond)
+    if (prete(forme)) teinte(forme, fond === 'rgba(0, 0, 0, 0)' ? '#fff' : fond)
     c.clearRect(0, 0, w, h)
-    if (pose === 'bulle') {
-      // Repris de refonte-2d.html (rond intérieur de 48) : la tête déborde, le cercle la recadre.
-      const f = w / 96
-      c.save(); c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.clip()
-      tete(c, cv, s, w / 2 + Math.sin(t * 1.3) * f, h / 2 + (-22 + Math.sin(t * 1.5) * 1.5) * f, 160 * f, Math.sin(t * 0.9) * 0.03, 1.05, 1.15, 0)
-      c.restore()
-      return
-    }
+    if (pose === 'bulle') return bulle(c, cv, s, espece, w, h, t)
     if (pose === 'guetteur') {
-      const gy = h * 0.52 + Math.sin(t * 1.2) * 3, W = Math.min(w, h) * 0.92
-      if (nuit && pret()) anneau(c, w / 2, gy, W, -0.12, 1.1)
-      tete(c, cv, s, w / 2, gy, W, -0.12, 1.1, 1.5, 0)
+      const gy = h * 0.52 + Math.sin(t * 1.2) * 3, W = Math.min(w, h) * (espece === 'axolotl' ? 1.25 : 0.92) // branchies comprises, la tête de Momo est plus petite dans son cadre
+      if (nuit && prete(forme)) anneau(c, w / 2, gy, W, -0.12, 1.1)
+      tete(c, cv, s, espece, w / 2, gy, W, -0.12, 1.1, 1.5, 0)
       return
     }
     // Coin : il monte du coin à l'ouverture, puis flotte et respire. « Fini » : petits sauts de joie.
@@ -218,11 +324,17 @@ export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur 
     const monte = reduit ? 1 : Math.max(0, ressort(Math.min(1, (now - debut) / 900)))
     const flotte = Math.sin(t * 1.2) * 5 - lim(s.vis.joie) * Math.abs(Math.sin(t * 5)) * 16
     const incl = INCL + Math.sin(t * 0.9) * 0.03, cs = Math.cos(incl), sn = Math.sin(incl), ly = 90
+    if (espece === 'axolotl') {
+      c.save(); c.translate(w - 640 * k, h - 640 * k + (1 - monte) * 420 * k); c.scale(k, k)
+      momoCoin(c, cv, s, t, flotte, nuit ? css(pal) : null)
+      c.restore()
+      return
+    }
     c.save(); c.translate(w - (640 - TX) * k, h - (640 - TY) * k + (1 - monte) * 420 * k); c.scale(k, k)
     const hx = 0, hy = flotte
-    if (pret()) anneau(c, hx, hy, TW, incl, ETIRE)
-    for (const B of BRAS) dessineBras(c, membre({ ...B, a: B.a + incl * 0.5 }, phase, aS * (B.amp ?? 1), hx + B.lx * cs - ly * sn, hy + B.lx * sn + ly * cs), fond)
-    tete(c, cv, s, hx, hy, TW, incl, ETIRE, 1)
+    if (prete(forme)) anneau(c, hx, hy, TW, incl, ETIRE)
+    for (const B of MEMBRES[espece]) dessineBras(c, membre({ ...B, a: B.a + incl * 0.5 }, phase, aS * (B.amp ?? 1), hx + B.lx * cs - ly * sn, hy + B.lx * sn + ly * cs), fond)
+    tete(c, cv, s, espece, hx, hy, TW, incl, ETIRE, 1)
     c.restore()
   }
   raf = requestAnimationFrame(image)

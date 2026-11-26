@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { sortieDouce } from './lib/adoucir'
 import { avatarDe, AVATARS, DESCRIPTION_TAKO, VOIX, type ChoixModele, type Police, VOIX_GEMINI, type Compte, type Etat, type Reglages as R, type VoixEleven, type VoixPerso } from '@shared/types'
+import { portrait } from './poulpe2d'
 
 /** Le système de la machine, pour parler juste (« Lancer Encre avec Mac » et non Windows). */
 const OS = navigator.userAgent.includes('Mac') ? 'macOS' : 'Windows'
@@ -160,9 +161,15 @@ function Comptes({ comptes }: { comptes: Compte[] }): JSX.Element {
               <small>{enCours === c.id ? 'Connexion dans la fenêtre ouverte…' : c.email ?? 'Pas encore connecté'}{c.offre && c.email && enCours !== c.id ? ` · ${c.offre}` : ''}</small>
             </span>
           </button>
-          <select className="avatar" value={c.avatar} onChange={(e) => window.api.choisirAvatar(c.id, e.target.value)} title="L’avatar de ce compte : son apparence, son nom et son ton">
-            {AVATARS.map((a) => <option key={a.id} value={a.id}>{a.nom}</option>)}
-          </select>
+          {/* Les visages plutôt qu'une liste de noms : on choisit qui on veut voir, pas un mot. */}
+          <div className="avatars" role="radiogroup" aria-label={`Avatar du compte ${c.nom}`}>
+            {AVATARS.map((a) => (
+              <button key={a.id} type="button" role="radio" aria-checked={c.avatar === a.id} className={c.avatar === a.id ? 'on' : ''}
+                onClick={() => c.avatar !== a.id && window.api.choisirAvatar(c.id, a.id)} title={a.nom}>
+                <img src={portrait(a.espece)} alt={a.nom} />
+              </button>
+            ))}
+          </div>
           {enCours !== c.id && !c.connecte && <button type="button" className="btn pri" disabled={!!enCours} onClick={() => void connecter(c.id)}>Se connecter</button>}
           {enCours !== c.id && c.connecte && <button type="button" className="lien-discret" disabled={!!enCours} onClick={() => void connecter(c.id)} title="Rouvrir la connexion (expirée, ou autre adresse)">Reconnecter</button>}
           {!c.principal && enCours !== c.id && <button type="button" className="lien-discret" onClick={() => window.api.retirerCompte(c.id)} title="Retirer d’Encre (le compte Claude, lui, ne bouge pas)">Retirer</button>}

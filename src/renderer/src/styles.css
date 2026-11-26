@@ -317,7 +317,6 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 /* ─── Tako dans le fil ─── */
 .qui { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--soft); margin-top: 4px; margin-bottom: -4px; }
 .qui img { width: 22px; height: 22px; border-radius: 50%; background: #0B0C0E; box-shadow: 0 0 0 2px var(--mood); }
-.qui .pastille { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 4px #0B0C0E, 0 0 0 2px var(--mood); }
 .etapes { background: var(--canvas); border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .etapes .compte { border: 0; background: transparent; padding: 0; display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; color: var(--soft); }
 .etapes .compte span { font-weight: 600; opacity: .8; }
@@ -495,7 +494,11 @@ kbd { font-family: inherit; font-size: 11px; font-weight: 700; background: var(-
 .compte strong { font-size: 13px; font-weight: 700; }
 .compte strong em { font-style: normal; font-weight: 500; color: var(--soft); }
 .compte small { font-size: 11.5px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.compte .avatar { border: 0; border-radius: 10px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; padding: 4px 6px; }
+.compte .avatars { display: flex; gap: 2px; flex: none; }
+.compte .avatars button { border: 0; background: transparent; padding: 3px; border-radius: 50%; opacity: .45; transition: opacity .2s; }
+.compte .avatars button:hover, .compte .avatars button.on { opacity: 1; }
+.compte .avatars button.on img { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--lav-fort); }
+.compte .avatars img { display: block; width: 26px; height: 26px; border-radius: 50%; }
 .compte .btn { padding: 5px 11px; font-size: 12px; }
 .lien-discret { border: 0; background: transparent; color: var(--soft); font: inherit; font-size: 12px; padding: 4px; text-decoration: underline; text-underline-offset: 2px; }
 .lien-discret:hover { color: var(--ink); }
@@ -613,7 +616,7 @@ header { position: relative; z-index: 16; }
 .compte-puce { display: flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 4px 8px 4px 5px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-fort); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; max-width: 130px; }
 .compte-puce span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .compte-puce:hover, .compte-puce.on { background: var(--canvas); }
-.compte-puce .pastille, .menu-compte .pastille { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(11,12,14,.18); }
+.compte-puce .pastille, .menu-compte .pastille { width: 20px; height: 20px; border-radius: 50%; flex: none; }
 .compte-puce .chevron svg { width: 11px; height: 11px; }
 .menu-compte { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 230px; max-width: 290px; padding: 5px; border-radius: 14px; background: var(--card); box-shadow: 0 0 0 1px var(--line-fort), 0 12px 28px -10px rgba(11,12,14,.3); flex-direction: column; gap: 2px; }
 .menu-compte.ouvert { display: flex; animation: monte .25s cubic-bezier(.25,1.3,.5,1) both; }
@@ -646,8 +649,6 @@ kbd.raccourci { margin-left: 2px; color: var(--soft); }
 .colonne.accueil-vide::after { content: ""; flex: 0 0 34%; }
 .panneau.plein .colonne.accueil-vide::after { flex: 0 0 auto; margin-top: auto; }
 .creature.coin { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-/* Nori et Momo (encore en 3D) : un médaillon dans le coin plutôt qu'une scène pleine page. */
-.creature.coin:not(.deux-d) { inset: auto 14px 14px auto; width: 200px; height: 200px; }
 .en-attente { display: flex; flex-direction: column; gap: 2px; width: calc(100% - 24px); max-width: 640px; margin: 0 auto; padding-bottom: 12px; }
 .en-attente .ligne { border: 0; background: transparent; padding: 7px 10px; border-radius: 12px; font: inherit; font-size: 13px; color: var(--ink); text-align: left; }
 .en-attente .ligne:hover { background: var(--canvas); }
@@ -661,6 +662,8 @@ kbd.raccourci { margin-left: 2px; color: var(--soft); }
 .champ-zone { position: relative; }
 .creature.guetteur { position: absolute; right: 70px; bottom: calc(100% - 10px); width: 120px; height: 96px; pointer-events: none; z-index: 0; }
 .champ-zone .saisie-bloc { z-index: 1; }
+/* Une citation ou une pièce jointe au-dessus du champ : la tête n'a plus le champ pour cacher son bas, elle se retire. */
+.champ-zone:has(.citations, .pieces) .creature.guetteur { display: none; }
 
 /* Palette (⌘K ou clic sur le repère en haut) : en cours, récents, recherche. */
 .voile-palette { position: absolute; inset: 0; z-index: 30; background: rgba(11,12,14,.16); }
