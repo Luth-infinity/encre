@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.5',
+    date: '2026-11-27',
+    titre: 'Tako dessiné à la main, et il bouge',
+    texte: 'Tako a un nouveau dessin, fait à la main, comme Momo. Ses bras ondulent, sa tête respire, il cligne de l’œil : partout où il apparaît, c’est le même Tako.',
+    points: [
+      'À l’accueil, Tako en entier dans le coin : ses huit bras ondulent doucement, et il saute de joie quand un travail est fini.',
+      'Dans la bulle, Tako de trois-quarts qui respire et déborde du rond, avec l’anneau de son humeur autour.',
+      'En conversation, sa tête guette au-dessus du champ ; le fil et le choix du compte ont son nouveau portrait.',
+    ],
+  },
+  {
     version: '0.7.4',
     date: '2026-11-27',
     titre: 'Tout se règle sous le champ',

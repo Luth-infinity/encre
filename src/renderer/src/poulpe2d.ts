@@ -1,7 +1,9 @@
 import { AVATARS, type Espece, type Humeur } from '@shared/types'
 import { COULEURS } from './poulpe'
 import teteSrc from './assets/tete.png'
-import takoSrc from './assets/tako.png'
+import takoCoinSrc from './assets/tako-coin.webm'
+import takoBulleSrc from './assets/tako-bulle.webm'
+import takoPortraitSrc from './assets/tako-portrait.png'
 import momoCoinSrc from './assets/momo-coin.webm'
 import momoBulleSrc from './assets/momo-bulle.webm'
 import momoPortraitSrc from './assets/momo-portrait.png'
@@ -57,9 +59,10 @@ const TRAITS: Record<Espece, Trait> = {
 }
 const PEAU: Record<Espece, string> = Object.fromEntries(AVATARS.map((a) => [a.espece, a.peau])) as Record<Espece, string>
 
-// Momo : dessiné à la main par Lucas (26/11), animé hors de l'app (design/momo) en deux boucles
-// transparentes de 4 s : le dessin entier déformé en douceur, son visage et son clignement compris.
-// Rien n'est repeint ni redessiné en code : on pose la vidéo. Créées au premier besoin (le décodage coûte).
+// Tako et Momo : dessinés à la main par Lucas (26 et 27/11), animés hors de l'app (design/tako,
+// design/momo) en deux boucles transparentes de 4 s : le dessin entier déformé en douceur, son visage
+// et son clignement compris. Rien n'est repeint ni redessiné en code : on pose la vidéo.
+// Créées au premier besoin (le décodage coûte).
 const boucles = new Map<string, HTMLVideoElement>()
 function boucle(src: string): HTMLVideoElement {
   let v = boucles.get(src)
@@ -72,11 +75,15 @@ function boucle(src: string): HTMLVideoElement {
   return v
 }
 const lue = (v: HTMLVideoElement): boolean => v.readyState >= 2
-const FORMES: Record<Espece, Forme> = { poulpe: TETE, meduse: silhouette('meduse'), axolotl: TETE } // Momo n'a pas de forme : il a ses vidéos
+const ANIMES: Partial<Record<Espece, { coin: string; bulle: string; portrait: string }>> = {
+  poulpe: { coin: takoCoinSrc, bulle: takoBulleSrc, portrait: takoPortraitSrc },
+  axolotl: { coin: momoCoinSrc, bulle: momoBulleSrc, portrait: momoPortraitSrc }
+}
+const FORMES: Record<Espece, Forme> = { poulpe: TETE, meduse: silhouette('meduse'), axolotl: TETE } // Tako et Momo n'ont pas de forme : ils ont leurs vidéos
 /** Les dessins chargés : le portrait se fige au premier appel, il ne doit pas partir d'une image vide. */
 export const dessinsPrets = TETE.decode().catch(() => undefined)
-/** La bulle de Momo, pour `Bulle.tsx` : elle déborde du rond (branchies, bras posé sur le bord). */
-export { momoBulleSrc }
+/** La bulle en vidéo (Tako, Momo), pour `Bulle.tsx` : elle déborde du rond, comme sur les dessins. */
+export const bulleAnimee = (e: Espece): string | undefined => ANIMES[e]?.bulle
 
 // Contour : la silhouette de la tête teintée, posée en couronne derrière elle.
 const lis = document.createElement('canvas'), cLis = lis.getContext('2d')!
@@ -231,30 +238,30 @@ const MEMBRES: Record<Espece, Bras[]> = {
 }
 /**
  * La bulle (rond noir, repris de refonte-2d.html) : chacun doit s'y reconnaître d'un coup d'œil.
- * Tako : sa tête remplit le rond. Nori : la cloche entière, cernée de son bleu.
- * Momo : son dessin de face, en vidéo. Ici coupé au rond (barre d'appel) ; la bulle elle-même
+ * Nori : la cloche entière, cernée de son bleu. Tako (de trois-quarts) et Momo (de face) : leur
+ * dessin, en vidéo. Ici coupé au rond (barre d'appel) ; la bulle elle-même
  * le laisse déborder (`Bulle.tsx`). La vidéo représente la fenêtre de 132 autour du rond de 96.
  */
 function bulle(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: Espece, w: number, h: number, t: number): void {
   const f = w / 96, dx = Math.sin(t * 1.3) * f, dy = Math.sin(t * 1.5) * 1.5 * f, incl = Math.sin(t * 0.9) * 0.03
   c.save(); c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.clip()
-  if (e === 'poulpe') tete(c, cv, s, e, w / 2 + dx, h / 2 - 22 * f + dy, 160 * f, incl, 1.05, 1.15, 0)
-  else if (e === 'meduse') {
-    const x = w / 2 + dx, y = h / 2 - 8 * f + dy, W = 82 * f
-    if (prete(FORMES.meduse)) { teinte(FORMES.meduse, PEAU.meduse); anneau(c, x, y, W, incl, 1) }
-    tete(c, cv, s, e, x, y, W, incl, 1, 1.15, 0)
-  } else {
-    const v = boucle(momoBulleSrc), T = w * 132 / 96
+  const anime = ANIMES[e]
+  if (anime) {
+    const v = boucle(anime.bulle), T = w * 132 / 96
     if (lue(v)) c.drawImage(v, (w - T) / 2, (h - T) / 2, T, T)
+  } else {
+    const x = w / 2 + dx, y = h / 2 - 8 * f + dy, W = 82 * f
+    if (prete(FORMES[e])) { teinte(FORMES[e], PEAU[e]); anneau(c, x, y, W, incl, 1) }
+    tete(c, cv, s, e, x, y, W, incl, 1, 1.15, 0)
   }
   c.restore()
 }
 
-/** Un portrait fixe de l'avatar dans son rond (fil, choix du compte) : Tako et Momo ont le leur, dessiné à la main. */
+/** Un portrait fixe de l'avatar dans son rond (fil, choix du compte) : Tako et Momo ont le leur, tiré de leur dessin. */
 const portraits = new Map<Espece, string>()
 export function portrait(e: Espece): string {
-  if (e === 'poulpe') return takoSrc
-  if (e === 'axolotl') return momoPortraitSrc
+  const anime = ANIMES[e]
+  if (anime) return anime.portrait
   let url = portraits.get(e)
   if (!url) {
     const cv = Object.assign(document.createElement('canvas'), { width: 96, height: 96 }), c = cv.getContext('2d')!
@@ -277,13 +284,31 @@ function momoCoin(c: CanvasRenderingContext2D, flotte: number): void {
   const k = 500 / 822
   c.drawImage(v, 630 - 725 * k, 640 - 856 * k + flotte * 0.4, 745 * k, 870 * k)
 }
-/** Momo qui guette au-dessus du champ : sa bulle de face, bras croisés posés sur le champ. */
-function momoGuette(c: CanvasRenderingContext2D, w: number, h: number, gy: number): void {
-  const v = boucle(momoBulleSrc)
+/**
+ * Tako dans le coin : son dessin en entier, la tête là où était l'ancienne (TX, TY, large de TW),
+ * les bras du bas et de droite sortent du cadre. tako-coin.webm (954 × 858) = le dessin
+ * (2160 × 1856) à 0,55 depuis (344, 252) ; la tête y est centrée en (1440, 560), large de 560.
+ */
+function takoCoin(c: CanvasRenderingContext2D, flotte: number): void {
+  const v = boucle(takoCoinSrc)
   if (!lue(v)) return
-  // Dans la vidéo (264) : Momo de x 65 à 228, de y 49 à 228 (bras).
-  const k = (h + 6) / 179
-  c.drawImage(v, w / 2 - 146.5 * k, h + 6 - 228 * k + (gy - h * 0.52), 264 * k, 264 * k)
+  const g = TW / 560, E = 0.55
+  c.drawImage(v, TX + (344 - 1440) * g, TY + (252 - 560) * g + flotte, (954 / E) * g, (858 / E) * g)
+}
+/**
+ * Qui guette au-dessus du champ : la bulle sans son rond, coupée par le bas du canvas.
+ * Repères dans la vidéo (264) : haut (y0), ligne qui passe sous le bord du canvas (y1), milieu (x).
+ * Momo : bras croisés posés sur le champ. Tako : la tête, le bas du corps caché derrière le champ.
+ */
+const GUETTE: Partial<Record<Espece, { x: number; y0: number; y1: number }>> = {
+  axolotl: { x: 146.5, y0: 49, y1: 228 },
+  poulpe: { x: 163, y0: 53, y1: 191 }
+}
+function guette(c: CanvasRenderingContext2D, e: Espece, w: number, h: number, gy: number): void {
+  const v = boucle(ANIMES[e]!.bulle), G = GUETTE[e]!
+  if (!lue(v)) return
+  const k = (h + 6) / (G.y1 - G.y0)
+  c.drawImage(v, w / 2 - G.x * k, h + 6 - G.y1 * k + (gy - h * 0.52), 264 * k, 264 * k)
 }
 
 // La scène du coin est pensée dans un carré de 640 : tête en (465, 250), large de 236, penchée.
@@ -323,12 +348,12 @@ export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur 
     // Le liseré prend la couleur du fond (il sépare les bras) ; en sombre, la couleur d'humeur, pour détacher le poulpe.
     const nuit = sombre.matches
     const fond = nuit ? css(pal) : getComputedStyle(cv.parentElement ?? cv).backgroundColor || '#fff'
-    if (espece !== 'axolotl' && prete(forme)) teinte(forme, fond === 'rgba(0, 0, 0, 0)' ? '#fff' : fond)
+    if (!ANIMES[espece] && prete(forme)) teinte(forme, fond === 'rgba(0, 0, 0, 0)' ? '#fff' : fond)
     c.clearRect(0, 0, w, h)
     if (pose === 'bulle') return bulle(c, cv, s, espece, w, h, t)
     if (pose === 'guetteur') {
       const gy = h * 0.52 + Math.sin(t * 1.2) * 3, W = Math.min(w, h) * 0.92
-      if (espece === 'axolotl') return momoGuette(c, w, h, gy)
+      if (ANIMES[espece]) return guette(c, espece, w, h, gy)
       if (nuit && prete(forme)) anneau(c, w / 2, gy, W, -0.12, 1.1)
       tete(c, cv, s, espece, w / 2, gy, W, -0.12, 1.1, 1.5, 0)
       return
@@ -338,9 +363,10 @@ export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur 
     const monte = reduit ? 1 : Math.max(0, ressort(Math.min(1, (now - debut) / 900)))
     const flotte = Math.sin(t * 1.2) * 5 - lim(s.vis.joie) * Math.abs(Math.sin(t * 5)) * 16
     const incl = INCL + Math.sin(t * 0.9) * 0.03, cs = Math.cos(incl), sn = Math.sin(incl), ly = 90
-    if (espece === 'axolotl') {
+    if (ANIMES[espece]) {
       c.save(); c.translate(w - 640 * k, h - 640 * k + (1 - monte) * 420 * k); c.scale(k, k)
-      momoCoin(c, flotte)
+      if (espece === 'poulpe') takoCoin(c, flotte)
+      else momoCoin(c, flotte)
       c.restore()
       return
     }
