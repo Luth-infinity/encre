@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
-import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Mode, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
+import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil, { Creature, EnAttente } from './Accueil'
 import Appel from './Appel'
 import { Agrandir, Chevron, Micro, Prise, Reduire, Roue } from './icones'
@@ -10,13 +10,9 @@ import OutilsProjet from './OutilsProjet'
 import { COULEURS } from './poulpe'
 import { portrait } from './poulpe2d'
 import Reglages from './Reglages'
+import Reglette from './Reglette'
 import { Saisie, versPiece, type SaisieRef } from './Saisie'
 
-const MODES: { id: Mode; nom: string; aide: string }[] = [
-  { id: 'demander', nom: 'Demander', aide: 'Chaque action te sera demandée.' },
-  { id: 'modifs', nom: 'Modifs auto', aide: 'Les fichiers se modifient seuls, les commandes te sont demandées.' },
-  { id: 'auto', nom: 'Tout auto', aide: 'Le mode auto de Claude Code : il ne demande que quand il hésite.' }
-]
 
 /** 48 200 → « 48 k », 1 250 000 → « 1,3 M ». */
 const k = (n: number): string => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace('.', ',')} M` : `${Math.max(1, Math.round(n / 1000))} k`)
@@ -96,44 +92,6 @@ function activite(etat: Etat, id: string, seul = false): 'attend' | 'travaille' 
   return ids.some((x) => etat.enCours.includes(x)) ? 'travaille' : null
 }
 
-/** Le compte Claude qui travaille sur ce projet, et le moyen d'en changer : un clic sur la pastille, un clic sur le compte. */
-function SelecteurCompte({ etat, projet }: { etat: Etat; projet: Projet | null }): JSX.Element | null {
-  const [ouvert, setOuvert] = useState(false)
-  useEffect(() => {
-    if (!ouvert) return
-    const fermer = (e: PointerEvent): void => { if (!(e.target as Element).closest('.compte-choix')) setOuvert(false) }
-    const echap = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOuvert(false) }
-    addEventListener('pointerdown', fermer)
-    addEventListener('keydown', echap, true)
-    return () => { removeEventListener('pointerdown', fermer); removeEventListener('keydown', echap, true) }
-  }, [ouvert])
-  const actuel = etat.comptes.find((c) => c.actif)
-  // Un seul compte : rien à choisir, pas de pastille de plus dans l'en-tête.
-  if (!actuel || etat.comptes.length < 2) return null
-  return (
-    <div className="compte-choix">
-      <button type="button" className={`compte-puce ${ouvert ? 'on' : ''}`} aria-haspopup="menu" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
-        title={`Compte Claude de ce projet : ${actuel.nom}. Cliquer pour changer.`}>
-        <img className="pastille" src={portrait(avatarDe(actuel.avatar).espece)} alt="" />
-        <span>{actuel.nom}</span><Chevron haut={ouvert} />
-      </button>
-      <div className={`menu-compte ${ouvert ? 'ouvert' : ''}`} role="menu">
-        <small className="section">{projet && !projet.libre ? 'Compte de ce projet' : 'Compte en cours'}</small>
-        {etat.comptes.map((c) => (
-          <button key={c.id} type="button" role="menuitemradio" aria-checked={c.actif} disabled={!c.connecte}
-            className={c.actif ? 'on' : ''} onClick={() => { setOuvert(false); if (!c.actif) window.api.choisirCompte(c.id) }}>
-            <img className="pastille" src={portrait(avatarDe(c.avatar).espece)} alt="" />
-            <span className="qui-compte"><strong>{c.nom}</strong><small>{c.connecte ? c.offre ?? c.email ?? '' : 'À connecter dans Réglages'}</small></span>
-            {c.actif && <span className="coche" aria-hidden>✓</span>}
-          </button>
-        ))}
-        {/* Un fil déjà long : l'autre compte ne l'a pas en cache, il sera relu en entier au prochain message. */}
-        {!!projet?.contexte && projet.contexte > 20000 && <small className="note">Changer de compte : ce fil ({k(projet.contexte)}) sera relu en entier au prochain message.</small>}
-      </div>
-    </div>
-  )
-}
-
 function Demande({ d, repondre }: { d: Outil; repondre: (r: Reponse) => void }): JSX.Element {
   return (
     <div className="demande">
@@ -183,7 +141,11 @@ const plat = (t: string): string => t.normalize('NFD').replace(/\p{M}/gu, '').to
 const RACCOURCI = navigator.platform.startsWith('Mac') ? '⌘K' : 'Ctrl+K'
 
 /** Une ligne de la palette ou de la bascule : la pastille du projet, le nom, ce que Tako y fait. */
-function LigneFil({ etat, p, sel, sous, survol, ouvrir }: { etat: Etat; p: Projet; sel: boolean; sous?: boolean; survol: () => void; ouvrir: (id: string) => void }): JSX.Element {
+function LigneFil({ etat, p, sel, sous, survol, ouvrir, pli }: {
+  etat: Etat; p: Projet; sel: boolean; sous?: boolean; survol: () => void; ouvrir: (id: string) => void
+  /** Un projet qui a des sujets : combien, s'ils sont dépliés, et de quoi les replier. */
+  pli?: { n: number; deplie: boolean; basculer: () => void }
+}): JSX.Element {
   const r = (p.parent && etat.projets.find((x) => x.id === p.parent)) || p
   const a = activite(etat, p.id, true)
   return (
@@ -194,6 +156,14 @@ function LigneFil({ etat, p, sel, sous, survol, ouvrir }: { etat: Etat; p: Proje
       <span className="nom">{p.libre ? 'Libre' : p.nom}<small>{p.libre ? ' · une question, sans projet' : p.parent && !sous ? ` · ${r.nom}` : ''}</small></span>
       {a && <i className={`activite ${a}`} />}
       <small className="quand">{a === 'attend' ? 'attend ton accord' : a ? 'travaille' : p.id === etat.actif ? 'ici' : p.libre ? '' : ilYa(p.derniere)}</small>
+      {/* Pas de bouton dans un bouton : un span cliquable, et ← → au clavier. */}
+      {pli && (
+        <span className={`pli-palette ${pli.deplie ? 'deplie' : ''}`} role="button" aria-expanded={pli.deplie}
+          title={pli.deplie ? 'Replier les sujets (←)' : `Montrer les ${pli.n} sujets (→)`}
+          onClick={(e) => { e.stopPropagation(); pli.basculer() }}>
+          {!pli.deplie && <b>{pli.n}</b>}<Chevron haut={pli.deplie} />
+        </span>
+      )}
     </button>
   )
 }
@@ -205,7 +175,7 @@ function LigneFil({ etat, p, sel, sous, survol, ouvrir }: { etat: Etat; p: Proje
  * (26/11 : avec seulement 7 récents, Lucas ne retrouvait plus ses sujets).
  * On tape pour chercher parmi tous, projets et sujets mélangés.
  */
-function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) => void; fermer: () => void }): JSX.Element {
+function Palette({ etat, avant, ouvrir, fermer }: { etat: Etat; avant: Projet | null; ouvrir: (id: string) => void; fermer: () => void }): JSX.Element {
   const [q, setQ] = useState('')
   const [n, setN] = useState(0)
   const [cree, setCree] = useState(false)
@@ -220,12 +190,27 @@ function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) =>
   const [sujet, setSujet] = useState<{ nom: string; dans: string } | null>(null)
   const libre = etat.projets.find((p) => p.libre)
   const vivants = [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => activite(etat, p.id, true))
+  /**
+   * Sujets repliés par défaut, sauf ceux du projet ouvert : tout déplié, la liste
+   * « faisait 36 000 trucs » (27/11). Ce qu'on plie ou déplie à la main est gardé.
+   */
+  const [plis, setPlis] = useState<Record<string, boolean>>(() => JSON.parse(localStorage.getItem('palette-plis') ?? '{}'))
+  const racineActive = actif && !actif.libre ? racineDe(actif).id : null
+  const deplie = (id: string): boolean => plis[id] ?? id === racineActive
+  const plier = (id: string, d = !deplie(id)): void => {
+    const x = { ...plis, [id]: d }
+    setPlis(x)
+    localStorage.setItem('palette-plis', JSON.stringify(x))
+  }
   type Rang = { p: Projet; sous?: boolean }
+  // Le fil qu'on vient de quitter : en petit panneau, l'en-tête n'a plus la place pour « ← ».
+  const justeAvant = avant && !vivants.some((p) => p.id === avant.id) ? [{ p: avant }] : []
   const groupes: [string, Rang[]][] = q.trim()
     ? [['', [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => plat(`${p.libre ? 'Libre' : p.nom} ${racineDe(p).nom}`).includes(plat(q.trim()))).map((p) => ({ p }))]]
     : [
+        ['Juste avant', justeAvant],
         ['En cours', vivants.map((p) => ({ p }))],
-        ['Projets', [...(libre ? [{ p: libre }] : []), ...racines.flatMap((r) => [{ p: r }, ...sujetsDe(r.id).map((x) => ({ p: x, sous: true }))])]]
+        ['Projets', [...(libre ? [{ p: libre }] : []), ...racines.flatMap((r) => [{ p: r }, ...(deplie(r.id) ? sujetsDe(r.id).map((x) => ({ p: x, sous: true })) : [])])]]
       ]
   const liste = groupes.flatMap(([, l]) => l)
   useEffect(() => setN(0), [q])
@@ -254,6 +239,12 @@ function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) =>
                   if (e.key === 'ArrowDown') { e.preventDefault(); setN((x) => Math.min(x + 1, liste.length - 1)) }
                   if (e.key === 'ArrowUp') { e.preventDefault(); setN((x) => Math.max(x - 1, 0)) }
                   if (e.key === 'Enter' && liste[n]) ouvrir(liste[n].p.id)
+                  // ← → plient le projet choisi, seulement champ vide (sinon on déplace le curseur).
+                  const choisi = liste[n]
+                  if (!q && choisi && !choisi.sous && sujetsDe(choisi.p.id).length && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+                    e.preventDefault()
+                    plier(choisi.p.id, e.key === 'ArrowRight')
+                  }
                   if (e.key === 'Escape') { e.stopPropagation(); fermer() }
                 }}
               />
@@ -263,7 +254,9 @@ function Palette({ etat, ouvrir, fermer }: { etat: Etat; ouvrir: (id: string) =>
                     {titre && <small className="section">{titre}</small>}
                     {l.map(({ p, sous }) => {
                       const ici = ++rang
-                      return <LigneFil key={`${titre}${p.id}`} etat={etat} p={p} sous={sous} sel={ici === n} survol={() => setN(ici)} ouvrir={ouvrir} />
+                      const nSujets = titre === 'Projets' && !sous && !p.libre ? sujetsDe(p.id).length : 0
+                      return <LigneFil key={`${titre}${p.id}`} etat={etat} p={p} sous={sous} sel={ici === n} survol={() => setN(ici)} ouvrir={ouvrir}
+                        pli={nSujets ? { n: nSujets, deplie: deplie(p.id), basculer: () => plier(p.id) } : undefined} />
                     })}
                   </Fragment>
                 ))}
@@ -385,7 +378,7 @@ const FENETRES = [
  * détail : ce qui reste, quand ça repart, et si le rythme tiendra.
  * Orange à 80 %, rouge une fois pleine.
  */
-function Jauges({ limites, compte }: { limites: Limites | null; compte?: string | null }): JSX.Element | null {
+function Jauges({ limites, compte, court }: { limites: Limites | null; compte?: string | null; court?: boolean }): JSX.Element | null {
   if (!limites) return null
   const niveau = (p: number): string => (p >= 100 ? 'pleine' : p >= 80 ? 'haute' : '')
   const presentes = FENETRES.filter((x) => limites[x.cle])
@@ -393,11 +386,13 @@ function Jauges({ limites, compte }: { limites: Limites | null; compte?: string 
   const lu = Math.round((Date.now() - limites.lu) / 60000)
   return (
     <div className="jauges" tabIndex={0} aria-label="Limites du compte Claude">
-      {presentes.map((x) => {
+      {/* En petit panneau, une seule jauge : la plus remplie, celle qui bloquera en premier.
+          Les deux côte à côte ne tenaient pas à côté des choix (« Sem. 33 % » coupé, 27/11). Le survol détaille les deux. */}
+      {(court ? [presentes.reduce((a, b) => (limites[b.cle]!.pourcent > limites[a.cle]!.pourcent ? b : a))] : presentes).map((x) => {
         const f = limites[x.cle]!
         return (
-          <span key={x.cle} className={`jauge ${niveau(f.pourcent)}`}>
-            <small>{x.court}</small>
+          <span key={x.cle} className={`jauge ${niveau(f.pourcent)}`} title={court ? `${x.long} : ${f.pourcent} % (la plus remplie)` : undefined}>
+            <small>{court ? 'Limites' : x.court}</small>
             <i><b style={{ width: `${Math.min(100, f.pourcent)}%` }} /></i>
             <em>{f.pourcent} %</em>
           </span>
@@ -427,11 +422,6 @@ function Jauges({ limites, compte }: { limites: Limites | null; compte?: string 
       </div>
     </div>
   )
-}
-
-/** Une limite à 80 % ou plus : de quoi la montrer sous le champ. */
-function limiteHaute(l: Limites | null): boolean {
-  return !!l && FENETRES.some((x) => (l[x.cle]?.pourcent ?? 0) >= 80)
 }
 
 /** La limite pleine qui bloque, et quand elle se libère. */
@@ -788,7 +778,6 @@ export default function Panneau(): JSX.Element {
           <span className="chevron"><Chevron haut={palette} /></span>
           {plein && !titre && <kbd className="raccourci">{RACCOURCI}</kbd>}
         </button>}
-        {vue === 'chat' && !accueil && etat && <SelecteurCompte etat={etat} projet={projet} />}
         <div className="actions">
           {ailleurs.length > 0 && !accueil && (
             <button type="button" className={`autres ${attendent ? 'attend' : ''}`} onClick={() => setPalette(true)}
@@ -797,7 +786,8 @@ export default function Panneau(): JSX.Element {
               {plein ? (attendent ? `${attendent} attend${attendent > 1 ? 'ent' : ''}` : `${ailleurs.length} en cours`) : attendent || ailleurs.length}
             </button>
           )}
-          {avant && vue === 'chat' && (
+          {/* En petit, il serrait l'en-tête au point de masquer le nom du projet (27/11) : il passe dans la palette. */}
+          {avant && vue === 'chat' && plein && (
             <button type="button" className="retour" onClick={() => ouvrirProjet(avant.id)} title={`Revenir à ${avant.libre ? 'Libre' : avant.nom} (Ctrl+Tab pour les autres)`}>
               ← <span>{avant.libre ? 'Libre' : avant.nom}</span>
             </button>
@@ -832,20 +822,6 @@ export default function Panneau(): JSX.Element {
             <button type="button" role="menuitem" data-vue="reglages" className={vue === 'reglages' ? 'on' : ''} onClick={() => choisir(() => basculer('reglages'))}>
               <Roue />Réglages
             </button>
-            {projet && etat && vue === 'chat' && (
-              <>
-                <small className="section">Ce que {avatar.nom} peut faire seul</small>
-                <div className="modes" role="radiogroup" aria-label="Autorisations">
-                  {MODES.map((m) => (
-                    <button key={m.id} type="button" role="radio" aria-checked={projet.mode === m.id} title={m.aide}
-                      className={projet.mode === m.id ? 'on' : ''} onClick={() => window.api.mode(m.id)}>
-                      {m.nom}
-                    </button>
-                  ))}
-                </div>
-                <div className="pied"><Jauges limites={etat.limites} compte={compteActif} /></div>
-              </>
-            )}
           </div>
         </div>
       </header>
@@ -916,12 +892,11 @@ export default function Panneau(): JSX.Element {
               Dans <b>{projet.parent ? `${racine?.nom} › ${projet.nom}` : projet.nom}</b> <Chevron />
             </button>
           )}
-          {/* Les limites ne remontent sous le champ que quand elles approchent (80 %) : sinon elles sont dans le ⋯. */}
-          {limiteHaute(etat.limites) && <div className="pied"><Jauges limites={etat.limites} compte={compteActif} /></div>}
+          {!parole.actif && <Reglette etat={etat} projet={projet} avatarNom={avatar.nom} plein={plein} jauges={<Jauges limites={etat.limites} compte={compteActif} court={!plein} />} />}
         </footer>
       )}
       {accueil && etat && projet && <EnAttente etat={etat} projet={projet} ouvrir={ouvrirProjet} palette={() => setPalette(true)} raccourci={RACCOURCI} />}
-      {palette && etat && <Palette etat={etat} ouvrir={ouvrirProjet} fermer={() => setPalette(false)} />}
+      {palette && etat && <Palette etat={etat} avant={plein ? null : avant} ouvrir={ouvrirProjet} fermer={() => setPalette(false)} />}
       {bascule && etat && <Bascule etat={etat} vus={vus.current} ouvrir={ouvrirProjet} fermer={() => setBascule(false)} />}
       </div>
     </div>

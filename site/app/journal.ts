@@ -21,6 +21,18 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.4',
+    date: '2026-11-27',
+    titre: 'Tout se règle sous le champ',
+    texte: 'Plus besoin de fouiller dans les menus ou les réglages : le compte, ce que l’avatar peut faire seul, le modèle et tes limites sont juste sous le champ. L’en-tête respire, et la liste des projets se replie.',
+    points: [
+      'Sous le champ : ce que l’avatar peut faire seul (Demander, Modifs auto, Tout auto), le modèle (Auto, Sonnet, Opus) et tes limites, chacun avec une phrase qui explique.',
+      'Le choix du compte descend sous le champ lui aussi : son menu n’est plus coupé.',
+      'L’en-tête ne garde que le projet, ＋ et ⋯. Le fil que tu viens de quitter se retrouve en tête de la palette.',
+      'Dans la palette, les sujets se replient d’un chevron (ou avec ← et →) : seuls ceux du projet ouvert restent dépliés.',
+    ],
+  },
+  {
     version: '0.7.3',
     date: '2026-11-26',
     titre: 'Plusieurs sujets en parallèle, et un Momo dessiné à la main',

@@ -117,7 +117,7 @@ const POLICES: [Police, string, string][] = [
   ['inter', 'Inter Tight', '"Inter Tight"']
 ]
 
-const MODELES: [ChoixModele, string, string][] = [
+export const MODELES: [ChoixModele, string, string][] = [
   ['auto', 'Auto', 'Sonnet pour le simple, Opus pour ce qui demande de réfléchir (trié par Haiku). Dans une longue conversation, Tako garde le même modèle : en changer ferait tout relire et vider tes limites plus vite.'],
   ['sonnet', 'Sonnet', 'Toujours Sonnet : rapide, et plus léger pour tes limites.'],
   ['opus', 'Opus', 'Toujours Opus : le plus fort, et le plus gourmand.'],

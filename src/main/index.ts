@@ -826,6 +826,18 @@ async function verifier(dossier: string): Promise<void> {
     await js(`document.querySelector('.fil')?.scrollTo(0, 99999)`)
     await attendre(500)
     await capturer('8-markdown-bas')
+    // La réglette ne doit jamais déborder du panneau (« Sem. 33 % » coupé, 27/11) : mesurée, pas jugée à l'œil.
+    journal(`verif réglette : ${await js(`(() => { const r = document.querySelector('.reglette'); if (!r) return 'absente'; const d = r.getBoundingClientRect(); const pieces = [...r.children].map((c) => Math.round(c.getBoundingClientRect().width)).join('+'); const deborde = [...r.querySelectorAll('*')].some((e) => { const b = e.getBoundingClientRect(); return b.width && (b.right > d.right + 0.5 || b.left < d.left - 0.5) && !e.closest('.menu-bas, .fiche-limites') }); return 'largeur ' + Math.round(d.width) + ' = ' + pieces + (deborde ? ' DÉBORDE' : ' ok') })()`)}`)
+    // La réglette sous le champ : le menu des autorisations, puis celui du modèle (ils s'ouvrent vers le haut).
+    await js(`document.querySelector('[data-choix=mode] .puce-bas')?.click()`)
+    await attendre(500)
+    await capturer('8-reglette-mode')
+    await js(`document.querySelector('[data-choix=modele] .puce-bas')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))`)
+    await js(`document.querySelector('[data-choix=modele] .puce-bas')?.click()`)
+    await attendre(500)
+    await capturer('8-reglette-modele')
+    await js(`document.querySelector('[data-choix=modele] .puce-bas')?.click()`)
+    await attendre(300)
     // ENCRE_VERIF_CITER=1 : deux réponses à des passages, puis un message neutre (rien n'est envoyé).
     if (process.env.ENCRE_VERIF_CITER) {
       const f = lePanneau()?.webContents
@@ -876,6 +888,9 @@ async function verifier(dossier: string): Promise<void> {
     await cle('keydown', `{ key: 'k', metaKey: true, ctrlKey: true }`)
     await attendre(600)
     await capturer('s1-palette')
+    await js(`document.querySelector('.pli-palette')?.click()`)
+    await attendre(400)
+    await capturer('s1-palette-pliee')
     await js(`[...document.querySelectorAll('.liste-palette button')].find((b) => b.querySelector('.nom')?.firstChild?.textContent === 'Ticket 142')?.click()`)
     await attendre(1500)
     await capturer('s2-retour')
