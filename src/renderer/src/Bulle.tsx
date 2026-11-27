@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { avatarDe, type Espece, type Humeur } from '@shared/types'
 import { COULEURS } from './poulpe'
-import { bulleAnimee, creerPoulpe2D, type Poulpe2D } from './poulpe2d'
+import { bulleAnimee } from './poulpe2d'
 
 const NOMS: Record<Humeur, string> = {
   repos: 'Au repos', ecoute: 'Écoute', reflechit: 'Réfléchit', bosse: 'Bosse', accord: 'Attend ton accord', fini: 'Fini', note: 'Écrit ses notes'
 }
 
 /**
- * La bulle : la tête de l'avatar en 2D (validée le 24/11) qui remplit un disque noir, entouré d'un anneau à la couleur
+ * La bulle : l'avatar dessiné, en vidéo, qui déborde d'un disque noir, entouré d'un anneau à la couleur
  * de son humeur. Clic = panneau, glisser = déplacer (on suit le pointeur à la
  * main : une zone `drag` d'Electron mangerait le clic), clic droit = menu.
  */
 export default function Bulle(): JSX.Element {
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const poulpe = useRef<Poulpe2D | null>(null)
   const [humeur, setHumeur] = useState<Humeur>('repos')
   const [presse, setPresse] = useState(false)
   /** Chaque clic relance l'onde, les gouttes et le rebond (la clé change). */
@@ -28,21 +26,18 @@ export default function Bulle(): JSX.Element {
     void window.api.etat().then(async (e) => {
       const a = avatarDe(e.comptes.find((c) => c.actif)?.avatar)
       const h = await window.api.humeur()
-      // Tout en 2D : un avatar en 3D (WebGL) dans la bulle figeait la bulle au changement de compte (0.7.1).
-      // Tako et Momo sont une vidéo qui déborde du rond (leur dessin) : pas de canvas pour eux.
+      // Une vidéo qui déborde du rond (le dessin de l'avatar), jamais de WebGL : un avatar en 3D
+      // figeait la bulle au changement de compte (0.7.1).
       setEspece(a.espece)
-      if (!bulleAnimee(a.espece)) poulpe.current = creerPoulpe2D(canvas.current!, 'bulle', h, a.espece)
       setHumeur(h)
-      poulpe.current?.humeur(h)
     })
     const off = window.api.surHumeur((h) => {
       setHumeur(h)
-      poulpe.current?.humeur(h)
       // L'anneau pulse à chaque changement d'humeur.
       setChange(false)
       requestAnimationFrame(() => setChange(true))
     })
-    return () => { off(); poulpe.current?.detruire() }
+    return off
   }, [])
 
   const glisse = useRef<{ x: number; y: number; bouge: boolean } | null>(null)
@@ -95,10 +90,9 @@ export default function Bulle(): JSX.Element {
       }}
       onContextMenu={(e) => { e.preventDefault(); window.api.bulleMenu() }}
     >
-      <canvas ref={canvas} />
-      {espece && bulleAnimee(espece) && <video className="debord" src={bulleAnimee(espece)} muted loop autoPlay playsInline />}
+      {espece && <video className="debord" src={bulleAnimee(espece)} muted loop autoPlay playsInline />}
       {clic > 0 && (
-        // La clé change à chaque clic : l'onde et les gouttes repartent de zéro (le canvas, lui, ne bouge pas).
+        // La clé change à chaque clic : l'onde et les gouttes repartent de zéro (la vidéo, elle, ne bouge pas).
         <span key={clic} className="eclat">
           <i className="onde" />
           <span className="gouttes">

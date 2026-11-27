@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Palette des projets : trois variantes</title>
+<style>
+  :root { --fond:#0E0C15; --card:#17141F; --ink:#EEEAF8; --soft:#9C97B0; --line:#2A2536; --line-fort:#3D3650; --canvas:#221D2E; --lav:#B9A6FF; --arc:#7C66D9; --orange:#FF9A4D; --jaune:#FFD84D; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08070C; color: var(--ink); font-family: 'Bricolage Grotesque', 'Inter Tight', 'Segoe UI', sans-serif; padding: 28px; }
+  .rangee { display: flex; gap: 28px; align-items: flex-start; }
+  .col h2 { font-size: 15px; margin: 0 0 4px; font-weight: 700; }
+  .col p.idee { margin: 0 0 14px; color: var(--soft); font-size: 12.5px; width: 400px; line-height: 1.45; }
+  .pal { width: 400px; background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 1px var(--line-fort), 0 18px 40px -16px rgba(0,0,0,.6); display: flex; flex-direction: column; }
+  .pal + .pal { margin-top: 18px; }
+  .champ { padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--soft); font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .champ kbd { margin-left: auto; font: inherit; font-size: 11px; color: var(--soft); border: 1px solid var(--line-fort); border-radius: 6px; padding: 1px 6px; }
+  .liste { padding: 6px; display: flex; flex-direction: column; gap: 1px; }
+  .sec { padding: 10px 10px 4px; font-size: 11px; font-weight: 700; color: var(--soft); display: flex; }
+  .sec span { margin-left: auto; font-weight: 500; }
+  .l { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 12px; font-size: 13.5px; font-weight: 600; }
+  .l.sel { background: var(--canvas); }
+  .l .pt { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .l .nom { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .l .nom small { color: var(--soft); font-weight: 500; }
+  .l .d { color: var(--soft); font-size: 11.5px; font-weight: 500; flex: none; }
+  .l .fl { color: var(--soft); flex: none; font-size: 14px; }
+  .etat { flex: none; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .etat i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .plus { color: var(--soft); font-size: 12.5px; font-weight: 600; padding: 8px 10px; }
+  .pied { display: flex; gap: 4px; padding: 8px; border-top: 1px solid var(--line); align-items: center; }
+  .pied .esp { flex: 1; }
+  .b { font-size: 12.5px; font-weight: 600; color: var(--soft); padding: 6px 10px; border-radius: 999px; }
+  .b.fort { background: var(--lav); color: #0B0C0E; }
+  .tag { width: 22px; height: 22px; border-radius: 7px; font-size: 9px; font-weight: 800; color: #0B0C0E; display: grid; place-items: center; flex: none; }
+  .libre { background: #0B0C0E; color: var(--lav); box-shadow: inset 0 0 0 1px var(--line-fort); }
+  /* B : deux colonnes */
+  .deux { display: flex; min-height: 0; }
+  .deux .g { width: 158px; border-right: 1px solid var(--line); padding: 6px; display: flex; flex-direction: column; gap: 1px; }
+  .deux .g .l { padding: 7px 8px; font-size: 13px; gap: 8px; }
+  .deux .dr { flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .deux .titre { padding: 8px 10px 6px; font-size: 12px; color: var(--soft); font-weight: 600; }
+  .neuf { color: var(--lav); font-size: 13px; font-weight: 600; padding: 8px 10px; }
+  /* C : en-tête du niveau projet */
+  .retour { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .retour .fl { color: var(--soft); font-size: 16px; }
+  .retour b { font-size: 14.5px; }
+  .retour small { color: var(--soft); font-size: 12px; margin-left: auto; }
+  .note { margin-top: 10px; color: var(--soft); font-size: 12px; width: 400px; line-height: 1.45; }
+  .note b { color: var(--ink); }
+  /* D : cartes */
+  .rangee + .rangee { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--line); }
+  .cartes { padding: 10px; display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+  .grand .cartes { grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px; }
+  .carte { background: #1C1826; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .carte.sel { box-shadow: inset 0 0 0 1.5px var(--lav); }
+  .carte .haut { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .carte .haut b { font-size: 13.5px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .carte .haut .d { color: var(--soft); font-size: 11px; font-weight: 500; flex: none; }
+  .carte .s { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink); padding: 4px 6px; margin: 0 -4px; border-radius: 8px; min-width: 0; }
+  .carte .s.sel { background: var(--canvas); }
+  .carte .s span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .carte .s i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .carte .s.vide { color: var(--soft); font-weight: 500; }
+  .carte .ajout { color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: auto; padding-top: 2px; }
+  .carte.sel .ajout { color: var(--lav); }
+  .carte.statut { padding: 8px 10px; }
+  .large { grid-column: 1 / -1; }
+  .grand { width: 820px; }
+</style>
+</head>
+<body>
+<div class="rangee">
+
+  <!-- A -->
+  <div class="col">
+    <h2>A · Par date, sujets à plat</h2>
+    <p class="idee">Plus d'arbre : chaque conversation (projet ou sujet) est une ligne, rangée par date. Le projet du sujet est écrit en petit. Le reste est replié en une ligne.</p>
+    <div class="pal">
+      <div class="champ">Aller à une conversation… <kbd>Ctrl K</kbd></div>
+      <div class="liste">
+        <div class="sec">En cours</div>
+        <div class="l sel"><i class="pt" style="background:#5BE08F"></i><span class="nom">Palette des projets <small>· Encre</small></span><span class="etat" style="color:var(--orange)"><i style="background:var(--orange)"></i>travaille</span></div>
+        <div class="l"><i class="pt" style="background:#FFC94D"></i><span class="nom">Tickets du sprint <small>· Client · App</small></span><span class="etat" style="color:var(--jaune)"><i style="background:var(--jaune)"></i>attend ton accord</span></div>
+        <div class="sec">Aujourd'hui</div>
+        <div class="l"><i class="pt" style="background:#5BE08F"></i><span class="nom">Maquette 2026 <small>· Studio</small></span></div>
+        <div class="l"><i class="pt" style="background:#59C8F5"></i><span class="nom">Appli de dessin</span></div>
+        <div class="l"><i class="pt" style="background:#FFC94D"></i><span class="nom">Les tickets <small>· Client · App</small></span></div>
+        <div class="sec">Cette semaine</div>
+        <div class="l"><i class="pt" style="background:#FF9A4D"></i><span class="nom">Validateur de modèles</span></div>
+        <div class="l"><i class="pt" style="background:#B9A6FF"></i><span class="nom">Héros de la page <small>· Boutique</small></span></div>
+        <div class="l"><i class="pt" style="background:#FF7AB6"></i><span class="nom">Site vitrine</span></div>
+        <div class="l"><i class="pt" style="background:#5BE08F"></i><span class="nom">Optimisation <small>· Encre</small></span></div>
+        <div class="plus">Plus ancien · 31 conversations ›</div>
+      </div>
+      <div class="pied"><span class="b">Libre</span><span class="esp"></span><span class="b">Lier un dossier</span><span class="b fort">＋ Nouveau</span></div>
+    </div>
+    <p class="note"><b>Pour</b> : on retrouve ce qu'on vient de faire sans réfléchir à « où c'est rangé ». <b>Contre</b> : on ne voit plus quels sujets vont ensemble ; un vieux projet se cherche au clavier.</p>
+  </div>
+
+  <!-- B -->
+  <div class="col">
+    <h2>B · Deux colonnes</h2>
+    <p class="idee">Projets à gauche, ses conversations à droite (comme le Finder). Survoler ou ↑↓ un projet change la colonne de droite. Le nouveau sujet part dans le projet affiché, sans menu.</p>
+    <div class="pal">
+      <div class="champ">Aller à un projet ou un sujet… <kbd>Ctrl K</kbd></div>
+      <div class="deux">
+        <div class="g">
+          <div class="l"><span class="tag libre">✦</span><span class="nom">Libre</span></div>
+          <div class="l sel"><i class="pt" style="background:#5BE08F"></i><span class="nom">Encre</span><span class="etat"><i style="background:var(--orange)"></i></span></div>
+          <div class="l"><i class="pt" style="background:#5BE08F"></i><span class="nom">Studio</span></div>
+          <div class="l"><i class="pt" style="background:#FFC94D"></i><span class="nom">Client · App</span><span class="etat"><i style="background:var(--jaune)"></i></span></div>
+          <div class="l"><i class="pt" style="background:#59C8F5"></i><span class="nom">Appli de dessin</span></div>
+          <div class="l"><i class="pt" style="background:#FF9A4D"></i><span class="nom">Validateur</span></div>
+          <div class="l"><i class="pt" style="background:#B9A6FF"></i><span class="nom">Boutique</span></div>
+          <div class="l"><i class="pt" style="background:#FF7AB6"></i><span class="nom">Site vitrine</span></div>
+          <div class="l"><i class="pt" style="background:#FF9A4D"></i><span class="nom">Médiathèque</span></div>
+          <div class="l"><i class="pt" style="background:#5BE08F"></i><span class="nom">Gestes webcam</span></div>
+          <div class="plus">+ 14 projets</div>
+        </div>
+        <div class="dr">
+          <div class="titre">Encre · 3 conversations</div>
+          <div class="l"><span class="nom">Général</span><span class="d">il y a 2 j</span></div>
+          <div class="l sel"><span class="nom">Palette des projets</span><span class="etat" style="color:var(--orange)"><i style="background:var(--orange)"></i></span></div>
+          <div class="l"><span class="nom">Optimisation</span><span class="d">9 j</span></div>
+          <div class="l"><span class="nom">Citations cumulées</span><span class="d">16 j</span></div>
+          <div class="neuf">＋ Nouveau sujet ici</div>
+        </div>
+      </div>
+      <div class="pied"><span class="esp"></span><span class="b">Lier un dossier</span><span class="b fort">＋ Nouveau projet</span></div>
+    </div>
+    <p class="note"><b>Pour</b> : tout est visible, rangé, et « où part mon sujet » ne se pose plus. <b>Contre</b> : serré dans le petit panneau (noms coupés à gauche), et on lit en deux temps.</p>
+  </div>
+
+  <!-- C -->
+  <div class="col">
+    <h2>C · Un niveau à la fois <span style="color:var(--lav);font-weight:600">(ma recommandation)</span></h2>
+    <p class="idee">La liste ne montre que des projets, sans arbre ni chevron. En haut, les 3 dernières conversations. Entrer dans un projet (clic ou →) affiche ses sujets ; ← revient. Taper cherche partout.</p>
+    <div class="pal">
+      <div class="champ">Aller à un projet ou un sujet… <kbd>Ctrl K</kbd></div>
+      <div class="liste">
+        <div class="sec">Reprendre</div>
+        <div class="l sel"><span class="tag" style="background:#5BE08F">EN</span><span class="nom">Palette des projets <small>· Encre</small></span><span class="etat" style="color:var(--orange)"><i style="background:var(--orange)"></i>travaille</span></div>
+        <div class="l"><span class="tag" style="background:#FFC94D">CA</span><span class="nom">Tickets du sprint <small>· Client · App</small></span><span class="etat" style="color:var(--jaune)"><i style="background:var(--jaune)"></i>attend ton accord</span></div>
+        <div class="l"><span class="tag" style="background:#5BE08F">ST</span><span class="nom">Maquette 2026 <small>· Studio</small></span></div>
+        <div class="sec">Projets <span>24</span></div>
+        <div class="l"><span class="tag libre">✦</span><span class="nom">Libre <small>· sans projet</small></span></div>
+        <div class="l"><span class="tag" style="background:#5BE08F">EN</span><span class="nom">Encre</span><span class="d">3 sujets</span><span class="fl">›</span></div>
+        <div class="l"><span class="tag" style="background:#5BE08F">ST</span><span class="nom">Studio</span><span class="d">2 sujets</span><span class="fl">›</span></div>
+        <div class="l"><span class="tag" style="background:#FFC94D">CA</span><span class="nom">Client · App</span><span class="d">2 sujets</span><span class="fl">›</span></div>
+        <div class="l"><span class="tag" style="background:#59C8F5">AD</span><span class="nom">Appli de dessin</span><span class="d">3 sujets</span><span class="fl">›</span></div>
+        <div class="l"><span class="tag" style="background:#FF9A4D">VM</span><span class="nom">Validateur de modèles</span><span class="d">4 sujets</span><span class="fl">›</span></div>
+        <div class="l"><span class="tag" style="background:#FF7AB6">SV</span><span class="nom">Site vitrine</span></div>
+        <div class="l"><span class="tag" style="background:#FF9A4D">MA</span><span class="nom">Médiathèque</span></div>
+      </div>
+      <div class="pied"><span class="esp"></span><span class="b">Lier un dossier</span><span class="b fort">＋ Nouveau projet</span></div>
+    </div>
+    <div class="pal">
+      <div class="retour"><span class="fl">‹</span><span class="tag" style="background:#5BE08F">EN</span><b>Encre</b><small>Tous les projets (←)</small></div>
+      <div class="liste">
+        <div class="l"><span class="nom">Général <small>· le projet entier</small></span><span class="d">il y a 2 j</span></div>
+        <div class="l sel"><span class="nom">Palette des projets</span><span class="etat" style="color:var(--orange)"><i style="background:var(--orange)"></i>travaille</span></div>
+        <div class="l"><span class="nom">Optimisation</span><span class="d">il y a 9 j</span></div>
+        <div class="l"><span class="nom">Citations cumulées</span><span class="d">il y a 16 j</span></div>
+      </div>
+      <div class="pied"><span class="b">Ouvrir le dossier</span><span class="esp"></span><span class="b fort">＋ Nouveau sujet dans Encre</span></div>
+    </div>
+    <p class="note"><b>Pour</b> : un seul type de ligne à la fois, tient dans le petit panneau, le sujet neuf part forcément dans le bon projet (plus de menu déroulant). <b>Contre</b> : un clic de plus pour un sujet ancien (mais la recherche et « Reprendre » couvrent l'essentiel).</p>
+  </div>
+
+</div>
+
+<div class="rangee">
+  <!-- D -->
+  <div class="col">
+    <h2>D · Cartes <span style="color:var(--lav);font-weight:600">(B en cartes)</span></h2>
+    <p class="idee">Même idée que B (on voit chaque projet avec ses conversations), mais en une seule lecture : chaque projet est une carte qui montre ses deux derniers sujets et « ＋ sujet ». Le nouveau sujet part dans la carte où on clique. ↑↓←→ passent de carte en carte, Entrée ouvre le sujet surligné.</p>
+    <div class="pal">
+      <div class="champ">Aller à un projet ou un sujet… <kbd>Ctrl K</kbd></div>
+      <div class="cartes">
+        <div class="carte sel">
+          <div class="haut"><span class="tag" style="background:#5BE08F">EN</span><b>Encre</b><span class="d">4</span></div>
+          <div class="s sel"><span>Palette des projets</span><i style="background:var(--orange)"></i></div>
+          <div class="s"><span>Optimisation</span></div>
+          <div class="ajout">＋ Sujet</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#FFC94D">CA</span><b>Client · App</b><span class="d">2</span></div>
+          <div class="s"><span>Tickets du sprint</span><i style="background:var(--jaune)"></i></div>
+          <div class="s"><span>Les tickets</span></div>
+          <div class="ajout">＋ Sujet</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#5BE08F">ST</span><b>Studio</b><span class="d">2</span></div>
+          <div class="s"><span>Maquette 2026</span></div>
+          <div class="s"><span>Général</span></div>
+          <div class="ajout">＋ Sujet</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#59C8F5">AD</span><b>Appli de dessin</b><span class="d">3</span></div>
+          <div class="s"><span>Pinceaux</span></div>
+          <div class="s"><span>Général</span></div>
+          <div class="ajout">＋ Sujet</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#FF9A4D">VM</span><b>Validateur</b><span class="d">4</span></div>
+          <div class="s"><span>Règles d'import</span></div>
+          <div class="s"><span>Général</span></div>
+          <div class="ajout">＋ Sujet</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#FF7AB6">SV</span><b>Site vitrine</b></div>
+          <div class="s vide"><span>Pas encore de sujet</span></div>
+          <div class="ajout">＋ Sujet</div>
+        </div>
+        <div class="carte statut large">
+          <div class="haut"><span class="tag libre">✦</span><b>Libre <small style="color:var(--soft);font-weight:500">· une question sans projet</small></b><span class="d">+ 18 projets ›</span></div>
+        </div>
+      </div>
+      <div class="pied"><span class="esp"></span><span class="b">Lier un dossier</span><span class="b fort">＋ Nouveau projet</span></div>
+    </div>
+    <p class="note"><b>Pour</b> : tout est groupé et visible d'un coup d'œil, la carte dit où part le sujet, les noms ont plus de place que dans la colonne gauche de B. <b>Contre</b> : six projets seulement sans défiler en petit ; au-delà de deux sujets, il faut entrer dans la carte (clic sur le nom → tous ses sujets, comme C).</p>
+  </div>
+
+  <!-- D en plein écran -->
+  <div class="col">
+    <h2>D · en plein écran</h2>
+    <p class="idee">Trois colonnes, trois sujets par carte. C'est là que les cartes servent le plus : la palette devient presque un tableau de bord, sans revenir au hub.</p>
+    <div class="pal grand">
+      <div class="champ">Aller à un projet ou un sujet… <kbd>Ctrl K</kbd></div>
+      <div class="cartes">
+        <div class="carte sel">
+          <div class="haut"><span class="tag" style="background:#5BE08F">EN</span><b>Encre</b><span class="d">4 conversations</span></div>
+          <div class="s sel"><span>Palette des projets</span><i style="background:var(--orange)"></i></div>
+          <div class="s"><span>Optimisation</span></div>
+          <div class="s"><span>Citations cumulées</span></div>
+          <div class="ajout">＋ Nouveau sujet ici</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#FFC94D">CA</span><b>Client · App</b><span class="d">2 conversations</span></div>
+          <div class="s"><span>Tickets du sprint</span><i style="background:var(--jaune)"></i></div>
+          <div class="s"><span>Les tickets</span></div>
+          <div class="s vide"><span>&nbsp;</span></div>
+          <div class="ajout">＋ Nouveau sujet ici</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#5BE08F">ST</span><b>Studio</b><span class="d">2 conversations</span></div>
+          <div class="s"><span>Maquette 2026</span></div>
+          <div class="s"><span>Général</span></div>
+          <div class="s vide"><span>&nbsp;</span></div>
+          <div class="ajout">＋ Nouveau sujet ici</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#59C8F5">AD</span><b>Appli de dessin</b><span class="d">3 conversations</span></div>
+          <div class="s"><span>Pinceaux</span></div>
+          <div class="s"><span>Calques</span></div>
+          <div class="s"><span>Général</span></div>
+          <div class="ajout">＋ Nouveau sujet ici</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#FF9A4D">VM</span><b>Validateur de modèles</b><span class="d">4 conversations</span></div>
+          <div class="s"><span>Règles d'import</span></div>
+          <div class="s"><span>Rapport</span></div>
+          <div class="s"><span>Tous les sujets ›</span></div>
+          <div class="ajout">＋ Nouveau sujet ici</div>
+        </div>
+        <div class="carte">
+          <div class="haut"><span class="tag" style="background:#B9A6FF">BO</span><b>Boutique</b><span class="d">1 conversation</span></div>
+          <div class="s"><span>Héros de la page</span></div>
+          <div class="s vide"><span>&nbsp;</span></div>
+          <div class="s vide"><span>&nbsp;</span></div>
+          <div class="ajout">＋ Nouveau sujet ici</div>
+        </div>
+        <div class="carte statut large">
+          <div class="haut"><span class="tag libre">✦</span><b>Libre <small style="color:var(--soft);font-weight:500">· une question sans projet</small></b><span class="d">+ 18 projets, défiler ›</span></div>
+        </div>
+      </div>
+      <div class="pied"><span class="esp"></span><span class="b">Lier un dossier</span><span class="b fort">＋ Nouveau projet</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

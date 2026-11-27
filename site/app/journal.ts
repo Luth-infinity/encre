@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.6',
+    date: '2026-11-28',
+    titre: 'Nori dessinée à la main, et la bulle ne se perd plus',
+    texte: 'Nori la méduse rejoint Tako et Momo : un vrai dessin, qui bouge. Et la bulle revient d’elle-même quand Windows la fait disparaître.',
+    points: [
+      'Nori a un nouveau dessin, fait à la main : sa cloche se resserre et se relâche, ses filaments ondulent, elle cligne de l’œil.',
+      'Les trois avatars sont maintenant dessinés et animés de la même façon, à l’accueil, dans la bulle et dans la barre d’appel.',
+      'La bulle disparaissait parfois après « Afficher le bureau », une mise en veille ou une app en plein écran : elle revient maintenant toute seule en quelques secondes, sans passer par l’icône près de l’horloge.',
+    ],
+  },
+  {
     version: '0.7.5',
     date: '2026-11-27',
     titre: 'Tako dessiné à la main, et il bouge',

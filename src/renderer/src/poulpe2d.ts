@@ -1,68 +1,29 @@
-import { AVATARS, type Espece, type Humeur } from '@shared/types'
-import { COULEURS } from './poulpe'
-import teteSrc from './assets/tete.png'
+import type { Espece, Humeur } from '@shared/types'
 import takoCoinSrc from './assets/tako-coin.webm'
 import takoBulleSrc from './assets/tako-bulle.webm'
 import takoPortraitSrc from './assets/tako-portrait.png'
+import noriCoinSrc from './assets/nori-coin.webm'
+import noriBulleSrc from './assets/nori-bulle.webm'
+import noriPortraitSrc from './assets/nori-portrait.png'
 import momoCoinSrc from './assets/momo-coin.webm'
 import momoBulleSrc from './assets/momo-bulle.webm'
 import momoPortraitSrc from './assets/momo-portrait.png'
 
 /**
- * Le poulpe 2D validé par Lucas le 24/11 (design/refonte-2d.html, design/projets-calme.html) :
- * une forme noire pleine et un visage, 8 bras qui ondulent, rien d'autre.
- * « coin » : il monte du coin bas droit de l'accueil, derrière le contenu, ses bras sortent du cadre.
- * « guetteur » : en conversation, la tête seule dépasse au-dessus du bout du champ.
- * « bulle » : la tête remplit le rond de la bulle (l'anneau d'humeur est en CSS autour).
- * Nori (méduse) et Momo (axolotl) reprennent la même encre et le même visage, avec leur silhouette.
+ * Les avatars en 2D (piste validée le 24/11, design/refonte-2d.html). Tako, Nori et Momo sont
+ * dessinés à la main par Lucas (26 et 27/11) et animés hors de l'app (design/tako, design/nori,
+ * design/momo) en deux boucles transparentes de 4 s : le dessin entier déformé en douceur, son
+ * visage et son clignement compris. Rien n'est redessiné en code : on pose la vidéo.
+ * « coin » : il monte du coin bas droit de l'accueil, derrière le contenu, et sort du cadre.
+ * « guetteur » : en conversation, la bulle sans son rond dépasse au-dessus du bout du champ.
+ * « bulle » : la barre d'appel, coupée au rond (la vraie bulle le laisse déborder, `Bulle.tsx`).
  */
 export type Pose = 'coin' | 'guetteur' | 'bulle'
 export interface Poulpe2D { humeur(h: Humeur): void; detruire(): void }
 
-const ENCRE = [30, 18, 54]
-const rgb = (h: string): number[] => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
-const css = (c: number[], al = 1): string => `rgba(${c.map(Math.round).join(',')},${al})`
 const lim = (v: number, a = 0, b = 1): number => Math.min(b, Math.max(a, v))
 
-const TETE = Object.assign(new Image(), { src: teteSrc }) // la tête dessinée par Lucas, détourée
-type Forme = HTMLImageElement | HTMLCanvasElement
-const prete = (f: Forme): boolean => !(f instanceof HTMLImageElement) || (f.complete && f.naturalWidth > 0)
-
-/**
- * Les silhouettes de Nori et Momo, dessinées dans le cadre de la tête de Tako (579 × 592,
- * dôme centré en 290, 250) : tout le reste (contour, aplat, visage, bulle) les traite pareil.
- */
-function silhouette(espece: 'meduse'): HTMLCanvasElement {
-  const cv = Object.assign(document.createElement('canvas'), { width: 579, height: 592 }), c = cv.getContext('2d')!
-  c.fillStyle = c.strokeStyle = '#000'
-  if (espece === 'meduse') { // (seule silhouette encore dessinée en code)
-    // Cloche : un dôme, bord festonné.
-    const r = 560 / 12
-    c.beginPath(); c.ellipse(290, 420, 280, 390, 0, Math.PI, 0)
-    for (let i = 0; i < 6; i++) c.arc(570 - r - i * 2 * r, 420, r, 0, Math.PI)
-    c.fill()
-  }
-  return cv
-}
-
-/**
- * Ce qui distingue chacun, au-delà de la silhouette : l'écart et la taille des yeux, la bouche,
- * la paupière au repos, et sa couleur (`AVATARS`) là où elle aide à le reconnaître.
- * Tako : le visage de référence. Nori, calme : yeux rapprochés mi-clos, petite bouche.
- * Momo, énergique : petits yeux très écartés, grand sourire, joues et branchies roses.
- */
-type Trait = { ecart: number; k: number; bouche: number; sourire: number; paup: number; joues?: string }
-const TRAITS: Record<Espece, Trait> = {
-  poulpe: { ecart: 2.6, k: 1, bouche: 1, sourire: 0, paup: 0 },
-  meduse: { ecart: 2.2, k: 0.9, bouche: 0.55, sourire: 0, paup: 0.32 },
-  axolotl: { ecart: 3.4, k: 0.85, bouche: 1.8, sourire: 0.25, paup: 0, joues: '#F2558C' }
-}
-const PEAU: Record<Espece, string> = Object.fromEntries(AVATARS.map((a) => [a.espece, a.peau])) as Record<Espece, string>
-
-// Tako et Momo : dessinés à la main par Lucas (26 et 27/11), animés hors de l'app (design/tako,
-// design/momo) en deux boucles transparentes de 4 s : le dessin entier déformé en douceur, son visage
-// et son clignement compris. Rien n'est repeint ni redessiné en code : on pose la vidéo.
-// Créées au premier besoin (le décodage coûte).
+// Créées au premier besoin (le décodage coûte), partagées entre les poses.
 const boucles = new Map<string, HTMLVideoElement>()
 function boucle(src: string): HTMLVideoElement {
   let v = boucles.get(src)
@@ -75,252 +36,51 @@ function boucle(src: string): HTMLVideoElement {
   return v
 }
 const lue = (v: HTMLVideoElement): boolean => v.readyState >= 2
-const ANIMES: Partial<Record<Espece, { coin: string; bulle: string; portrait: string }>> = {
-  poulpe: { coin: takoCoinSrc, bulle: takoBulleSrc, portrait: takoPortraitSrc },
-  axolotl: { coin: momoCoinSrc, bulle: momoBulleSrc, portrait: momoPortraitSrc }
-}
-const FORMES: Record<Espece, Forme> = { poulpe: TETE, meduse: silhouette('meduse'), axolotl: TETE } // Tako et Momo n'ont pas de forme : ils ont leurs vidéos
-/** Les dessins chargés : le portrait se fige au premier appel, il ne doit pas partir d'une image vide. */
-export const dessinsPrets = TETE.decode().catch(() => undefined)
-/** La bulle en vidéo (Tako, Momo), pour `Bulle.tsx` : elle déborde du rond, comme sur les dessins. */
-export const bulleAnimee = (e: Espece): string | undefined => ANIMES[e]?.bulle
-
-// Contour : la silhouette de la tête teintée, posée en couronne derrière elle.
-const lis = document.createElement('canvas'), cLis = lis.getContext('2d')!
-function teinte(f: Forme, col: string): void {
-  if (lis.width !== f.width) { lis.width = f.width; lis.height = f.height }
-  cLis.globalCompositeOperation = 'copy'; cLis.drawImage(f, 0, 0)
-  cLis.globalCompositeOperation = 'source-in'; cLis.fillStyle = col; cLis.fillRect(0, 0, lis.width, lis.height)
-}
-// Repère de la tête : origine au centre du dôme ; W = largeur, etire = allongement, incl = penché.
-function repere(c: CanvasRenderingContext2D, x: number, y: number, W: number, incl: number, etire: number): void {
-  c.translate(x, y); c.rotate(incl); c.scale(W / 579, (W / 579) * etire)
-}
-function anneau(c: CanvasRenderingContext2D, x: number, y: number, W: number, incl: number, etire: number): void {
-  c.save(); repere(c, x, y, W, incl, etire)
-  const d = (2.6 * 579) / W
-  for (let i = 0; i < 8; i++) { const an = (i * Math.PI) / 4; c.drawImage(lis, -290 + Math.cos(an) * d, -250 + Math.sin(an) * d) }
-  c.restore()
-}
-// Silhouette pleine : la forme du dessin, sans ses reflets.
-const pleins = new Map<Forme, HTMLCanvasElement>()
-function tete(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: Espece, x: number, y: number, W: number, incl: number, etire: number, fs: number, fx = -0.1): void {
-  const f = FORMES[e]
-  if (!prete(f)) return
-  c.save(); repere(c, x, y, W, incl, etire)
-  let plein = pleins.get(f)
-  if (!plein) {
-    plein = Object.assign(document.createElement('canvas'), { width: f.width, height: f.height }); const p = plein.getContext('2d')!
-    p.drawImage(f, 0, 0); p.globalCompositeOperation = 'source-in'; p.fillStyle = css(ENCRE); p.fillRect(0, 0, plein.width, plein.height)
-    pleins.set(f, plein)
-  }
-  c.drawImage(plein, -290, -250)
-  c.restore()
-  // Le visage n'est pas étiré avec le crâne : il reste rond.
-  c.save(); c.translate(x, y); c.rotate(incl * 0.6)
-  c.translate(W * fx, W * 0.2 * etire)
-  yeux(c, cv, s, W * 0.036 * fs, TRAITS[e])
-  c.restore()
-}
-
-// ── Le visage : chaque humeur est un jeu de réglages, et le visage glisse vers eux sur un ressort.
-// ouv : œil ouvert · k : taille · paup : paupière · biais : paupière en V · sourcil, arc : sourcils · joie : yeux en arc
-// suit : suit la souris (sinon gx, gy) · bw, bc, bz, be : bouche, en part de l'œil
-type Visage = Record<'ouv' | 'k' | 'paup' | 'biais' | 'sourcil' | 'arc' | 'joie' | 'pup' | 'suit' | 'gx' | 'gy' | 'bw' | 'bc' | 'bz' | 'be', number>
-const VISAGES: Record<Humeur, Visage> = {
-  repos:     { ouv: 1, k: 1,   paup: 0,   biais: 0,  sourcil: 0,  arc: 0,  joie: 0, pup: 0.8,  suit: 1,   gx: -0.3, gy: 0,    bw: 0.7, bc: 0.35, bz: 0,    be: 0.28 },
-  ecoute:    { ouv: 1, k: 1.1, paup: 0,   biais: 0,  sourcil: 0,  arc: 0,  joie: 0, pup: 0.8,  suit: 0.3, gx: 0,    gy: -0.7, bw: 0.5, bc: 0.2,  bz: 0,    be: 0.28 },
-  reflechit: { ouv: 1, k: 1,   paup: 0.45, biais: 0, sourcil: 0.8, arc: 1, joie: 0, pup: 0.75, suit: 0,   gx: 0.5,  gy: -0.4, bw: 0.8, bc: 0,    bz: 0.18, be: 0.2 },
-  bosse:     { ouv: 1, k: 1,   paup: 0.3, biais: 0.5, sourcil: 0.9, arc: 0.1, joie: 0, pup: 0.8, suit: 0.2, gx: -0.5, gy: 0.4,  bw: 0.5, bc: 0.05, bz: 0,    be: 0.28 },
-  accord:    { ouv: 1, k: 1.2, paup: 0,   biais: 0,  sourcil: 0,  arc: 0,  joie: 0, pup: 0.7,  suit: 0.5, gx: 0,    gy: 0,    bw: 0.1, bc: 0,    bz: 0,    be: 0.75 },
-  fini:      { ouv: 1, k: 1,   paup: 0,   biais: 0,  sourcil: 0,  arc: 0,  joie: 1, pup: 0.8,  suit: 0,   gx: 0,    gy: 0,    bw: 1.1, bc: 0.8,  bz: 0,    be: 0.35 },
-  // Il écrit ses notes : regard baissé, concentré.
-  note:      { ouv: 1, k: 1,   paup: 0.35, biais: 0, sourcil: 0,  arc: 0,  joie: 0, pup: 0.8,  suit: 0,   gx: -0.3, gy: 0.8,  bw: 0.5, bc: 0.1,  bz: 0,    be: 0.28 }
-}
-// Vitesse et ampleur des bras selon l'humeur.
-const VITESSE: Record<Humeur, number> = { repos: 1.1, ecoute: 1.4, reflechit: 1.2, bosse: 3, accord: 2, fini: 1.8, note: 0.9 }
-const AMPLEUR: Record<Humeur, number> = { repos: 0.3, ecoute: 0.26, reflechit: 0.32, bosse: 0.42, accord: 0.36, fini: 0.34, note: 0.24 }
-
-interface Etat { vis: Visage; vit: Visage; regard: [number, number] | null; ouvert: number }
-let souris: [number, number] = [innerWidth / 2, innerHeight / 2]
-addEventListener('pointermove', (e) => { souris = [e.clientX, e.clientY] })
-
-function yeux(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: number, T: Trait): void {
-  const V = { ...s.vis, k: s.vis.k * T.k, paup: Math.max(s.vis.paup, T.paup * (1 - lim(s.vis.joie))), bw: s.vis.bw * T.bouche, bc: s.vis.bc + T.sourire }
-  // Regard : vers la souris ou vers un point fixe selon l'humeur, toujours amorti.
-  const r = cv.getBoundingClientRect(), dx = souris[0] - (r.left + r.width / 2), dy = souris[1] - (r.top + r.height / 2), n = Math.hypot(dx, dy) || 1
-  const sv = lim(V.suit), cx = (dx / n) * sv + V.gx * (1 - sv), cy = (dy / n) * sv + V.gy * (1 - sv)
-  const g = (s.regard ??= [cx, cy]); g[0] += (cx - g[0]) * 0.12; g[1] += (cy - g[1]) * 0.12
-  const joie = lim(V.joie), ouv = lim(V.ouv) * (1 - joie * 0.97) * s.ouvert
-  const blanc = 'rgba(255,255,255,.96)'
-  c.lineCap = c.lineJoin = 'round'
-  for (const sd of [-1, 1]) {
-    const w = e * 0.78 * V.k * 1.45, hp = e * 1.3 * V.k * 1.45, h = hp * Math.max(0.04, ouv)
-    if (T.joues) { c.fillStyle = T.joues; c.globalAlpha = 0.75; c.beginPath(); c.ellipse(sd * e * T.ecart * 1.05, e * 1.5, e * 0.9, e * 0.55, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1 }
-    c.save(); c.translate(sd * e * T.ecart, -e * 0.5)
-    if (joie > 0.02) { // yeux de joie : un arc qui monte à mesure que l'œil se ferme
-      c.strokeStyle = `rgba(255,255,255,${joie})`; c.lineWidth = Math.max(1.3, e * 0.45)
-      c.beginPath(); c.arc(0, e * 0.5, w * 1.2, Math.PI * 1.15, Math.PI * 1.85); c.stroke()
-    }
-    if (ouv > 0.03) {
-      c.beginPath(); c.ellipse(0, 0, w, h, 0, 0, Math.PI * 2); c.fillStyle = blanc; c.fill(); c.save(); c.clip()
-      // Œil de vieux cartoon : pupille haute et noire, entaillée d'une part de tarte qui fait le reflet.
-      const qw = w * 0.58, qh = hp * 0.66, qx = g[0] * w * 0.35, qy = hp * 0.18 + g[1] * hp * 0.2
-      c.fillStyle = css(ENCRE); c.beginPath(); c.moveTo(qx, qy)
-      c.ellipse(qx, qy, qw, qh, 0, -Math.PI * 0.14, -Math.PI * 0.4 + Math.PI * 2); c.closePath(); c.fill()
-      const yl = -hp + 2 * hp * lim(V.paup) * 1.02, inc = V.biais * hp * 0.5 // paupière, en V quand il est concentré
-      if (V.paup > 0.01) {
-        c.fillStyle = css(ENCRE); c.beginPath(); c.moveTo(-w * 2, -hp * 2); c.lineTo(w * 2, -hp * 2)
-        c.lineTo(w * 2, yl - sd * inc * 2); c.lineTo(-w * 2, yl + sd * inc * 2); c.fill()
-      }
-      c.restore()
-    }
-    if (V.sourcil > 0.02) {
-      const yb = -hp * 1.45, inc = V.biais * hp * 0.45
-      c.strokeStyle = `rgba(255,255,255,${lim(V.sourcil)})`; c.lineWidth = Math.max(1.1, e * 0.28)
-      c.beginPath(); c.moveTo(sd * w * 1.4, yb - inc); c.quadraticCurveTo(0, yb - hp * 0.5 * V.arc, -sd * w * 1.4, yb + inc); c.stroke()
-    }
-    c.restore()
-  }
-  // Bouche : une seule ligne qui se courbe, ondule, s'épaissit en « o » ou se remplit en sourire.
-  const my = e * 1.9, mw = V.bw * e, ep = Math.max(1.1, V.be * e)
-  const pt = (u: number): [number, number] => [u * mw, my + V.bc * e * (1 - u * u) + V.bz * e * Math.sin(u * Math.PI * 3)]
-  c.beginPath(); for (let i = 0; i <= 24; i++) c.lineTo(...pt(-1 + i / 12))
-  c.strokeStyle = c.fillStyle = blanc; c.lineWidth = ep
-  if (V.bc > 0.3) c.fill()
-  c.stroke()
-}
-
-// ── Les bras : un vrai tentacule, la courbure s'accumule de la base vers le bout et une onde le parcourt.
-interface Bras { lx: number; a: number; L: number; r: number; courbe: number; ph: number; amp?: number }
-function membre(b: Bras, phase: number, ampl: number, ox: number, oy: number): [number, number, number, number][] {
-  const N = Math.max(6, Math.round(b.L / 4)), pts: [number, number, number, number][] = []
-  let x = ox, y = oy, a = b.a
-  for (let i = 0; i <= N; i++) {
-    const u = i / N
-    pts.push([x, y, a, b.r * (1 - 0.6 * u)])
-    // La base reste ancrée sous la tête (sinon les bras fusionnent en colonne), l'onde grandit vers le bout.
-    const onde = Math.sin(phase * 1.3 + b.ph - u * 7) + 0.5 * Math.sin(phase * 0.8 + b.ph * 1.7 - u * 11)
-    const balance = i ? 0 : Math.sin(phase * 0.45 + b.ph) * ampl * 0.3
-    a += balance + (b.courbe * 3 * u * u * (1 + 0.2 * Math.sin(phase * 0.5 + b.ph)) + onde * ampl * 9 * (0.25 + u)) / N
-    x += (Math.cos(a) * b.L) / N; y += (Math.sin(a) * b.L) / N
-  }
-  return pts
-}
-function dessineBras(c: CanvasRenderingContext2D, pts: [number, number, number, number][], fond: string): void {
-  const g: [number, number][] = [], d: [number, number][] = []
-  for (const [x, y, a, r] of pts) { const nx = -Math.sin(a) * r, ny = Math.cos(a) * r; g.push([x + nx, y + ny]); d.push([x - nx, y - ny]) }
-  const [xe, ye, ae, re] = pts[pts.length - 1], [x0, y0, a0, r0] = pts[0]
-  c.beginPath(); c.moveTo(...g[0]); g.forEach((p) => c.lineTo(...p))
-  c.arc(xe, ye, re, ae + Math.PI / 2, ae - Math.PI / 2, true)
-  for (let i = d.length - 1; i >= 0; i--) c.lineTo(...d[i])
-  c.arc(x0, y0, r0, a0 - Math.PI / 2, a0 + Math.PI / 2, true); c.closePath()
-  // Un fin liseré de la couleur du fond sépare les bras quand ils se croisent.
-  c.lineJoin = 'round'; c.strokeStyle = fond; c.lineWidth = 5; c.stroke()
-  c.fillStyle = css(ENCRE); c.fill()
-}
-// Du fond vers l'avant. Trois bras du fond plus fins ; le 5e, long, s'enroule vers la gauche.
-const BRAS: Bras[] = [
-  { lx: 80, a: Math.PI * 0.22, L: 480, r: 26, courbe: -0.8, ph: 0.4 },
-  { lx: 20, a: Math.PI * 0.4, L: 500, r: 27, courbe: 0.7, ph: 2.8 },
-  { lx: -48, a: Math.PI * 0.6, L: 500, r: 27, courbe: -0.6, ph: 5.7, amp: 0.7 },
-  { lx: 66, a: Math.PI * 0.36, L: 520, r: 30, courbe: -1.1, ph: 4.2 },
-  { lx: -66, a: Math.PI * 0.62, L: 520, r: 31, courbe: 2.6, amp: 0.45, ph: 1.3 },
-  { lx: 36, a: Math.PI * 0.44, L: 520, r: 32, courbe: -0.5, ph: 3.4 },
-  { lx: -32, a: Math.PI * 0.56, L: 520, r: 33, courbe: 0.5, ph: 2.1 },
-  { lx: 4, a: Math.PI * 0.5, L: 520, r: 34, courbe: -0.1, ph: 5.1 }
-]
-// Nori : de longs filaments fins. Momo a sa propre scène (`momoCoin`).
-const MEMBRES: Record<Espece, Bras[]> = {
-  poulpe: BRAS,
-  meduse: BRAS.map((b) => ({ ...b, r: b.r * 0.35, L: b.L * 1.1 })),
-  axolotl: []
-}
-/**
- * La bulle (rond noir, repris de refonte-2d.html) : chacun doit s'y reconnaître d'un coup d'œil.
- * Nori : la cloche entière, cernée de son bleu. Tako (de trois-quarts) et Momo (de face) : leur
- * dessin, en vidéo. Ici coupé au rond (barre d'appel) ; la bulle elle-même
- * le laisse déborder (`Bulle.tsx`). La vidéo représente la fenêtre de 132 autour du rond de 96.
- */
-function bulle(c: CanvasRenderingContext2D, cv: HTMLCanvasElement, s: Etat, e: Espece, w: number, h: number, t: number): void {
-  const f = w / 96, dx = Math.sin(t * 1.3) * f, dy = Math.sin(t * 1.5) * 1.5 * f, incl = Math.sin(t * 0.9) * 0.03
-  c.save(); c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.clip()
-  const anime = ANIMES[e]
-  if (anime) {
-    const v = boucle(anime.bulle), T = w * 132 / 96
-    if (lue(v)) c.drawImage(v, (w - T) / 2, (h - T) / 2, T, T)
-  } else {
-    const x = w / 2 + dx, y = h / 2 - 8 * f + dy, W = 82 * f
-    if (prete(FORMES[e])) { teinte(FORMES[e], PEAU[e]); anneau(c, x, y, W, incl, 1) }
-    tete(c, cv, s, e, x, y, W, incl, 1, 1.15, 0)
-  }
-  c.restore()
-}
-
-/** Un portrait fixe de l'avatar dans son rond (fil, choix du compte) : Tako et Momo ont le leur, tiré de leur dessin. */
-const portraits = new Map<Espece, string>()
-export function portrait(e: Espece): string {
-  const anime = ANIMES[e]
-  if (anime) return anime.portrait
-  let url = portraits.get(e)
-  if (!url) {
-    const cv = Object.assign(document.createElement('canvas'), { width: 96, height: 96 }), c = cv.getContext('2d')!
-    c.fillStyle = '#0B0C0E'; c.beginPath(); c.arc(48, 48, 48, 0, Math.PI * 2); c.fill()
-    bulle(c, cv, { vis: { ...VISAGES.repos, suit: 0, gx: 0, gy: 0 }, vit: { ...VISAGES.repos }, regard: [0, 0], ouvert: 1 }, e, 96, 96, 0)
-    portraits.set(e, (url = cv.toDataURL()))
-  }
-  return url
-}
 
 /**
- * Momo dans le coin : son dessin en entier (de trois-quarts), en vidéo, debout en bas à droite.
- * La vidéo fait déjà tout (respiration, queue, bras, branchies, clignement) ; on ne garde que le
- * petit saut de joie (`flotte`). Repères sur momo-coin.webm (745 × 870) : pied droit en (725, 856),
- * Momo haut de 822. Son contour magenta le détache du fond, clair comme sombre.
+ * Chaque boucle et ses repères. La bulle (264) = la fenêtre de 132 autour du rond de 96.
+ * coin : taille de la vidéo et placement dans la scène de 640 (voir `coin`).
+ * guette : dans la bulle, haut (y0), ligne qui passe sous le bord du canvas (y1), milieu (x).
  */
-function momoCoin(c: CanvasRenderingContext2D, flotte: number): void {
-  const v = boucle(momoCoinSrc)
-  if (!lue(v)) return
-  const k = 500 / 822
-  c.drawImage(v, 630 - 725 * k, 640 - 856 * k + flotte * 0.4, 745 * k, 870 * k)
+interface Anime {
+  coin: string; bulle: string; portrait: string
+  scene: { w: number; h: number; x: number; y: number; k: number; saut: number }
+  guette: { x: number; y0: number; y1: number }
 }
-/**
- * Tako dans le coin : son dessin en entier, la tête là où était l'ancienne (TX, TY, large de TW),
- * les bras du bas et de droite sortent du cadre. tako-coin.webm (954 × 858) = le dessin
- * (2160 × 1856) à 0,55 depuis (344, 252) ; la tête y est centrée en (1440, 560), large de 560.
- */
-function takoCoin(c: CanvasRenderingContext2D, flotte: number): void {
-  const v = boucle(takoCoinSrc)
-  if (!lue(v)) return
-  const g = TW / 560, E = 0.55
-  c.drawImage(v, TX + (344 - 1440) * g, TY + (252 - 560) * g + flotte, (954 / E) * g, (858 / E) * g)
-}
-/**
- * Qui guette au-dessus du champ : la bulle sans son rond, coupée par le bas du canvas.
- * Repères dans la vidéo (264) : haut (y0), ligne qui passe sous le bord du canvas (y1), milieu (x).
- * Momo : bras croisés posés sur le champ. Tako : la tête, le bas du corps caché derrière le champ.
- */
-const GUETTE: Partial<Record<Espece, { x: number; y0: number; y1: number }>> = {
-  axolotl: { x: 146.5, y0: 49, y1: 228 },
-  poulpe: { x: 163, y0: 53, y1: 191 }
-}
-function guette(c: CanvasRenderingContext2D, e: Espece, w: number, h: number, gy: number): void {
-  const v = boucle(ANIMES[e]!.bulle), G = GUETTE[e]!
-  if (!lue(v)) return
-  const k = (h + 6) / (G.y1 - G.y0)
-  c.drawImage(v, w / 2 - G.x * k, h + 6 - G.y1 * k + (gy - h * 0.52), 264 * k, 264 * k)
+const ANIMES: Record<Espece, Anime> = {
+  // tako-coin.webm (954 × 858) = le dessin (2160 × 1856) à 0,55 depuis (344, 252) ; la tête,
+  // centrée en (1440, 560) et large de 560, va en (465, 250), large de 236 : les bras sortent du cadre.
+  poulpe: {
+    coin: takoCoinSrc, bulle: takoBulleSrc, portrait: takoPortraitSrc,
+    scene: { w: 954, h: 858, x: 465 + (344 - 1440) * (236 / 560), y: 250 + (252 - 560) * (236 / 560), k: 236 / 560 / 0.55, saut: 1 },
+    guette: { x: 163, y0: 53, y1: 191 }
+  },
+  // nori-coin.webm (888 × 954) = le dessin à 0,55 depuis (469, 120) ; la cloche, centrée en
+  // (1500, 500), va en (455, 235), à la même échelle que Tako : les filaments sortent par le bas.
+  meduse: {
+    coin: noriCoinSrc, bulle: noriBulleSrc, portrait: noriPortraitSrc,
+    scene: { w: 888, h: 954, x: 455 + (469 - 1500) * 0.4, y: 235 + (120 - 500) * 0.4, k: 0.4 / 0.55, saut: 1 },
+    guette: { x: 158, y0: 49, y1: 188 }
+  },
+  // momo-coin.webm (745 × 870) : debout en bas à droite, pied droit en (725, 856), haut de 822.
+  axolotl: {
+    coin: momoCoinSrc, bulle: momoBulleSrc, portrait: momoPortraitSrc,
+    scene: { w: 745, h: 870, x: 630 - 725 * (500 / 822), y: 640 - 856 * (500 / 822), k: 500 / 822, saut: 0.4 }, // debout : il flotte moins
+    guette: { x: 146.5, y0: 49, y1: 228 }
+  }
 }
 
-// La scène du coin est pensée dans un carré de 640 : tête en (465, 250), large de 236, penchée.
-const TX = 465, TY = 250, TW = 236, ETIRE = 1.22, INCL = 0.2
+/** Plus rien à charger avant d'afficher : les portraits sont des PNG. Gardé pour `main.tsx`. */
+export const dessinsPrets = Promise.resolve()
+/** La bulle en vidéo, pour `Bulle.tsx` : elle déborde du rond, comme sur les dessins. */
+export const bulleAnimee = (e: Espece): string => ANIMES[e].bulle
+/** Un portrait fixe de l'avatar dans son rond (fil, choix du compte), tiré de son dessin. */
+export const portrait = (e: Espece): string => ANIMES[e].portrait
 
 export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur = 'repos', espece: Espece = 'poulpe'): Poulpe2D {
-  const forme = FORMES[espece]
+  const A = ANIMES[espece]
   const reduit = matchMedia('(prefers-reduced-motion: reduce)').matches
-  const sombre = matchMedia('(prefers-color-scheme: dark)')
   let humeur = depart
-  const s: Etat = { vis: { ...VISAGES[depart] }, vit: Object.fromEntries(Object.keys(VISAGES.repos).map((k) => [k, 0])) as Visage, regard: null, ouvert: 1 }
-  let pal = rgb(COULEURS[depart])
   let c = cv.getContext('2d')!, w = 0, h = 0
   const taille = (): void => {
     const d = devicePixelRatio || 1, r = cv.getBoundingClientRect()
@@ -329,52 +89,38 @@ export function creerPoulpe2D(cv: HTMLCanvasElement, pose: Pose, depart: Humeur 
   }
   const obs = new ResizeObserver(taille); obs.observe(cv); taille()
 
-  let phase = 0, vS = VITESSE[depart], aS = AMPLEUR[depart], avant = performance.now(), debut = avant, raf = 0
+  // « Fini » : petits sauts de joie, qui arrivent et repartent en douceur.
+  let joie = humeur === 'fini' ? 1 : 0, avant = performance.now(), raf = 0
+  const debut = avant
   const ressort = (u: number): number => (u >= 1 ? 1 : 1 + 2.2 * Math.pow(u - 1, 3) + 1.2 * Math.pow(u - 1, 2)) // dépasse un peu puis revient
   const image = (now: number): void => {
     raf = requestAnimationFrame(image)
     if (!w || !h) return
     const dt = Math.min(0.05, (now - avant) / 1000); avant = now
     const t = reduit ? 0 : now / 1000
-    pal = pal.map((v, i) => v + (rgb(COULEURS[humeur])[i] - v) * 0.06)
-    const C = VISAGES[humeur]
-    if (reduit) Object.assign(s.vis, C)
-    else for (const k in s.vis) { const q = k as keyof Visage; s.vit[q] += ((C[q] - s.vis[q]) * 170 - s.vit[q] * 17) * dt; s.vis[q] += s.vit[q] * dt }
-    // Clignement : fermeture rapide, réouverture plus lente, parfois double.
-    const p = t % 4.3, q = (t + 2.1) % 9.7, f = (x: number, d: number): number => (x < d ? Math.sin(Math.PI * Math.pow(x / d, 0.7)) : 0)
-    s.ouvert = reduit ? 1 : 1 - Math.max(f(p, 0.2), f(q, 0.18) * (Math.floor(t / 9.7) % 2))
-    const kk = 1 - Math.exp(-dt * 2.5); vS += (VITESSE[humeur] - vS) * kk; aS += (AMPLEUR[humeur] - aS) * kk
-    if (!reduit) phase += dt * vS
-    // Le liseré prend la couleur du fond (il sépare les bras) ; en sombre, la couleur d'humeur, pour détacher le poulpe.
-    const nuit = sombre.matches
-    const fond = nuit ? css(pal) : getComputedStyle(cv.parentElement ?? cv).backgroundColor || '#fff'
-    if (!ANIMES[espece] && prete(forme)) teinte(forme, fond === 'rgba(0, 0, 0, 0)' ? '#fff' : fond)
+    joie += ((humeur === 'fini' ? 1 : 0) - joie) * (1 - Math.exp(-dt * 6))
     c.clearRect(0, 0, w, h)
-    if (pose === 'bulle') return bulle(c, cv, s, espece, w, h, t)
-    if (pose === 'guetteur') {
-      const gy = h * 0.52 + Math.sin(t * 1.2) * 3, W = Math.min(w, h) * 0.92
-      if (ANIMES[espece]) return guette(c, espece, w, h, gy)
-      if (nuit && prete(forme)) anneau(c, w / 2, gy, W, -0.12, 1.1)
-      tete(c, cv, s, espece, w / 2, gy, W, -0.12, 1.1, 1.5, 0)
-      return
-    }
-    // Coin : il monte du coin à l'ouverture, puis flotte et respire. « Fini » : petits sauts de joie.
-    const k = w > 700 ? 0.9 : 0.42
-    const monte = reduit ? 1 : Math.max(0, ressort(Math.min(1, (now - debut) / 900)))
-    const flotte = Math.sin(t * 1.2) * 5 - lim(s.vis.joie) * Math.abs(Math.sin(t * 5)) * 16
-    const incl = INCL + Math.sin(t * 0.9) * 0.03, cs = Math.cos(incl), sn = Math.sin(incl), ly = 90
-    if (ANIMES[espece]) {
-      c.save(); c.translate(w - 640 * k, h - 640 * k + (1 - monte) * 420 * k); c.scale(k, k)
-      if (espece === 'poulpe') takoCoin(c, flotte)
-      else momoCoin(c, flotte)
+    const v = boucle(pose === 'coin' ? A.coin : A.bulle)
+    if (!lue(v)) return
+    if (pose === 'bulle') {
+      c.save(); c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.clip()
+      const T = (w * 132) / 96
+      c.drawImage(v, (w - T) / 2, (h - T) / 2, T, T)
       c.restore()
       return
     }
-    c.save(); c.translate(w - (640 - TX) * k, h - (640 - TY) * k + (1 - monte) * 420 * k); c.scale(k, k)
-    const hx = 0, hy = flotte
-    if (prete(forme)) anneau(c, hx, hy, TW, incl, ETIRE)
-    for (const B of MEMBRES[espece]) dessineBras(c, membre({ ...B, a: B.a + incl * 0.5 }, phase, aS * (B.amp ?? 1), hx + B.lx * cs - ly * sn, hy + B.lx * sn + ly * cs), fond)
-    tete(c, cv, s, espece, hx, hy, TW, incl, ETIRE, 1)
+    if (pose === 'guetteur') {
+      const G = A.guette, k = (h + 6) / (G.y1 - G.y0), dy = Math.sin(t * 1.2) * 3
+      c.drawImage(v, w / 2 - G.x * k, h + 6 - G.y1 * k + dy, 264 * k, 264 * k)
+      return
+    }
+    // Coin : il monte du coin à l'ouverture, puis flotte. Scène pensée dans un carré de 640.
+    const s = w > 700 ? 0.9 : 0.42
+    const monte = reduit ? 1 : Math.max(0, ressort(Math.min(1, (now - debut) / 900)))
+    const flotte = Math.sin(t * 1.2) * 5 - lim(joie) * Math.abs(Math.sin(t * 5)) * 16
+    const S = A.scene
+    c.save(); c.translate(w - 640 * s, h - 640 * s + (1 - monte) * 420 * s); c.scale(s, s)
+    c.drawImage(v, S.x, S.y + flotte * S.saut, S.w * S.k, S.h * S.k)
     c.restore()
   }
   raf = requestAnimationFrame(image)

@@ -1,7 +1,8 @@
-import { BrowserWindow, screen, shell } from 'electron'
+import { BrowserWindow, powerMonitor, screen, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
+import { journal } from './journal'
 
 /**
  * Deux fenêtres :
@@ -71,9 +72,66 @@ export function creerBulle(): BrowserWindow {
   charger(bulle, 'bulle')
   // Une bulle qui « disparaît » est souvent un rendu planté : la fenêtre
   // transparente reste là, vide. On la recharge.
-  bulle.webContents.on('render-process-gone', () => laBulle()?.webContents.reload())
+  bulle.webContents.on('render-process-gone', (_e, d) => { journal(`bulle : rendu perdu (${d.reason}), rechargée`); laBulle()?.webContents.reload() })
+  bulle.webContents.on('unresponsive', () => { journal('bulle : rendu figé, rechargée'); laBulle()?.webContents.reload() })
+  bulle.webContents.on('did-fail-load', (_e, code, texte, _url, principal) => {
+    if (!principal || code === -3) return // -3 = chargement remplacé par un autre, pas une panne
+    journal(`bulle : chargement raté (${texte}), nouvel essai`)
+    setTimeout(() => laBulle()?.webContents.reload(), 1000)
+  })
+  // « Afficher le bureau » (Win+D) réduit aussi la bulle : sans bouton dans la
+  // barre des tâches ni focus, elle ne revenait jamais seule.
+  bulle.on('minimize', () => { journal('bulle : réduite par le système, ramenée'); setTimeout(() => laBulle()?.restore(), 100) })
+  // Revenue de réduction, Windows mis à l'échelle lui rend 135 px au lieu de 132 : on recale.
+  bulle.on('restore', () => setTimeout(rangerBulle, 50))
   bulle.on('closed', () => (bulle = null))
+  veillerBulle()
   return bulle
+}
+
+/** La bulle doit-elle être à l'écran ? Seulement cachée quand le plein écran est devant. */
+function bulleAttendue(): boolean {
+  const p = lePanneau()
+  return !(plein && p?.isVisible() && p.isFocused())
+}
+
+/**
+ * Sentinelle : la bulle « disparaissait au hasard » (18/11 puis 28/11) et
+ * il fallait passer par l'icône près de l'horloge. Windows la fait passer derrière
+ * (réveil, verrouillage, Win+D, app en plein écran, explorateur relancé) ou la
+ * réduit, et une fenêtre sans focus ni bouton de barre des tâches ne revient pas.
+ * Toutes les 3 s, et aussitôt au réveil : on la remet visible, au-dessus, dans l'écran.
+ */
+let veille: NodeJS.Timeout | null = null
+function veillerBulle(): void {
+  if (veille) return
+  veille = setInterval(() => reparerBulle(false), 3000)
+  for (const ev of ['resume', 'unlock-screen', 'user-did-become-active'] as const) {
+    powerMonitor.on(ev as 'resume', () => setTimeout(() => reparerBulle(true), 1500))
+  }
+}
+
+export function reparerBulle(fort: boolean): void {
+  const b = laBulle()
+  if (!b || !bulleAttendue()) return
+  if (b.isMinimized()) { journal('bulle : trouvée réduite, ramenée'); b.restore() }
+  if (!b.isVisible()) { journal('bulle : trouvée cachée, ramenée'); b.showInactive() }
+  const [x, y] = b.getPosition()
+  const zone = screen.getDisplayNearestPoint({ x: x + TAILLE_BULLE / 2, y: y + TAILLE_BULLE / 2 }).workArea
+  if (x < zone.x || y < zone.y || x + TAILLE_BULLE > zone.x + zone.width || y + TAILLE_BULLE > zone.y + zone.height) {
+    journal('bulle : hors de l’écran, ramenée')
+    rangerBulle()
+  }
+  // Remettre le niveau « au-dessus » : Windows le perd sans rien signaler. Sans focus (moveTop n'active pas).
+  if (fort || !b.isAlwaysOnTop()) b.setAlwaysOnTop(true, 'floating')
+  // Pas pendant un menu d'Encre ni quand le panneau a la main : la bulle passerait par-dessus le menu.
+  if (process.platform === 'win32' && !menuOuvert && !lePanneau()?.isFocused()) b.moveTop()
+}
+
+let menuOuvert = false
+/** Un menu natif d'Encre est ouvert (clic droit sur la bulle) : la sentinelle ne remonte pas la bulle. */
+export function menuBulle(oui: boolean): void {
+  menuOuvert = oui
 }
 
 // Écran débranché, mis en veille ou changé de résolution : la bulle restait

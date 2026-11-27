@@ -7,7 +7,7 @@ import * as agent from './agent'
 import * as comptes from './comptes'
 import { etatClaude, noterConnexion, reprendrePathDuShell } from './claude'
 import {
-  aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, ouvrirPanneau, rangerBulle, suivreEcrans
+  aTous, basculerPanneau, basculerPlein, cacherPanneau, creerBulle, fermerPanneau, creerPanneau, deplacerBulle, laBulle, lePanneau, menuBulle, ouvrirPanneau, rangerBulle, suivreEcrans
 } from './fenetres'
 import * as fils from './fils'
 import { journal } from './journal'
@@ -684,6 +684,7 @@ function brancher(): void {
   ipcMain.on('bulle-menu', () => {
     const b = laBulle()
     if (!b) return
+    menuBulle(true)
     Menu.buildFromTemplate([
       { label: 'Ouvrir Encre', click: () => ouvrirPanneau() },
       {
@@ -696,7 +697,7 @@ function brancher(): void {
         : []),
       { type: 'separator' },
       { label: 'Quitter', click: () => app.quit() }
-    ]).popup({ window: b })
+    ]).popup({ window: b, callback: () => menuBulle(false) })
   })
 }
 
@@ -870,6 +871,24 @@ async function verifier(dossier: string): Promise<void> {
     await js(`document.querySelector('[data-action=plein]')?.click()`)
     await attendre(2000)
     await capturer('8-markdown-plein')
+    return app.quit()
+  }
+  // ENCRE_VERIF_BULLE=1 : la bulle réduite, cachée puis jetée hors de l'écran ; la sentinelle doit la ramener.
+  if (process.env.ENCRE_VERIF_BULLE) {
+    const b = laBulle()!
+    const voir = (q: string): void => journal(`verif bulle ${q} : visible ${b.isVisible()}, réduite ${b.isMinimized()}, au-dessus ${b.isAlwaysOnTop()}, ${JSON.stringify(b.getBounds())}`)
+    cacherPanneau()
+    await attendre(800)
+    b.minimize()
+    await attendre(1500)
+    voir('après réduction')
+    b.hide()
+    await attendre(3800)
+    voir('après masquage')
+    b.setAlwaysOnTop(false)
+    b.setBounds({ x: -5000, y: -5000, width: b.getBounds().width, height: b.getBounds().height })
+    await attendre(3800)
+    voir('après sortie de l’écran')
     return app.quit()
   }
   // ENCRE_VERIF_SUJETS=1 : palette (tous les projets et leurs sujets), « ← » après un changement, Ctrl+Tab, sujet neuf, halo du texte en plein écran.
