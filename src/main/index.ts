@@ -895,6 +895,8 @@ async function verifier(dossier: string): Promise<void> {
   if (process.env.ENCRE_VERIF_SUJETS) {
     const t142 = projets.creerSujet(p.id, 'Ticket 142')!
     const tarifs = projets.creerSujet(p.id, 'Page tarifs')!
+    // Assez de sujets pour que la carte replie le reste en « +N sujets ».
+    for (const nom of ['Ticket 143', 'Release Mac', 'Icônes d’avatar', 'Journal du site']) projets.creerSujet(p.id, nom)
     fils.noter(tarifs.id, { type: 'moi', texte: 'Où en est la page tarifs ?' } as Evenement)
     fils.noter(tarifs.id, { type: 'texte', texte: Array.from({ length: 40 }, (_, i) => `Ligne ${i + 1} : les trois formules sont en place, il reste à vérifier les marges, les états de survol et les boutons, sur les 6 écrans.`).join('\n\n') } as Evenement)
     fils.noter(tarifs.id, { type: 'fin', duree: 6000 } as Evenement)
@@ -907,10 +909,10 @@ async function verifier(dossier: string): Promise<void> {
     await cle('keydown', `{ key: 'k', metaKey: true, ctrlKey: true }`)
     await attendre(600)
     await capturer('s1-palette')
-    await js(`document.querySelector('.pli-palette')?.click()`)
+    await js(`document.querySelector('.carte-fil.ici button.plus-n')?.click()`)
     await attendre(400)
     await capturer('s1-palette-pliee')
-    await js(`[...document.querySelectorAll('.liste-palette button')].find((b) => b.querySelector('.nom')?.firstChild?.textContent === 'Ticket 142')?.click()`)
+    await js(`document.querySelector('.palette [data-fil="Ticket 142"]')?.click()`)
     await attendre(1500)
     await capturer('s2-retour')
     journal(`verif sujets : actif ${projets.actifId() === t142.id ? 'Ticket 142' : projets.actifId()}`)
@@ -922,7 +924,7 @@ async function verifier(dossier: string): Promise<void> {
     journal(`verif sujets : après Ctrl+Tab, actif ${projets.actifId() === tarifs.id ? 'Page tarifs' : projets.actifId()}`)
     await cle('keydown', `{ key: 'k', metaKey: true, ctrlKey: true }`)
     await attendre(500)
-    await js(`[...document.querySelectorAll('.pied-palette button')].find((b) => b.textContent.includes('Nouveau sujet'))?.click()`)
+    await js(`document.querySelector('.carte-fil.ici .ajout-sujet')?.click()`)
     await attendre(500)
     await capturer('s4-sujet-neuf')
     await js(`document.querySelector('.voile-palette')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
@@ -998,7 +1000,7 @@ async function verifier(dossier: string): Promise<void> {
   const allerA = async (nom: string): Promise<void> => {
     await js(`dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }))`)
     await attendre(500)
-    await js(`[...document.querySelectorAll('.liste-palette button')].find((b) => b.querySelector('.nom')?.firstChild?.textContent === ${JSON.stringify(nom)})?.click()`)
+    await js(`document.querySelector(${JSON.stringify(`.palette [data-fil=${JSON.stringify(nom)}]`)})?.click()`)
     await attendre(1500)
   }
   await allerA('Libre')

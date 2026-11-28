@@ -21,6 +21,17 @@ export type Entree = {
 
 export const JOURNAL: Entree[] = [
   {
+    version: '0.7.7',
+    date: '2026-11-28',
+    titre: 'Tes projets en cartes',
+    texte: 'La liste des projets (Ctrl+K, ou un clic sur le nom du projet) était devenue trop chargée. Ce sur quoi tu travailles cette semaine s’affiche maintenant en cartes, avec ses sujets juste dessous.',
+    points: [
+      'Une carte par projet de la semaine, avec ses sujets en puces sur une ligne. « +N sujets » montre les autres.',
+      'Le ＋ de chaque carte ouvre un sujet directement dans ce projet : plus de doute sur l’endroit où il part.',
+      'Les projets plus anciens sont rangés sur une seule ligne, qui les ouvre en un clic. La recherche les trouve tous, comme avant.',
+    ],
+  },
+  {
     version: '0.7.6',
     date: '2026-11-28',
     titre: 'Nori dessinée à la main, et la bulle ne se perd plus',

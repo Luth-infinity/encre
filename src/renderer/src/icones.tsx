@@ -42,8 +42,8 @@ export const Crayon = (): JSX.Element => (
     <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </Svg>
 )
-export const Chevron = ({ haut }: { haut?: boolean }): JSX.Element => (
+export const Chevron = ({ haut, droite }: { haut?: boolean; droite?: boolean }): JSX.Element => (
   <Svg>
-    <path d={haut ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} />
+    <path d={droite ? 'm9 6 6 6-6 6' : haut ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} />
   </Svg>
 )

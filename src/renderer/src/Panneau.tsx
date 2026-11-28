@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Fragment } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, Fragment } from 'react'
 import { appliquer, avatarDe, type Bloc, type Cite, type Diff, type Etat, type Fenetre, type Humeur, type Limites, type Outil, type PieceJointe, type Projet, type Reponse } from '@shared/types'
 import Accueil, { Creature, EnAttente } from './Accueil'
 import Appel from './Appel'
@@ -140,87 +140,158 @@ const plat = (t: string): string => t.normalize('NFD').replace(/\p{M}/gu, '').to
 /** ⌘K sur Mac, Ctrl+K ailleurs. */
 const RACCOURCI = navigator.platform.startsWith('Mac') ? '⌘K' : 'Ctrl+K'
 
-/** Une ligne de la palette ou de la bascule : la pastille du projet, le nom, ce que Tako y fait. */
-function LigneFil({ etat, p, sel, sous, survol, ouvrir, pli }: {
-  etat: Etat; p: Projet; sel: boolean; sous?: boolean; survol: () => void; ouvrir: (id: string) => void
-  /** Un projet qui a des sujets : combien, s'ils sont dépliés, et de quoi les replier. */
-  pli?: { n: number; deplie: boolean; basculer: () => void }
+/** Une ligne de la recherche ou de la bascule : la pastille du projet, le nom, ce que Tako y fait. */
+function LigneFil({ etat, p, sel, survol, ouvrir }: {
+  etat: Etat; p: Projet; sel: boolean; survol: () => void; ouvrir: (id: string) => void
 }): JSX.Element {
   const r = (p.parent && etat.projets.find((x) => x.id === p.parent)) || p
   const a = activite(etat, p.id, true)
   return (
-    <button type="button" role="option" aria-selected={sel} className={`${sel ? 'sel' : ''} ${p.id === etat.actif ? 'ici' : ''} ${sous ? 'sous' : ''}`}
-      onMouseMove={survol} onClick={() => ouvrir(p.id)} title={r.dossier}
+    <button type="button" role="option" aria-selected={sel} className={`${sel ? 'sel' : ''} ${p.id === etat.actif ? 'ici' : ''}`}
+      onMouseMove={survol} onClick={() => ouvrir(p.id)} title={r.dossier} data-fil={p.libre ? 'Libre' : p.nom}
       onContextMenu={(e) => { e.preventDefault(); if (!p.libre) window.api.menuCarte(p.id) }}>
-      {sous ? <span className="tag trait" /> : <span className={`tag ${p.libre ? 'libre' : ''}`} style={p.libre ? undefined : { background: r.couleur }}>{p.libre ? '✦' : initiales(r.nom)}</span>}
-      <span className="nom">{p.libre ? 'Libre' : p.nom}<small>{p.libre ? ' · une question, sans projet' : p.parent && !sous ? ` · ${r.nom}` : ''}</small></span>
+      <span className={`tag ${p.libre ? 'libre' : ''}`} style={p.libre ? undefined : { background: r.couleur }}>{p.libre ? '✦' : initiales(r.nom)}</span>
+      <span className="nom">{p.libre ? 'Libre' : p.nom}<small>{p.libre ? ' · une question, sans projet' : p.parent ? ` · ${r.nom}` : ''}</small></span>
       {a && <i className={`activite ${a}`} />}
       <small className="quand">{a === 'attend' ? 'attend ton accord' : a ? 'travaille' : p.id === etat.actif ? 'ici' : p.libre ? '' : ilYa(p.derniere)}</small>
-      {/* Pas de bouton dans un bouton : un span cliquable, et ← → au clavier. */}
-      {pli && (
-        <span className={`pli-palette ${pli.deplie ? 'deplie' : ''}`} role="button" aria-expanded={pli.deplie}
-          title={pli.deplie ? 'Replier les sujets (←)' : `Montrer les ${pli.n} sujets (→)`}
-          onClick={(e) => { e.stopPropagation(); pli.basculer() }}>
-          {!pli.deplie && <b>{pli.n}</b>}<Chevron haut={pli.deplie} />
-        </span>
-      )}
     </button>
   )
 }
 
+/** Projets en cartes : au-delà, ou pas ouverts depuis une semaine, ils vont dans « Projets rangés ». */
+const CARTES_MAX = 6
+const SEMAINE = 7 * 864e5
+/** Sujets montrés sur la ligne d'une carte repliée, en plus de « Général ». */
+const PUCES_MAX = 2
+
 /**
- * La palette (⌘K ou clic sur le titre) : le seul endroit où l'on voit les projets
- * (piste D, validée le 24/11 : pas de barre ni de hub, l'écran reste calme).
- * Sans rien taper : ce qui tourne, puis TOUS les projets, chacun suivi de ses sujets
- * (26/11 : avec seulement 7 récents, Lucas ne retrouvait plus ses sujets).
- * On tape pour chercher parmi tous, projets et sujets mélangés.
+ * Un projet en carte : son nom, ses sujets en puces, un ＋ pour en ouvrir un.
+ * Repliée, une seule ligne : « Général », puis le sujet ouvert ou qui travaille, puis les plus récents,
+ * et « +N sujets » pour le reste (validé le 28/11 : un projet à 10 sujets ne doit pas tout pousser).
+ */
+function CarteProjet({ etat, r, sujets, sel, deplie, basculer, ouvrir }: {
+  etat: Etat; r: Projet; sujets: Projet[]; sel: boolean; deplie: boolean; basculer: () => void; ouvrir: (id: string) => void
+}): JSX.Element {
+  const [neuf, setNeuf] = useState<string | null>(null)
+  const ici = etat.actif
+  const poids = (x: Projet): number => (x.id === ici ? 4 : 0) + (activite(etat, x.id, true) ? 2 : 0)
+  const ordre = [...sujets].sort((a, b) => poids(b) - poids(a) || b.derniere - a.derniere)
+  // Autant de puces que la ligne en tient, mesurées sur une rangée cachée : comprimées en « Gén… », elles ne se lisaient plus (28/11).
+  const [tient, setTient] = useState(PUCES_MAX)
+  const mesure = useRef<HTMLDivElement>(null)
+  const cles = ordre.map((x) => x.nom).join('|')
+  useLayoutEffect(() => {
+    const m = mesure.current
+    if (!m || deplie) return
+    const calculer = (): void => {
+      const puces = [...m.children] as HTMLElement[]
+      const largeur = m.clientWidth, ecart = 6
+      const plusN = puces[puces.length - 1].offsetWidth
+      let x = puces[0].offsetWidth, k = 0
+      for (let i = 1; i < puces.length - 1; i++) {
+        const fin = x + ecart + puces[i].offsetWidth
+        const derniere = i === puces.length - 2
+        if (fin + (derniere ? 0 : ecart + plusN) > largeur) break
+        x = fin; k++
+      }
+      setTient(Math.max(k, 1))
+    }
+    calculer()
+    const o = new ResizeObserver(calculer)
+    o.observe(m)
+    return () => o.disconnect()
+  }, [cles, deplie])
+  const montres = deplie ? sujets : ordre.slice(0, tient)
+  const reste = sujets.length - montres.length
+  const dedans = r.id === ici || sujets.some((x) => x.id === ici)
+  const a = activite(etat, r.id, true)
+  const menu = (id: string) => (e: { preventDefault: () => void }): void => { e.preventDefault(); window.api.menuCarte(id) }
+  const puce = (p: Projet, nom: string): JSX.Element => {
+    const x = activite(etat, p.id, true)
+    return (
+      <button key={p.id} type="button" className={`puce-fil ${p.id === ici ? 'ici' : ''}`} onClick={() => ouvrir(p.id)} onContextMenu={menu(p.id)}
+        data-fil={nom} title={x === 'attend' ? `${nom} : attend ton accord` : x ? `${nom} : Tako y travaille` : `${nom} · ${ilYa(p.derniere)}`}>
+        {x && <i className={`activite ${x}`} />}<span>{nom}</span>
+      </button>
+    )
+  }
+  const creer = (): void => {
+    const nom = neuf?.trim()
+    setNeuf(null)
+    if (nom) void window.api.creerSujet(r.id, nom).then((id) => id && ouvrir(id))
+  }
+  return (
+    <div className={`carte-fil ${dedans ? 'ici' : ''} ${sel ? 'sel' : ''}`}>
+      <div className="tete-carte">
+        <button type="button" className="nom-carte" onClick={() => ouvrir(r.id)} onContextMenu={menu(r.id)} title={r.dossier} data-fil={r.nom}>
+          <span className="tag" style={{ background: r.couleur }}>{initiales(r.nom)}</span>
+          <b>{r.nom}</b>
+          {a && <i className={`activite ${a}`} />}
+        </button>
+        <button type="button" className="ajout-sujet" title={`Nouveau sujet dans ${r.nom}`} aria-label={`Nouveau sujet dans ${r.nom}`}
+          onClick={() => setNeuf((x) => (x === null ? '' : null))}>
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+        </button>
+      </div>
+      {sujets.length > 0 && (
+        <>
+        <div className="puces-fil mesure" ref={mesure} aria-hidden="true">
+          <span className="puce-fil"><span>Général</span></span>
+          {ordre.map((x) => <span key={x.id} className="puce-fil">{activite(etat, x.id, true) && <i className="activite" />}<span>{x.nom}</span></span>)}
+          <span className="puce-fil plus-n">+{sujets.length} sujets</span>
+        </div>
+        <div className={`puces-fil ${deplie ? 'deplie' : ''}`}>
+          {puce(r, 'Général')}
+          {montres.map((x) => puce(x, x.nom))}
+          {reste > 0 && <button type="button" className="puce-fil plus-n" onClick={basculer}>+{reste} sujet{reste > 1 ? 's' : ''}</button>}
+          {deplie && <button type="button" className="puce-fil plus-n" onClick={basculer}>Moins</button>}
+        </div>
+        </>
+      )}
+      {neuf !== null && (
+        <form className="sujet-carte" onSubmit={(e) => { e.preventDefault(); creer() }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setNeuf(null) } }}>
+          <input autoFocus placeholder="Nom du sujet…" aria-label={`Nom du nouveau sujet dans ${r.nom}`}
+            value={neuf} onChange={(e) => setNeuf(e.target.value)} />
+          <button type="submit" className="fort" disabled={!neuf.trim()}>Créer</button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+/**
+ * La palette (⌘K ou clic sur le titre) : le seul endroit où l'on voit les projets.
+ * Sans rien taper : les projets de la semaine en cartes, leurs sujets en puces dedans, le reste
+ * replié en une ligne « Projets rangés ». La liste de 25 projets à plat avec leurs arbres
+ * était « trop le bordel » (28/11). On tape pour chercher parmi tous, projets et sujets mélangés.
  */
 function Palette({ etat, avant, ouvrir, fermer }: { etat: Etat; avant: Projet | null; ouvrir: (id: string) => void; fermer: () => void }): JSX.Element {
   const [q, setQ] = useState('')
   const [n, setN] = useState(0)
   const [cree, setCree] = useState(false)
+  const [ranges, setRanges] = useState(false)
+  const [deplies, setDeplies] = useState<string[]>([])
   const actif = etat.projets.find((p) => p.id === etat.actif)
   const racineDe = (p: Projet): Projet => (p.parent && etat.projets.find((x) => x.id === p.parent)) || p
-  const racines = etat.projets.filter((p) => !p.parent && !p.libre)
   const sujetsDe = (id: string): Projet[] => etat.projets.filter((p) => p.parent === id).sort((a, b) => b.derniere - a.derniere)
   // Un projet remonte quand l'un de ses sujets a servi.
   const recence = (p: Projet): number => Math.max(p.derniere, ...sujetsDe(p.id).map((x) => x.derniere))
-  racines.sort((a, b) => recence(b) - recence(a))
-  /** Le sujet neuf : dans quel projet il part, dit et modifiable (Lucas l'a créé dans le mauvais, 26/11). */
-  const [sujet, setSujet] = useState<{ nom: string; dans: string } | null>(null)
-  const libre = etat.projets.find((p) => p.libre)
-  const vivants = [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => activite(etat, p.id, true))
-  /**
-   * Sujets repliés par défaut, sauf ceux du projet ouvert : tout déplié, la liste
-   * « faisait 36 000 trucs » (27/11). Ce qu'on plie ou déplie à la main est gardé.
-   */
-  const [plis, setPlis] = useState<Record<string, boolean>>(() => JSON.parse(localStorage.getItem('palette-plis') ?? '{}'))
+  const racines = etat.projets.filter((p) => !p.parent && !p.libre).sort((a, b) => recence(b) - recence(a))
   const racineActive = actif && !actif.libre ? racineDe(actif).id : null
-  const deplie = (id: string): boolean => plis[id] ?? id === racineActive
-  const plier = (id: string, d = !deplie(id)): void => {
-    const x = { ...plis, [id]: d }
-    setPlis(x)
-    localStorage.setItem('palette-plis', JSON.stringify(x))
-  }
-  type Rang = { p: Projet; sous?: boolean }
-  // Le fil qu'on vient de quitter : en petit panneau, l'en-tête n'a plus la place pour « ← ».
-  const justeAvant = avant && !vivants.some((p) => p.id === avant.id) ? [{ p: avant }] : []
-  const groupes: [string, Rang[]][] = q.trim()
-    ? [['', [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => plat(`${p.libre ? 'Libre' : p.nom} ${racineDe(p).nom}`).includes(plat(q.trim()))).map((p) => ({ p }))]]
-    : [
-        ['Juste avant', justeAvant],
-        ['En cours', vivants.map((p) => ({ p }))],
-        ['Projets', [...(libre ? [{ p: libre }] : []), ...racines.flatMap((r) => [{ p: r }, ...(deplie(r.id) ? sujetsDe(r.id).map((x) => ({ p: x, sous: true })) : [])])]]
-      ]
-  const liste = groupes.flatMap(([, l]) => l)
-  useEffect(() => setN(0), [q])
-  const creer = (): void => {
-    const x = sujet?.nom.trim()
-    const dans = sujet?.dans
-    setSujet(null)
-    if (x && dans) void window.api.creerSujet(dans, x).then((id) => id && ouvrir(id))
-  }
-  let rang = -1
+  // Le projet ouvert et ceux où Tako travaille restent en cartes, même anciens.
+  const vifs = racines.filter((r) => r.id === racineActive || activite(etat, r.id))
+  const recents = [...vifs, ...racines.filter((r) => !vifs.includes(r) && Date.now() - recence(r) < SEMAINE)].slice(0, Math.max(CARTES_MAX, vifs.length))
+  recents.sort((a, b) => recence(b) - recence(a))
+  const autres = racines.filter((r) => !recents.includes(r))
+  const cartes = ranges ? autres : recents
+  const libre = etat.projets.find((p) => p.libre)
+  const trouves = q.trim()
+    ? [...etat.projets].sort((a, b) => b.derniere - a.derniere).filter((p) => plat(`${p.libre ? 'Libre' : p.nom} ${racineDe(p).nom}`).includes(plat(q.trim())))
+    : []
+  const longueur = q.trim() ? trouves.length : cartes.length
+  useEffect(() => setN(0), [q, ranges])
+  const basculer = (id: string): void => setDeplies((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]))
   return (
     <>
       <div className="voile-palette" onMouseDown={fermer} />
@@ -232,63 +303,66 @@ function Palette({ etat, avant, ouvrir, fermer }: { etat: Etat; avant: Projet | 
               <input
                 autoFocus
                 value={q}
-                placeholder="Aller à un projet ou un sujet…"
+                placeholder="Chercher un projet ou un sujet…"
                 aria-label="Chercher un projet ou un sujet"
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setN((x) => Math.min(x + 1, liste.length - 1)) }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setN((x) => Math.min(x + 1, longueur - 1)) }
                   if (e.key === 'ArrowUp') { e.preventDefault(); setN((x) => Math.max(x - 1, 0)) }
-                  if (e.key === 'Enter' && liste[n]) ouvrir(liste[n].p.id)
-                  // ← → plient le projet choisi, seulement champ vide (sinon on déplace le curseur).
-                  const choisi = liste[n]
-                  if (!q && choisi && !choisi.sous && sujetsDe(choisi.p.id).length && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-                    e.preventDefault()
-                    plier(choisi.p.id, e.key === 'ArrowRight')
+                  if (e.key === 'Enter') {
+                    const p = q.trim() ? trouves[n] : cartes[n]
+                    if (p) ouvrir(p.id)
                   }
-                  if (e.key === 'Escape') { e.stopPropagation(); fermer() }
+                  if (e.key === 'Escape') {
+                    e.stopPropagation()
+                    if (ranges && !q) setRanges(false)
+                    else fermer()
+                  }
                 }}
               />
-              <div className="liste-palette" role="listbox">
-                {groupes.map(([titre, l]) => l.length > 0 && (
-                  <Fragment key={titre || 'trouves'}>
-                    {titre && <small className="section">{titre}</small>}
-                    {l.map(({ p, sous }) => {
-                      const ici = ++rang
-                      const nSujets = titre === 'Projets' && !sous && !p.libre ? sujetsDe(p.id).length : 0
-                      return <LigneFil key={`${titre}${p.id}`} etat={etat} p={p} sous={sous} sel={ici === n} survol={() => setN(ici)} ouvrir={ouvrir}
-                        pli={nSujets ? { n: nSujets, deplie: deplie(p.id), basculer: () => plier(p.id) } : undefined} />
-                    })}
-                  </Fragment>
-                ))}
-                {!liste.length && <p className="rien">Aucun projet ne s’appelle comme ça. Dis-le dans le chat, Tako le crée.</p>}
-              </div>
-              {sujet
+              {q.trim()
                 ? (
-                  <form className="pied-palette sujet-neuf" onSubmit={(e) => { e.preventDefault(); creer() }}
-                    onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setSujet(null) } }}>
-                    <span>Nouveau sujet dans</span>
-                    {/* Chevron maison : celui du système collait au nom (26/11). */}
-                    <span className="choix-projet">
-                      <select value={sujet.dans} onChange={(e) => setSujet({ ...sujet, dans: e.target.value })} aria-label="Projet du sujet">
-                        {racines.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
-                      </select>
-                      <Chevron />
-                    </span>
-                    <input className="sujet-nom" autoFocus placeholder="Ticket 142, page tarifs…" value={sujet.nom} onChange={(e) => setSujet({ ...sujet, nom: e.target.value })} />
-                    <button type="submit" className="fort" disabled={!sujet.nom.trim()}>Créer</button>
-                  </form>
+                  <div className="liste-palette" role="listbox">
+                    {trouves.map((p, i) => <LigneFil key={p.id} etat={etat} p={p} sel={i === n} survol={() => setN(i)} ouvrir={ouvrir} />)}
+                    {!trouves.length && <p className="rien">Aucun projet ne s’appelle comme ça. Dis-le dans le chat, Tako le crée.</p>}
+                  </div>
                 )
                 : (
-                  <div className="pied-palette">
-                    {racines.length > 0 && (
-                      <button type="button" onClick={() => setSujet({ nom: '', dans: (actif && !actif.libre ? racineDe(actif) : racines[0]).id })}
-                        title="Une conversation à part dans un projet : Tako relit moins, tu dépenses moins">＋ Nouveau sujet</button>
+                  <div className="cartes-palette">
+                    {/* En petit panneau, l'en-tête n'a plus la place pour « ← » : le fil quitté se retrouve ici. */}
+                    {!ranges && avant && avant.id !== etat.actif && (
+                      <button type="button" className="revenir" onClick={() => ouvrir(avant.id)} data-fil={avant.libre ? 'Libre' : avant.nom}>
+                        ← Revenir à <b>{avant.libre ? 'Libre' : avant.nom}</b>
+                      </button>
                     )}
-                    <span className="espace" />
-                    <button type="button" onClick={() => { fermer(); window.api.ajouterProjet() }}>Lier un dossier</button>
-                    <button type="button" className="fort" data-action="nouveau" onClick={() => setCree(true)}>＋ Nouveau projet</button>
+                    {ranges && (
+                      <button type="button" className="revenir" onClick={() => setRanges(false)}>← Projets de la semaine</button>
+                    )}
+                    {cartes.map((r, i) => (
+                      <CarteProjet key={r.id} etat={etat} r={r} sujets={sujetsDe(r.id)} sel={i === n}
+                        deplie={deplies.includes(r.id)} basculer={() => basculer(r.id)} ouvrir={ouvrir} />
+                    ))}
+                    {!cartes.length && !ranges && (
+                      <p className="rien">{autres.length ? 'Rien d’ouvert cette semaine.' : 'Pas encore de projet. Dis à Tako sur quoi tu travailles, il le crée.'}</p>
+                    )}
+                    {!ranges && autres.length > 0 && (
+                      <button type="button" className="tiroir" onClick={() => setRanges(true)}>
+                        <span className="mini">{autres.slice(0, 4).map((r) => <span key={r.id} style={{ background: r.couleur }} />)}</span>
+                        <b>{autres.length} projet{autres.length > 1 ? 's' : ''} rangé{autres.length > 1 ? 's' : ''}</b>
+                        <small>pas ouverts depuis une semaine</small>
+                        <Chevron droite />
+                      </button>
+                    )}
                   </div>
                 )}
+              <div className="pied-palette">
+                {libre && (
+                  <button type="button" onClick={() => ouvrir(libre.id)} data-fil="Libre" title="Une question rapide, sans projet">✦ Libre</button>
+                )}
+                <span className="espace" />
+                <button type="button" onClick={() => { fermer(); window.api.ajouterProjet() }}>Lier un dossier</button>
+                <button type="button" className="fort" data-action="nouveau" onClick={() => setCree(true)}>＋ Nouveau projet</button>
+              </div>
             </>
           )}
       </div>

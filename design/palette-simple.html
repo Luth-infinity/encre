@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Palette : variante simple</title>
+<style>
+  :root { --card:#17141F; --ink:#EEEAF8; --soft:#9C97B0; --line:#2A2536; --line-fort:#3D3650; --canvas:#221D2E; --lav:#B9A6FF; --orange:#FF9A4D; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08070C; color: var(--ink); font-family: 'Bricolage Grotesque', 'Inter Tight', 'Segoe UI', sans-serif; padding: 32px; display: flex; gap: 32px; align-items: flex-start; }
+  h2 { font-size: 13px; color: var(--soft); font-weight: 600; margin: 0 0 10px 4px; }
+  .pal { width: 380px; background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 1px var(--line-fort); }
+  .champ { padding: 16px 18px; border-bottom: 1px solid var(--line); color: var(--soft); font-size: 15px; }
+  .liste { padding: 8px; }
+  .l { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; }
+  .l.sel { background: var(--canvas); }
+  .l small { color: var(--soft); font-weight: 500; font-size: 12.5px; }
+  .l .pt { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); margin-left: auto; align-self: center; }
+  .sep { height: 1px; background: var(--line); margin: 6px 12px; }
+  .lien { color: var(--soft); font-weight: 500; }
+  .lien span { margin-left: auto; }
+  .neuf { color: var(--lav); }
+  .titre { padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--soft); }
+</style>
+</head>
+<body>
+  <div>
+    <h2>Quand on ouvre</h2>
+    <div class="pal">
+      <div class="champ">Chercher…</div>
+      <div class="liste">
+        <div class="l sel">Palette des projets <small>Encre</small><i class="pt"></i></div>
+        <div class="l">Maquette 2026 <small>Studio</small></div>
+        <div class="l">Les tickets <small>Client · App</small></div>
+        <div class="l">Appli de dessin</div>
+        <div class="l">Site vitrine</div>
+        <div class="sep"></div>
+        <div class="l lien">Tous les projets <span>›</span></div>
+        <div class="l neuf">＋ Nouveau</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h2>Tous les projets</h2>
+    <div class="pal">
+      <div class="titre">‹ Tous les projets</div>
+      <div class="liste">
+        <div class="l">Appli de dessin</div>
+        <div class="l">Client · App</div>
+        <div class="l sel">Encre</div>
+        <div class="l">Libre</div>
+        <div class="l">Médiathèque</div>
+        <div class="l">Site vitrine</div>
+        <div class="l">Studio</div>
+        <div class="l lien">…</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

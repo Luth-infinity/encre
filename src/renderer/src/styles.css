@@ -754,23 +754,6 @@ header .actions { margin-left: auto; }
 .retour { display: inline-flex; align-items: center; gap: 4px; height: 32px; max-width: 150px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--soft); font: inherit; font-size: 12.5px; font-weight: 600; }
 .retour span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .retour:hover { background: var(--canvas); color: var(--ink); }
-.liste-palette button.sous { padding-left: 22px; }
-.liste-palette button.sous .nom { font-weight: 500; }
-.liste-palette .tag.trait { width: 26px; height: 26px; background: none; rotate: none; }
-/* Un seul trait continu sous la pastille du projet : porté par la ligne entière (et l'écart de 1 px), pas par la pastille,
-   sinon il se coupait entre deux sujets (26/11). Il part du bas de la pastille du projet. */
-.liste-palette button.sous { position: relative; }
-.liste-palette button.sous::before { content: ''; position: absolute; left: 22.5px; top: -1px; bottom: 0; border-left: 1.5px solid var(--line-fort); }
-.liste-palette button:not(.sous) + button.sous::before { top: -7px; }
-.liste-palette button.sous:not(:has(+ button.sous))::before { bottom: 50%; }
-.liste-palette button.sous::after { content: ''; position: absolute; left: 22.5px; top: 50%; width: 10px; border-top: 1.5px solid var(--line-fort); }
-.pied-palette.sujet-neuf { flex-wrap: nowrap; padding-left: 14px; font-size: 12.5px; color: var(--soft); }
-.pied-palette.sujet-neuf span { flex: none; }
-.choix-projet { position: relative; flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; }
-.pied-palette.sujet-neuf select { appearance: none; min-width: 0; max-width: 160px; border: 0; border-radius: 999px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 28px 5px 12px; text-overflow: ellipsis; }
-.choix-projet svg { position: absolute; right: 10px; width: 12px; height: 12px; pointer-events: none; color: var(--soft); }
-.pied-palette.sujet-neuf .sujet-nom { flex: 1; width: auto; min-width: 80px; }
-.pied-palette.sujet-neuf button:disabled { opacity: .5; }
 .palette.derniers { top: 50%; translate: -50% -50%; width: min(420px, calc(100% - 20px)); }
 
 /* ─── Réglette sous le champ (27/11) : compte, autorisations, modèle, limites ─── */
@@ -809,12 +792,55 @@ header .actions { margin-left: auto; }
 .reglette .fiche-limites { left: 0; right: 0; }
 .accueil-vide .reglette { margin-top: -2px; }
 
-/* ─── Palette : sujets repliables, lignes de sujet plus basses (27/11) ─── */
-.liste-palette button.sous { padding-top: 3px; padding-bottom: 3px; }
-.liste-palette button.sous .tag.trait { height: 20px; }
-.liste-palette button.sous .nom { font-size: 13px; }
-.pli-palette { flex: none; display: inline-flex; align-items: center; gap: 3px; height: 24px; min-width: 24px; justify-content: center; padding: 0 6px; margin: -4px -4px -4px 0;
-  border-radius: 8px; color: var(--soft); font-size: 11.5px; cursor: pointer; }
-.pli-palette b { font-weight: 600; font-variant-numeric: tabular-nums; }
-.pli-palette svg { width: 12px; height: 12px; }
-.pli-palette:hover { background: var(--line); color: var(--ink); }
+/* ─── Palette en cartes (28/11) : la liste à plat de 25 projets avec leurs arbres était « trop le bordel ».
+   Les projets de la semaine en cartes, leurs sujets en puces sur une ligne (« +N sujets » pour le reste),
+   un ＋ par carte (le sujet part forcément dans le bon projet), les autres dans « Projets rangés ». */
+.palette > input { margin: 12px 12px 6px; padding: 11px 16px; border: 0; border-radius: 999px; background: var(--canvas); }
+.palette > input:focus { box-shadow: 0 0 0 1.5px var(--lav-fort); }
+.cartes-palette { overflow-y: auto; min-height: 0; padding: 6px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+.cartes-palette .rien { margin: 0; padding: 12px 4px; color: var(--soft); font-size: 13px; }
+.carte-fil { flex: none; background: var(--card); border-radius: 14px; padding: 10px 10px 10px 12px; box-shadow: 0 0 0 1px var(--line-fort); }
+.carte-fil.ici { box-shadow: 0 0 0 1.5px var(--lav-fort); }
+.carte-fil.sel:not(.ici) { box-shadow: 0 0 0 1px var(--soft); }
+.tete-carte { display: flex; align-items: center; gap: 8px; }
+.nom-carte { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 0; color: var(--ink); font: inherit; text-align: left; border-radius: 8px; }
+.nom-carte .tag { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; rotate: none; flex: none; }
+.nom-carte b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nom-carte:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-fort); }
+.ajout-sujet { flex: none; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent;
+  color: var(--soft); box-shadow: inset 0 0 0 1px var(--line-fort); }
+.ajout-sujet svg { width: 12px; height: 12px; display: block; }
+.ajout-sujet:hover { color: var(--ink); background: var(--canvas); }
+.puces-fil { display: flex; gap: 6px; margin-top: 8px; padding-left: 36px; flex-wrap: nowrap; overflow: hidden; }
+.puces-fil.deplie { flex-wrap: wrap; }
+.puce-fil { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 5px 10px;
+  background: var(--canvas); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; }
+.puce-fil span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.puce-fil .activite { width: 7px; height: 7px; }
+.puce-fil:hover { box-shadow: inset 0 0 0 1px var(--line-fort); }
+.puce-fil.ici { background: var(--lav); color: #0B0C0E; }
+.puce-fil.plus-n { flex: none; background: transparent; color: var(--soft); box-shadow: inset 0 0 0 1px var(--line-fort); }
+.puce-fil.plus-n:hover { color: var(--ink); }
+.sujet-carte { display: flex; gap: 6px; margin-top: 8px; padding-left: 36px; }
+.sujet-carte input { flex: 1; min-width: 0; border: 0; border-radius: 999px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 12.5px; padding: 6px 12px; outline: none; user-select: text; }
+.sujet-carte input:focus { box-shadow: 0 0 0 1.5px var(--lav-fort); }
+.sujet-carte button { flex: none; border: 0; border-radius: 999px; background: var(--lav); color: #0B0C0E; font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 12px; }
+.sujet-carte button:disabled { opacity: .5; }
+.cartes-palette .revenir { flex: none; align-self: flex-start; border: 0; background: transparent; color: var(--soft); font: inherit; font-size: 12.5px; font-weight: 600; padding: 2px 4px; }
+.cartes-palette .revenir b { color: var(--ink); }
+.cartes-palette .revenir:hover { color: var(--ink); }
+.tiroir { flex: none; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; border-radius: 14px; padding: 8px 6px; color: var(--soft); font: inherit; font-size: 13px; text-align: left; }
+.tiroir b { color: var(--ink); font-weight: 600; white-space: nowrap; }
+.tiroir small { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.tiroir svg { width: 14px; height: 14px; flex: none; }
+.tiroir:hover { background: var(--canvas); }
+.tiroir .mini { display: flex; flex: none; }
+.tiroir .mini span { width: 16px; height: 16px; border-radius: 5px; margin-right: -5px; box-shadow: 0 0 0 2px var(--card); }
+/* Les cartes se détachent sur le fond de page, comme dans design/palette-cartes.html. */
+.palette:not(.derniers) { background: var(--fond); }
+.palette:not(.derniers) .pied-palette { background: var(--fond); }
+.tiroir .mini span { box-shadow: 0 0 0 2px var(--fond); }
+/* Les puces gardent leur taille ; la carte en montre autant que la ligne en tient (rangée de mesure cachée). */
+.carte-fil { position: relative; }
+.puce-fil { flex: none; max-width: 190px; }
+.puces-fil.mesure { position: absolute; left: 48px; right: 10px; top: 0; margin: 0; padding: 0; height: 0; visibility: hidden; pointer-events: none; }
